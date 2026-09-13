@@ -1327,7 +1327,7 @@ function renderFinance() {
     }).join("");
 }
 
-function simpanLog(tipe) {
+async function simpanLog(tipe) {
     let valTgl = document.getElementById(tipe + '-tgl').value; 
     if(!valTgl) return alert("Pilih tanggal dulu!");
     
