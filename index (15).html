@@ -1,0 +1,3557 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Melona Monitoring System V1</title>
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" href="melona_logo.png">
+    <link rel="apple-touch-icon" href="melona_logo.png">
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        
+        body { font-family: -apple-system, sans-serif; background: #f4f7f4; margin: 0; padding: 0; color: #333; }
+
+        /* Layar Login: benar-benar berada di tengah pada berbagai ukuran HP */
+        html, body {
+            width: 100%;
+            min-height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #lock-screen {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            min-height: 100vh;
+            min-height: 100dvh; /* Tinggi layar dinamis untuk Chrome/Safari mobile */
+            background: #ffffff;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 99999;
+            text-align: center;
+            padding: max(20px, env(safe-area-inset-top)) 20px max(20px, env(safe-area-inset-bottom));
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        #lock-screen > * {
+            flex-shrink: 0;
+        }
+
+        @supports (-webkit-touch-callout: none) {
+            #lock-screen {
+                min-height: -webkit-fill-available;
+            }
+        }
+        
+        .btn-login {
+            padding: 15px 30px;
+            font-size: 18px;
+            width: auto;             /* Jangan gunakan 100% */
+            min-width: 150px;
+            background-color: #4285F4;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .btn-login:hover { background-color: #357ae8; }
+
+        /* Aplikasi Utama (Awalnya Sembunyi) */
+#main-app {
+    display: none; /* Pastikan ini tetap none sampai login sukses */
+    width: 100%;
+    /* min-height: 100vh; */
+    padding: 15px;
+    box-sizing: border-box; /* Mencegah padding menambah lebar elemen */
+    background: #f4f7f4; /* Warna latar belakang agar lebih nyaman di laptop */
+}
+
+        #payment-area {
+            display: none;
+            margin-top: 20px;
+            color: #721c24;
+            background-color: #f8d7da;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #f5c6cb;
+        }        
+        .header { background: #1b5e20; color: white; padding: 15px; text-align: center; position: sticky; top: 0; z-index: 1000; box-shadow: 0 2px 5px rgba(0,0,0,0.2); }
+
+        .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+        .gh-manager { display: flex; gap: 5px; justify-content: center; align-items: center; margin-top: 10px; }
+        #gh-selector { width: 60%; background: #0d3d0f; color: white; border: 1px solid #81c784; padding: 8px; border-radius: 8px; font-weight: bold; }
+        .btn-add-gh { background: #81c784; color: #0d3d0f; border: none; padding: 8px 12px; border-radius: 8px; font-weight: bold; font-size: 16px; }
+        .btn-report { background: #fff; color: #1b5e20; border: none; padding: 5px 10px; border-radius: 6px; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        
+        .progress-container { width: 80%; background: #0d3d0f; height: 10px; border-radius: 5px; margin: 10px auto 0; overflow: hidden; }
+        #progress-bar { width: 0%; height: 100%; background: #81c784; transition: width 0.5s; }
+        .container { padding: 10px; padding-bottom: 90px; }
+        .card { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 15px; }
+        .notif-banner { background: #fff3cd; color: #856404; padding: 12px; border-radius: 8px; margin-bottom: 15px; border-left: 5px solid #ffc107; font-size: 13px; display: none; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .nav-bar { position: fixed; bottom: 0; width: 100%; background: white; display: flex; border-top: 1px solid #ddd; z-index: 1000; height: 75px; }
+        .nav-item { flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; font-size: 12px; font-weight: bold; color: #666; cursor: pointer; }
+        .nav-item span:first-child {
+         font-size: 16px; /* Ikon diperbesar signifikan */
+         margin-bottom: 2px; /* Jarak antara ikon dan teks */ }
+        .nav-item.active { color: #2e7d32; border-top: 4px solid #2e7d32; background: #f9f9f9; }
+        
+        label { font-size: 11px; font-weight: bold; color: #2e7d32; text-transform: uppercase; margin-top: 10px; display: block; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ccc; border-radius: 8px; font-size: 14px; box-sizing: border-box; margin-top: 5px; }
+        .input-row { display: flex; gap: 8px; align-items: flex-end; }
+        .btn { background: #2e7d32; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 15px; cursor: pointer; }
+        .btn-ph { background: #2980b9; color: white; border: none; padding: 15px; width: 100%; border-radius: 10px; font-weight: bold; margin-top: 10px; cursor: pointer; }
+        .history-card { border-left: 5px solid #2e7d32; padding: 12px; margin-bottom: 10px; background: #fff; border-radius: 0 8px 8px 0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); font-size: 12px; }
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 2000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.6);
+    display: flex;
+    align-items: center;    /* Menjaga tetap di tengah vertikal */
+    justify-content: center; /* Menjaga tetap di tengah horizontal */
+    padding: 10px;          /* Jarak aman di layar HP kecil */
+    box-sizing: border-box;
+}
+
+.modal-content {
+    background: white;
+    padding: 20px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 400px;
+    
+    /* SOLUSI AGAR TIDAK LEBIH DARI LAYAR: */
+    max-height: 95vh;    /* Tinggi maksimal 95% dari tinggi layar */
+    overflow-y: auto;    /* Aktifkan scroll jika konten lebih tinggi dari 95vh */
+    
+    display: flex;
+    flex-direction: column;
+}
+        
+        .summary-box { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .summary-card { background: #fff; padding: 10px; border-radius: 8px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .roi-positive { color: #2e7d32; font-weight: bold; }
+        .roi-negative { color: #c62828; font-weight: bold; }
+        .v-tag { background: #e8f5e9; color: #2e7d32; padding: 2px 8px; border-radius: 4px; font-size: 10px; margin-right: 5px; display: inline-block; border: 1px solid #81c784; }
+        .trans-item { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #eee; font-size: 11px; }
+        .badge-in { color: #2e7d32; font-weight: bold; }
+        .badge-out { color: #c62828; font-weight: bold; }
+        table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+        th, td { border: 1px solid #eee; padding: 10px 5px; text-align: center; }
+        .storage-info {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    margin: 10px 0;
+    font-size: 12px;
+    border: 1px solid #ddd;
+}
+.progress-container {
+    background: #eee;
+    border-radius: 5px;
+    height: 10px;
+    width: 100%;
+    margin-top: 5px;
+}
+.progress-bar {
+    background: #2e7d32;
+    height: 100%;
+    border-radius: 5px;
+    width: 0%;
+    transition: width 0.3s;
+}
+/* Batasi tampilan maksimal 5 item jika class 'limit-view' aktif */
+.riwayat-list.limit-view .history-card:nth-child(n+6),
+.riwayat-list.limit-view .trans-item:nth-child(n+6) {
+    display: none;
+}
+
+.btn-show-more {
+    width: 100%;
+    background: #f1f1f1;
+    border: 1px solid #ddd;
+    color: #2e7d32;
+    padding: 8px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 5px;
+    display: none; /* Sembunyikan jika data <= 5 */
+}
+
+</style>
+</head>
+<body>
+    <div id="loading-initial" style="position:fixed; top:0; left:0; width:100%; height:100dvh; min-height:100vh; background:white; z-index:100000; display:flex; justify-content:center; align-items:center; font-family:sans-serif;">
+        <div style="text-align:center;">
+            <img src="melona_logo.png" style="width:180px; margin-bottom:5px;">
+            <p>Menghubungkan ke Melona System...</p>
+        </div>
+    </div>
+<div id="lock-screen">
+        <img src="melona_logo.png" alt="Melona Logo" style="width:180px; margin-bottom:5px;">
+        <h1>Melona Monitoring System</h1>
+        <p id="lock-status">Gunakan akun Google untuk masuk ke sistem.</p>
+        
+        <button id="btn-login-google" onclick="loginGoogle()" class="btn-login">
+            Masuk dengan Google
+        </button>
+    <br>
+    <button id="btnInstallMelona" style="display:none; width: auto; min-width: 150px; padding:15px; background:#2e7d32; color:white; border:none; border-radius:8px; margin-bottom:25px; font-weight:bold; font-size:16px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+    INSTALL MELONA
+    </button>
+
+        <div id="payment-area" style="display: none; background: #f9f9f9; padding: 20px; border-radius: 10px; border: 1px solid #ddd;">
+    <h3 style="color: #333;">Aktivasi Akun</h3>
+    <p id="payment-lock-status">Silakan lakukan pembayaran untuk mengakses sistem.</p>
+    
+    <div style="margin: 20px 0; text-align: left; background: white; padding: 15px; border-left: 5px solid #25D366;">
+        <strong>Transfer Pembayaran:</strong><br>
+        <small>Bank BRI</small><br>
+        <span style="font-size: 1.2em; letter-spacing: 1px;"><strong>000901128357503</strong></span><br>
+        <small>A/N: HIRUL SETIAWAN</small><br><br>
+        <strong>Nominal: Rp 350.000</strong>
+    </div>
+
+    <p style="font-size: 0.9em; color: #666;">Setelah transfer, klik tombol di bawah untuk konfirmasi ke Admin via WhatsApp.</p>
+    
+    <button onclick="prosesBayar()" style="background: #25D366; color: white; border: none; padding: 12px 25px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;">
+        Konfirmasi via WhatsApp
+    </button>
+</div>
+    </div>
+    
+<div id="main-app" style="display:none; padding: 10px 15px; background: #ffffff; border-bottom: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+    <div style="display: flex; justify-content: space-between; align-items: center; max-width: 1200px; margin: 0 auto;">
+        
+        <div style="flex: 1; text-align: left;">
+            <span id="user-name" style="font-weight: bold; color: #333; font-size: 14px;">User</span>
+        </div>
+
+        <div style="flex: 1; text-align: center;">
+            <span style="font-size: 12px; color: #666; background: #eafff0; padding: 4px 10px; border-radius: 20px; border: 1px solid #d3f9d8;">
+                Status: <span style="color: #28a745; font-weight: bold;">Aktif</span>
+            </span>
+        </div>
+
+        <div style="flex: 1; text-align: right;">
+            <button onclick="logout()" style="background: #dc3545; color: white; border: none; padding: 6px 12px; border-radius: 5px; font-size: 12px; cursor: pointer; font-weight: bold;">
+                Logout
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="header">
+    <div class="header-top" style="display: flex; justify-content: center; align-items: center;">
+        <h3 style="margin:0; text-align: center;">Melona Monitoring System</h3>
+    </div>
+    <div class="gh-manager">
+        <select id="gh-selector" onchange="switchGH()"></select>
+        <button class="btn-add-gh" onclick="promptAddGH()">+</button>
+        <button class="btn-add-gh" style="background:#e74c3c; color:white;" onclick="promptRemoveGH()">-</button>
+    </div>
+    <div id="top-info" style="font-size: 12px; margin-top:8px;">Memuat data...</div>
+    <div class="progress-container"><div id="progress-bar"></div>
+    </div>
+    </div>
+</div>
+<div class="container">
+    <div id="nutrisi" class="tab-content active">
+        <div id="notif-banner" class="notif-banner">
+            <strong>📢 Info:</strong> <span id="notif-text"></span>
+        </div>
+<div class="card" style="background:#fffde7; border: 1px dashed #fbc02d; padding: 10px;">
+    <div onclick="toggleBackup()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+        <strong style="font-size: 13px;">💾 Backup & Keamanan Data</strong>
+        <span id="arrow-icon" style="transition: transform 0.3s;">▼</span>
+    </div>
+
+    <div id="backup-content" style="display: none; margin-top: 15px; border-top: 1px solid #fbc02d; padding-top: 10px;">
+        <p style="font-size: 10px; margin-top: 10px;">Simpan cadangan (.json) untuk restore, atau unduh laporan (.xlsx / .pdf).</p>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <button class="btn" style="background:#2e7d32; color:white; flex:1; margin-top:0;" onclick="backupDataJSON()">💾 BACKUP (JSON)</button>
+            <button class="btn" style="background:#cfd8dc; color:#333; flex:1; margin-top:0;" onclick="importData()">🔄 RESTORE</button>
+        </div>
+
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 11px;" onclick="exportData()">📊 EXCEL</button>
+            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 11px;" onclick="exportPDF()">📄 PDF</button>
+        </div>
+
+        <div class="storage-info">
+            <strong>💾 Kapasitas Memori HP</strong>
+            <div id="storage-text">Digunakan: 0 KB</div>
+            <div class="progress-container">
+                <div id="storage-bar" class="progress-bar"></div>
+            </div>
+            <small style="color: #666;">*Jika memori penuh segera melakukan Backup</small>
+        </div>
+    </div>
+</div>
+
+        <div class="card" style="border: 1px solid #1b5e20; padding: 10px;">
+    <div onclick="togglePeriodeBaru()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
+        <strong>🌱 Periode Tanam Baru</strong>
+        <span id="arrow-periode" style="transition: transform 0.3s;">▼</span>
+    </div>
+
+    <div id="periode-baru-content" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+        <label>Varietas & Populasi</label>
+        <div class="input-row">
+            <input type="text" id="v-nama" placeholder="Varietas">
+            <input type="number" id="v-pop" placeholder="Pohon" style="width: 80px;">
+            <button class="btn" style="margin-top:0; padding:10px;" onclick="tambahVarietasTemp()">+</button>
+        </div>
+        <div id="v-list-display" style="margin-top:10px;"></div>
+        <label style="margin-top:10px; display:block;">💰 Saldo Awal Kas Periode</label>
+        <input type="number" id="saldo-awal-periode" placeholder="Contoh: 10000000" min="0">
+        <small style="color:#666; font-size:9px;">Saldo awal adalah uang kas tersedia, bukan pendapatan dan tidak dihitung sebagai laba.</small>
+        <button class="btn" style="background:#1b5e20;" onclick="mulaiPeriode()">+ MULAI PERIODE BARU</button>
+        <p style="font-size: 9px; color: #666; margin-top: 8px;">*Memulai periode baru akan mengarsipkan data saat ini ke Riwayat.</p>
+    </div>
+</div>
+
+        <div class="card" style="padding: 5px;">
+    <div style="height: 250px; width: 100%;">
+        <canvas id="ppmChart"></canvas>
+    </div>
+</div>
+
+        
+        <div class="card">
+            <strong>🧮 Nutrisi & pH</strong>
+            <label>Tanggal Pencatatan</label>
+    <input type="date" id="tgl-nutrisi-input" style="margin-bottom: 10px;">
+            <label>Liter Air & PPM Kini</label>
+            <div class="input-row">
+                <input type="number" id="liter" placeholder="Liter">
+                <input type="number" id="ppm-now" placeholder="PPM">
+            </div>
+            <button class="btn" onclick="hitungAB()">HITUNG DOSIS PPM</button>
+            <div id="hasil-calc" style="margin-top:10px; font-weight:bold; color:#1b5e20; text-align:center;"></div>
+            <hr style="margin:15px 0; border:0; border-top:1px solid #eee;">
+            <label>Koreksi pH</label>
+            <div class="input-row">
+                <input type="number" id="ph-now" step="0.1" placeholder="pH Kini">
+                <select id="ph-concentrate">
+                    <option value="0.5">Konsentrasi 50%</option>
+                    <option value="0.2">Konsentrasi 20%</option>
+                </select>
+            </div>
+            <button class="btn-ph" onclick="hitungPH()">HITUNG DOSIS pH</button>
+            <div id="hasil-ph" style="margin-top:10px; font-weight:bold; color:#2980b9; text-align:center;"></div>
+        
+<button class="btn" style="background:#2ecc71; margin-top: 20px;" onclick="simpanNutrisiRiil()">
+    💾 SIMPAN DATA RIIL HARI INI
+</button>
+<div id="rekap-nutrisi-container" style="margin-top: 20px;"></div>
+</div>
+
+        <table>
+            <thead><tr><th>HST</th><th>PPM</th><th>pH</th><th>Fase</th></tr></thead>
+            <tbody id="tabel-nutrisi"></tbody>
+        </table>
+    </div>
+
+
+    <div id="semprot" class="tab-content">
+    <div class="card">
+    <strong>🚿 Log Penyemprotan</strong>
+    <div id="kalkulator-dosis" style="padding: 10px; font-family: sans-serif; background-color: #ffffff; border: 2px solid #1b5e20; border-radius: 10px; margin: 2px;">
+    
+    <div style="text-align: center; margin-bottom: 15px;">
+        <strong style="font-size: 16px; color: #1b5e20;">🧮 Kalkulator Dosis Cepat</strong>
+        <p style="font-size: 11px; color: #666; margin: 5px 0 0 0;">Hitung kebutuhan pestisida/nutrisi per tangki</p>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">
+        <div>
+            <label style="font-size: 12px; font-weight: bold; color: #333;">Dosis per Liter:</label>
+            <input type="number" id="input-dosis" step="0.1" placeholder="Misal: 0.5" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; margin-top: 5px;">
+        </div>
+        <div>
+            <label style="font-size: 12px; font-weight: bold; color: #333;">Vol. Tangki (Ltr):</label>
+            <input type="number" id="input-tangki" placeholder="Misal: 16" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; margin-top: 5px;">
+        </div>
+    </div>
+<div style="display: flex; gap: 10px;">
+        <div onclick="hitungCepat()" style="flex: 2; background-color: #1b5e20; color: white; text-align: center; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px;">
+            HITUNG DOSIS
+        </div>
+        </div>
+        
+    <div id="hasil-hitung" style="display: none; margin-top: 15px; padding: 15px; background-color: #e8f5e9; border-radius: 6px; text-align: center;">
+        <span style="font-size: 12px; color: #2e7d32; display: block;">Kebutuhan per Tangki:</span>
+        <strong id="total-dosis" style="font-size: 18px; color: #1b5e20;">0</strong>
+        <span id="satuan-hasil" style="font-size: 14px; color: #1b5e20; font-weight: bold;">ml / gr</span>
+    </div>
+</div>
+    <label>Tanggal</label><input type="date" id="semprot-tgl">
+    <label>Insektisida</label><div class="input-row"><input type="text" id="ins-nama" placeholder="Merk"><input type="text" id="ins-dosis" placeholder="Dosis"></div>
+    <label>Fungisida</label><div class="input-row"><input type="text" id="fun-nama" placeholder="Merk"><input type="text" id="fun-dosis" placeholder="Dosis"></div>
+    <label>Nutrisi Tambahan</label><div class="input-row"><input type="text" id="nut-nama" placeholder="Merk"><input type="text" id="nut-dosis" placeholder="Dosis"></div>
+    
+    <label>Keterangan</label>
+    <textarea id="semprot-ket" rows="2" placeholder="Keterangan"></textarea>
+    
+<label>Foto Dokumentasi (Maks 2MB)</label>
+<input type="file" id="semprot-img" accept="image/*">
+<div id="preview-semprot-edit"></div>
+    
+    <button id="btn-simpan-semprot" class="btn" onclick="simpanLog('semprot')">SIMPAN DATA SEMPROT</button>
+    </div>
+    <div id="riwayat-semprot" class="riwayat-list limit-view"></div>
+<button id="btn-semprot-more" class="btn-show-more" onclick="toggleExpand('riwayat-semprot', 'btn-semprot-more')">Tampilkan Semua ▼</button>
+  
+  <div onclick="toggleTabel()" style="background-color: #1b5e20; color: white; padding: 12px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-radius: 8px; margin-bottom: 10px; font-weight: bold;">
+    <div style="display: flex; flex-direction: column; gap: 2px; width:100%; text-align:center;">
+        <span style="font-size: 14px;">JADWAL PENYEMPROTAN RUTIN</span>
+        <span style="font-size: 11px; font-weight: normal; color: #d1d1d1; font-style: italic;">Catatan : jadwal ini bukan sebagai acuan baku.</span>
+        </div>
+        <span id="panah-tabel">▼</span>
+    </div>
+
+    <div id="kontainer-tabel" style="overflow-x: auto; display:none; transition: all 0.3s ease;">
+        <table style="width: 100%; border-collapse: collapse; font-family: sans-serif; font-size: 10px;">
+            <thead>
+                <tr style="background-color: #1b5e20; color: white; text-align: left;">
+                    <th style="padding: 10px; border: 1px solid #444;">HST</th>
+                    <th style="padding: 10px; border: 1px solid #444;">Waktu</th>
+                    <th style="padding: 10px; border: 1px solid #444;">Jenis</th>
+                    <th style="padding: 10px; border: 1px solid #444;">Merk Terpilih</th>
+                    <th style="padding: 10px; border: 1px solid #444;">Kegunaan</th>
+                    <th style="padding: 10px; border: 1px solid #444;">Dosis/Lt</th>
+                </tr>
+            </thead>
+                <tbody>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">1</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Ambition</td><td style="padding: 8px; border: 1px solid #ddd;">Asam amino untuk recovery pasca tanam & aktivasi akar.</td><td style="padding: 8px; border: 1px solid #ddd;">2 ml</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">4</td><td style="padding: 8px; border: 1px solid #ddd; color: #2980b9; font-weight: bold;">Sore</td><td style="padding: 8px; border: 1px solid #ddd;">Insektisida</td><td style="padding: 8px; border: 1px solid #ddd;">Simodis + Perekat</td><td style="padding: 8px; border: 1px solid #ddd;">Proteksi sistemik spektrum luas terhadap Thrips & Kutu.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 0.5 ml</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">7</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Fungisida</td><td style="padding: 8px; border: 1px solid #ddd;">Antracol + Dithane</td><td style="padding: 8px; border: 1px solid #ddd;">Perlindungan jamur kontak awal & suplai Zinc untuk imun.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr + 1 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">8</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M1</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Kolonisasi mikroba pelindung akar.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">10</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Java Green</td><td style="padding: 8px; border: 1px solid #ddd;">Memacu pembentukan klorofil & pertumbuhan vegetatif daun.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">13</td><td style="padding: 8px; border: 1px solid #ddd; color: #2980b9; font-weight: bold;">Sore</td><td style="padding: 8px; border: 1px solid #ddd;">Insektisida</td><td style="padding: 8px; border: 1px solid #ddd;">Zephyr + Perekat</td><td style="padding: 8px; border: 1px solid #ddd;">Rolling bahan aktif untuk kontrol hama penggorok daun.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 0.5 ml</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">15</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M2</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Penguatan benteng pertahanan hayati.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">16</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Bakterisida</td><td style="padding: 8px; border: 1px solid #ddd;">Bactocyn / Agrept</td><td style="padding: 8px; border: 1px solid #ddd;">Pencegahan infeksi sistemik bakteri (Layu Bakteri).</td><td style="padding: 8px; border: 1px solid #ddd;">1 ml / 1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">19</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Java Higros + Boron</td><td style="padding: 8px; border: 1px solid #ddd;">Memperkuat struktur batang & persiapan kalsium bakal buah.</td><td style="padding: 8px; border: 1px solid #ddd;">2 gr + 1 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">21</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M3</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Menjaga stabilitas ekosistem media tanam.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">22</td><td style="padding: 8px; border: 1px solid #ddd; color: #2980b9; font-weight: bold;">Sore</td><td style="padding: 8px; border: 1px solid #ddd;">Insektisida</td><td style="padding: 8px; border: 1px solid #ddd;">Samite + Perekat</td><td style="padding: 8px; border: 1px solid #ddd;">Spesifik basmi tungau (Akarisida) agar daun tetap mulus.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 0.5 ml</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">25</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Big Phosfor + MKP</td><td style="padding: 8px; border: 1px solid #ddd;">Stimulasi pembentukan primordial bunga & energi perakaran.</td><td style="padding: 8px; border: 1px solid #ddd;">2 ml + 2 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">28</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Fungisida</td><td style="padding: 8px; border: 1px solid #ddd;">Amistartop + Acrobat</td><td style="padding: 8px; border: 1px solid #ddd;">Booster pembungaan & proteksi anti lodoh/busuk batang.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 0.5 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">29</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M4</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Perlindungan di masa kritis pembungaan.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">31</td><td style="padding: 8px; border: 1px solid #ddd; color: #2980b9; font-weight: bold;">Sore</td><td style="padding: 8px; border: 1px solid #ddd;">Insektisida</td><td style="padding: 8px; border: 1px solid #ddd;">Simodis + Perekat</td><td style="padding: 8px; border: 1px solid #ddd;">Menjaga kebersihan bunga dari gangguan hama pengisap.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 0.5 ml</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">34</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Big Grow + Boron</td><td style="padding: 8px; border: 1px solid #ddd;">Pemicu pembelahan sel untuk pembesaran volume buah.</td><td style="padding: 8px; border: 1px solid #ddd;">1 tab/40L + 1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">36</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M5</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Menjaga kesehatan akar di fase pembuahan.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">37</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Fungisida</td><td style="padding: 8px; border: 1px solid #ddd;">Pemulus + Dithane</td><td style="padding: 8px; border: 1px solid #ddd;">Mencegah serangan embun tepung (Oidium) pada daun.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr + 1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">40</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Mix</td><td style="padding: 8px; border: 1px solid #ddd;">Amistartop + KNO3</td><td style="padding: 8px; border: 1px solid #ddd;">Optimasi pembentukan net kulit buah & kesehatan daun.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 2 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">42</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M6</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Maintenance rutin mikroba antagonis.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">43</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Score + Java Bloom</td><td style="padding: 8px; border: 1px solid #ddd;">Pengisian bobot buah & pemanfaatan ZPT untuk kualitas.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 2 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">46</td><td style="padding: 8px; border: 1px solid #ddd; color: #2980b9; font-weight: bold;">Sore</td><td style="padding: 8px; border: 1px solid #ddd;">Insektisida</td><td style="padding: 8px; border: 1px solid #ddd;">Simodis + Perekat</td><td style="padding: 8px; border: 1px solid #ddd;">Proteksi akhir untuk mencegah serangan lalat buah.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml + 0.5 ml</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">48</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M7</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Menjaga imunitas tanaman menjelang panen.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">49</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Big Phosfor + KNO3 Putih</td><td style="padding: 8px; border: 1px solid #ddd;">Translokasi gula ke buah untuk bobot & kualitas premium.</td><td style="padding: 8px; border: 1px solid #ddd;">2 ml + 3 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">52</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Fungisida</td><td style="padding: 8px; border: 1px solid #ddd;">Meroke Mag-S + Acrobat</td><td style="padding: 8px; border: 1px solid #ddd;">Suplai Magnesium agar daun tetap hijau & aktif berfotosintesis.</td><td style="padding: 8px; border: 1px solid #ddd;">2 gr + 0.5 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">54</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma M8</td><td style="padding: 8px; border: 1px solid #ddd;">Aplikasi Tunggal: Tahap akhir perlindungan hayati.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">55</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">KNO3 Putih</td><td style="padding: 8px; border: 1px solid #ddd;">Finishing untuk memaksimalkan kadar kemanisan (Brix).</td><td style="padding: 8px; border: 1px solid #ddd;">3 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">58</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">Score</td><td style="padding: 8px; border: 1px solid #ddd;">Pematangan buah & perlindungan jamur akhir.</td><td style="padding: 8px; border: 1px solid #ddd;">0.5 ml</td></tr>
+        <tr><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">60</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Hayati</td><td style="padding: 8px; border: 1px solid #ddd;">BioNorma (Tunggal)</td><td style="padding: 8px; border: 1px solid #ddd;">Proteksi organik terakhir untuk menjaga daun tetap sehat tanpa residu kimia.</td><td style="padding: 8px; border: 1px solid #ddd;">1 gr</td></tr>
+        <tr style="background-color: #f2f2f2;"><td style="padding: 8px; border: 1px solid #ddd; text-align: center;">62</td><td style="padding: 8px; border: 1px solid #ddd; color: #e67e22; font-weight: bold;">Pagi</td><td style="padding: 8px; border: 1px solid #ddd;">Nutrisi</td><td style="padding: 8px; border: 1px solid #ddd;">KNO3 Putih</td><td style="padding: 8px; border: 1px solid #ddd;">Penguncian kadar gula (Brix) maksimal sebelum panen.</td><td style="padding: 8px; border: 1px solid #ddd;">2 gr</td></tr>
+    </tbody>
+        </table>
+    </div>
+</div>
+    <div id="kerja" class="tab-content">
+        <div class="card">
+            <strong>🛠️ Aktivitas Pekerja</strong>
+            <label>Tanggal</label><input type="date" id="kerja-tgl">
+            <div style="display:flex; justify-content:space-between; margin-top:10px;"><label>Pilih Pekerja</label><button onclick="toggleModal(true)" style="font-size:10px;">Pekerja</button></div>
+            <div id="worker-checkbox-list" style="border:1px solid #ddd; border-radius:8px; padding:10px; max-height:100px; overflow-y:auto; background:#f9f9f9;"></div>
+            
+            <label>Jenis Pekerjaan</label>
+            <select id="kerja-jenis">
+                <option value="Semai">Semai</option><option value="Pindah Tanam">Pindah Tanam</option>
+                <option value="Pembersihan">Pembersihan</option><option value="Perambatan">Perambatan / Pruning</option>
+                <option value="Pruning">Polinasi</option><option value="Seleksi Buah">Seleksi Buah</option>
+                <option value="Penyemprotan">Penyemprotan</option><option value="Panen">Panen</option><option value="Lainnya">Lainnya</option>
+            </select>
+            <textarea id="kerja-ket" rows="2" placeholder="Catatan..." style="margin-top:10px;"></textarea>
+            <button id="btn-simpan-kerja" class="btn" style="background:#f39c12;" onclick="simpanLog('kerja')">SIMPAN AKTIVITAS</button>
+        </div>
+
+        <div id="riwayat-kerja" class="riwayat-list limit-view"></div>
+<button id="btn-kerja-more" class="btn-show-more" onclick="toggleExpand('riwayat-kerja', 'btn-kerja-more')">Tampilkan Semua ▼</button>
+
+    </div>
+
+    <div id="keuangan" class="tab-content">
+      <div class="card" style="background:#f1f8e9; border-left:5px solid #2980b9;">
+            <strong>📊 Laba Rugi & ROI (<span id="f-active-v">-</span>)</strong>
+            <div class="summary-box">
+                <div class="summary-card"><small>Total Biaya</small><br><strong id="res-biaya">0</strong></div>
+                <div class="summary-card"><small>Total Jual</small><br><strong id="res-jual">0</strong></div>
+                <div class="summary-card" ><small>Laba/Rugi Bersih</small><br><strong id="res-laba">0</strong></div>
+                <div class="summary-card" ><small>ROI</small><br><strong id="res-roi">0%</strong></div>
+            </div>
+        </div>
+        <div class="card" style="background:#fff8e1; border-left:5px solid #ef6c00;">
+            <strong>💰 Ringkasan Arus Kas</strong>
+            <div class="summary-box">
+                <div class="summary-card"><small>Saldo Awal</small><br><strong id="kas-saldo-awal">Rp 0</strong></div>
+                <div class="summary-card"><small>Total Uang Masuk</small><br><strong id="kas-masuk">Rp 0</strong></div>
+                <div class="summary-card"><small>Total Uang Keluar</small><br><strong id="kas-keluar">Rp 0</strong></div>
+                <div class="summary-card"><small>Saldo Kas Saat Ini</small><br><strong id="kas-saldo-akhir">Rp 0</strong></div>
+            </div>
+        </div>
+     <div class="card" style="background:#f1f8e9; border-left:5px solid #2e7d32; padding: 15px;">
+    <div style="margin-bottom:12px;">
+        <strong>💰 Biaya Produksi</strong>
+    </div>
+    <div style="margin-bottom:8px;">
+        <label style="font-size:11px; font-weight:bold; display:block; margin-bottom:2px;">Tanggal Transaksi</label>
+        <input type="date" id="f-tgl" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; box-sizing:border-box;">
+    </div>
+    <div style="margin-bottom:8px;">
+        <label style="font-size:11px; font-weight:bold; display:block; margin-bottom:2px;">No. Transaksi</label>
+        <input type="text" id="f-no-transaksi" readonly value="001" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; background:#f5f5f5; box-sizing:border-box; font-weight:bold; color:#1b5e20;">
+        <small style="color:#666; font-size:9px;">Otomatis bertambah setiap transaksi biaya dan reset saat periode tanam baru dimulai.</small>
+    </div>
+    <div style="margin-bottom:8px;">
+        <label style="font-size:11px; font-weight:bold; display:block; margin-bottom:2px;">Jenis Biaya</label>
+        <select id="f-kat" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; background:white; box-sizing:border-box;">
+            <option value="Benih/Bibit">Benih/Bibit</option><option value="Nutrisi AB Mix">Nutrisi AB Mix</option><option value="Nutrisi Tambahan">Nutrisi Tambahan</option><option value="Pestisida">Pestisida</option><option value="Listrik/Air">Listrik/Air</option><option value="Gaji Pekerja">Gaji Pekerja</option><option value="Perlengkapan">Perlengkapan</option><option value="Lain-lain">Lain-lain</option>
+        </select>
+        <small style="display:block; margin-top:4px; color:#666;">Pilih satu kali untuk semua item dalam satu nota/transaksi.</small>
+    </div>
+    <div id="biaya-rows">
+        <div class="biaya-row" style="margin-bottom:10px;">
+            <div class="biaya-input-grid" style="display:grid; grid-template-columns:minmax(0,2fr) minmax(70px,0.8fr) minmax(110px,1.4fr) 36px; gap:6px; align-items:end;">
+                <div><label style="font-size:11px; font-weight:bold; display:block; margin-bottom:2px;">Keterangan</label><input type="text" class="biaya-ket" id="f-ket" placeholder="Merk, jenis, dll..." style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; box-sizing:border-box;"></div>
+                <div><label style="font-size:11px; font-weight:bold; display:block; margin-bottom:2px;">Qty</label><input type="number" class="biaya-qty" id="f-qty" placeholder="0" step="any" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; box-sizing:border-box;"></div>
+                <div><label style="font-size:11px; font-weight:bold; display:block; margin-bottom:2px;">Harga Satuan</label><input type="number" class="biaya-harga" id="f-harga" placeholder="Rp 0" step="any" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ccc; box-sizing:border-box;"></div>
+                <button type="button" class="btn-tambah-biaya-row" onclick="tambahBarisBiaya()" title="Tambah item" style="background:#2e7d32; color:white; border:none; width:34px; height:34px; border-radius:50%; font-size:21px; font-weight:bold; cursor:pointer; line-height:30px; padding:0;">+</button>
+            </div>
+        </div>
+    </div>
+    <button id="btn-simpan-biaya" class="btn" onclick="simpanTransaksi('biaya')" style="width:100%; background:#2e7d32; color:white; padding:10px; font-weight:bold; border:none; border-radius:5px; cursor:pointer;">+ TAMBAH PENGELUARAN</button>
+</div>
+
+<div class="card" style="background:#fff3e0; border: 2px solid #ff9800;">
+    <strong>⏳ Akumulasi Gaji (Belum Terbayar)</strong>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 10px;">
+        <div>
+            <small>Total Hutang Gaji:</small><br>
+            <strong id="display-akumulasi-gaji" style="font-size: 18px; color: #e65100;">Rp 0</strong>
+        </div>
+        <button class="btn" style="background:#ff9800; margin:0; width:auto; padding: 10px;" onclick="postingGajiKeBiaya()">POSTING KE BIAYA</button>
+    </div>
+    <p style="font-size: 9px; color: #666; margin-top: 5px;">*Klik posting jika gaji sudah dibayarkan secara manual saat panen.</p>
+</div>
+
+<div class="card" style="background:#fce4ec; border-left:5px solid #d81b60;">
+    <strong>💸 Catat Kasbon Pekerja</strong>
+    <label>Pilih Pekerja & Nominal</label>
+    <div style="display: flex; gap: 5px; margin-top: 5px; flex-direction: column;">
+        <select id="nama-kasbon-select" style="margin-bottom: 5px;"></select>
+        <div style="display: flex; gap: 5px;">
+            <input type="number" id="nominal-kasbon" placeholder="Rp Nominal">
+            <button class="btn" style="background:#d81b60; margin:0; width:auto;" onclick="catatKasbon()">SIMPAN</button>
+        </div>
+    </div>
+    <div id="list-kasbon-nama" style="margin-top:10px; font-size: 10px; color: #880e4f;"></div>
+</div>
+
+<div class="card" style="background:#e8f5e9; border: 1px solid #2e7d32;">
+    <strong>🎫 Cetak Slip Gaji</strong>
+    <label>Pilih Pekerja</label>
+    <select id="select-slip-pekerja" style="margin-bottom: 10px;"></select>
+    <button class="btn" style="background:#2e7d32;" onclick="generateSlipGaji()">LIHAT SLIP GAJI</button>
+</div>
+
+<div id="modalSlip" class="modal" style="display: none;">
+    <div class="modal-content" style="font-family: monospace;">
+        <div id="slip-printable" style="padding: 5px; border: 1px solid #eee; background: #fff; color: #000;">
+            <center>
+                <small>Slip Gaji Karyawan - Periode Aktif</small>
+            </center>
+            <hr style="border: 0; border-top: 1px dashed #000;">
+            <div id="slip-detail-content"></div>
+            <hr style="border: 0; border-top: 1px dashed #000;">
+            <center><small>Terima kasih atas kerja kerasnya!</small></center>
+        </div>
+        <button class="btn" onclick="printSlip()" style="background:#1b5e20;">CETAK / PDF</button>
+        <button class="btn" onclick="document.getElementById('modalSlip').style.display='none'" style="background:#666;">TUTUP</button>
+    </div>
+</div>
+        <div class="card" style="background:#fff3e0; border-left:5px solid #ef6c00;">
+            <strong>🛒 Penjualan Hasil Panen</strong>
+            <label>Grade Buah</label>
+            <select id="s-grade">
+                <option>Grade A</option><option>Grade B</option><option>Grade C</option><option>Grade BS</option><option>Ecer</option><option>Wisata Petik</option>
+            </select>
+            <div class="input-row">
+                <input type="number" id="s-berat" placeholder="Berat (kg)">
+                <input type="number" id="s-harga" placeholder="Harga/kg">
+            </div>
+            <button id="btn-simpan-jual" class="btn" style="background:#ef6c00;" onclick="simpanTransaksi('jual')">SIMPAN PENJUALAN</button>
+        </div>
+
+        <div class="card" style="border-left:5px solid #1565c0;">
+            <strong>🏦 Modal & Pendanaan</strong>
+            <label>Tanggal</label><input type="date" id="dana-tgl">
+            <label>Jenis Dana</label>
+            <select id="dana-jenis">
+                <option value="Tambahan Modal / Investasi">Tambahan Modal / Investasi</option>
+                <option value="Hutang / Pinjaman">Hutang / Pinjaman</option>
+                <option value="Pengembalian Modal">Pengembalian Modal</option>
+                <option value="Pembayaran Hutang">Pembayaran Hutang</option>
+            </select>
+            <label>Keterangan</label><input type="text" id="dana-ket" placeholder="Sumber atau catatan dana">
+            <label>Nominal</label><input type="number" id="dana-nominal" min="1" placeholder="0">
+            <button class="btn" style="background:#1565c0;" onclick="simpanDana()">SIMPAN TRANSAKSI DANA</button>
+            <div style="margin-top:10px; font-size:12px; color:#555;">
+              <b>Status Pendanaan:</b><br>
+              Total Modal: <span id="status-modal">Rp 0</span> · Sisa Hutang: <span id="status-hutang">Rp 0</span>
+            </div>
+        </div>
+        <div class="card">
+            <strong>📑 Detail Arus Kas</strong>
+            <div id="transaksi-detail-list" class="riwayat-list limit-view" style="margin-top:10px;"></div>
+<button id="btn-trans-more" class="btn-show-more" onclick="toggleExpand('transaksi-detail-list', 'btn-trans-more')">Tampilkan Semua ▼</button>
+
+        </div>
+        <hr style="margin: 20px 0;">
+<strong style="color: #666; display: block; margin-bottom: 10px;">📜 Riwayat Periode Sebelumnya</strong>
+        <div id="riwayat-finance"></div>
+        <button onclick="bersihkanSemuaRiwayat()" style="background: none; border: 1px solid #e74c3c; color: #e74c3c; padding: 5px 10px; border-radius: 5px; font-size: 11px; margin-bottom: 10px; cursor: pointer;">
+    🗑️ Bersihkan Semua Riwayat
+</button>
+    </div>
+</div>
+
+<div class="nav-bar">
+    <div class="nav-item active" onclick="openTab(event, 'nutrisi')"><span>📊</span><span>NUTRISI</span></div>
+    <div class="nav-item" onclick="openTab(event, 'semprot')"><span>🚿</span><span>SEMPROT</span></div>
+    <div class="nav-item" onclick="openTab(event, 'kerja')"><span>🛠️</span><span>KERJA</span></div>
+    <div class="nav-item" onclick="openTab(event, 'keuangan')"><span>💰</span><span>KEUANGAN</span></div>
+</div>
+
+<div id="modalMaster" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 400px;">
+        <strong style="display:block; margin-bottom:15px; font-size:16px;">👥 Master Data Pekerja</strong>
+        
+        <div style="background: #f1f1f1; padding: 10px; border-radius: 8px; margin-bottom: 15px;">
+            <input type="text" id="new-worker-name" placeholder="Nama Pekerja" style="width:100%; margin-bottom:8px; padding:8px; box-sizing:border-box;">
+            
+            <div style="display: flex; gap: 5px; margin-bottom: 8px; flex-wrap:wrap;">
+                <input type="number" id="worker-salary" placeholder="Gaji Harian (Rp/Hari)" style="flex:1; min-width:120px; padding:8px; box-sizing:border-box;">
+                <input type="number" id="worker-fixed-salary" placeholder="Gaji Tetap (Rp)" style="flex:1; min-width:120px; padding:8px; box-sizing:border-box;">
+                <input type="number" id="worker-ot-rate" placeholder="Lembur (Rp/Jam)" style="flex:1; min-width:120px; padding:8px; box-sizing:border-box;">
+            </div>
+            
+            <button class="btn" onclick="addWorker()" style="width:100%; font-weight:bold;">+ TAMBAH PEKERJA</button>
+        </div>
+
+        <div id="worker-list-master" style="margin-top:10px; max-height:200px; overflow-y:auto; border:1px solid #ddd; border-radius:5px; padding:5px;">
+            </div>
+        
+        <button class="btn" onclick="toggleModal(false)" style="background:#666; width:100%; margin-top:10px;">TUTUP</button>
+    </div>
+</div>
+<div id="modalEditWorker" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 350px; border-top: 5px solid #fbc02d;">
+        <strong style="display:block; margin-bottom:15px; font-size:16px;">✏️ Edit Data Pekerja</strong>
+        
+        <input type="hidden" id="edit-worker-index">
+        <label>Nama Pekerja</label>
+        <input type="text" id="edit-worker-name" style="margin-bottom:10px;">
+        
+        <label>Gaji Harian (Rp)</label>
+        <input type="number" id="edit-worker-salary" style="margin-bottom:10px;">
+        
+        <label>Gaji Tetap (Rp)</label>
+        <input type="number" id="edit-worker-fixed-salary" style="margin-bottom:10px;">
+        
+        <label>Tarif Lembur (Rp/Jam)</label>
+        <input type="number" id="edit-worker-ot" style="margin-bottom:20px;">
+        
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" onclick="saveWorkerEdit()" style="background:#2e7d32; flex:1; margin-top:0;">SIMPAN</button>
+            <button class="btn" onclick="closeEditModal()" style="background:#666; flex:1; margin-top:0;">BATAL</button>
+        </div>
+    </div>
+</div>
+
+<script>
+window.getPeriodeLaporan = function(d) {
+    let tglMulai = "-";
+    let tglSelesai = "-";
+
+    // 1. Cari tanggal paling awal dari log kerja (Awal Aktivitas)
+    if (d.workLog && d.workLog.length > 0) {
+        // Sortir untuk mendapatkan tanggal terkecil
+        let logs = [...d.workLog].sort((a, b) => new Date(a.tgl) - new Date(b.tgl));
+        tglMulai = formatIndo(parseDate(logs[0].tgl));
+    }
+
+    // 2. Cari tanggal terakhir dari Posting Gaji di riwayat biaya
+    if (d.biaya && d.biaya.length > 0) {
+        let postingGaji = d.biaya
+            .filter(item => item.k === "PELUNASAN GAJI PERIODE")
+            .sort((a, b) => new Date(b.tgl) - new Date(a.tgl)); // Sortir terbaru di atas
+        
+        if (postingGaji.length > 0) {
+            tglSelesai = formatIndo(parseDate(postingGaji[0].tgl));
+        } else {
+            // Jika belum ada posting gaji, gunakan tanggal hari ini sebagai batas berjalan
+            tglSelesai = formatIndo(new Date());
+        }
+    }
+
+    return `${tglMulai} s/d ${tglSelesai}`;
+};
+    
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('service-worker.js')
+            .then(reg => console.log('Service Worker terdaftar!', reg))
+            .catch(err => console.log('Gagal daftar SW', err));
+    });
+}
+  
+    let ghList = JSON.parse(localStorage.getItem('gh_list')) || ["GH 1"];
+    let currentGH = localStorage.getItem('active_gh') || ghList[0];
+    let varietasTemp = [];
+    let myChart = null;
+
+    const jadwal = [
+        {h: 7, p: 600, ph: 6.0, i: "Adaptasi"}, {h: 14, p: 700, ph: 6.0, i: "Vegetatif"},
+        {h: 21, p: 800, ph: 6.1, i: "Pruning"}, {h: 30, p: 1000, ph: 6.2, i: "Polinasi"},
+        {h: 40, p: 1300, ph: 6.2, i: "Seleksi"}, {h: 55, p: 1500, ph: 6.2, i: "Netting"},
+        {h: 65, p: 1200, ph: 6.2, i: "Panen"}
+    ];
+    let targetPPM = 0; let targetPH = 6.2;
+
+    function getActiveData() {
+        let d = localStorage.getItem(currentGH + '_active_period');
+        return d ? JSON.parse(d) : { v: "-", pop: 0, v_list: [], biaya: [], jual: [] };
+    }
+
+    function saveActiveData(data) {
+        localStorage.setItem(currentGH + '_active_period', JSON.stringify(data));
+        renderFinance();
+    }
+
+// --- FITUR DOWNLOAD LAPORAN LENGKAP (VERSI STABIL MOBILE) ---
+async function downloadFullReport() {
+    try {
+        let d = getActiveData();
+        let sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+        let kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+        let dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+
+        // --- 1. FUNGSI INTERNAL UNTUK FIX TANGGAL ---
+        const parseDate = (dateStr) => {
+            if(!dateStr) return new Date(0);
+            const sep = dateStr.includes('-') ? '-' : '/';
+            const p = dateStr.split(sep);
+            // Handle format YYYY-MM-DD vs DD/MM/YYYY
+            return sep === '-' ? new Date(p[0], p[1]-1, p[2]) : new Date(p[2], p[1]-1, p[0]);
+        };
+
+        const formatIndo = (dateStr) => {
+            const dObj = parseDate(dateStr);
+            if (dObj.getTime() === 0) return "-";
+            const dd = String(dObj.getDate()).padStart(2, '0');
+            const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+            const yyyy = dObj.getFullYear();
+            return `${dd}-${mm}-${yyyy}`; // Hasil: dd-mm-yyyy
+        };
+
+        let wb = XLSX.utils.book_new();
+
+        // --- SHEET 1: RINGKASAN ---
+        let summaryData = [
+            ["INFO GREENHOUSE", "KETERANGAN"],
+            ["Nama GH", currentGH],
+            ["Varietas", d.v],
+            ["Total Populasi", d.pop + " Pohon"],
+            ["Status Tanam", localStorage.getItem(currentGH + '_tgl_tanam') ? "Sudah Pindah Tanam" : "Belum Pindah Tanam"]
+        ];
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Ringkasan");
+        
+        // --- SHEET 2: NUTRISI HARIAN (URUT & FORMAT) ---
+        let dataNutrisi = dailyLogs.sort((a,b) => a.hst - b.hst).map(x => {
+            let targetHarian = (typeof jadwal !== 'undefined') ? jadwal.find(j => x.hst <= j.h) : null;
+            return {
+                "Tanggal": formatIndo(x.tgl),
+                "HST": x.hst,
+                "PPM Riil": x.ppm,
+                "Target PPM": targetHarian ? targetHarian.p : "-",
+                "pH Riil": x.ph,
+                "Target pH": targetHarian ? targetHarian.ph : "-"
+            };
+        });
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataNutrisi), "Rekap_Nutrisi_Harian");
+
+        // --- SHEET 3: PENYEMPROTAN (URUT & FORMAT) ---
+        let dataSemprot = sLog.sort((a,b) => parseDate(a.tgl) - parseDate(b.tgl)).map(x => ({
+            "Tanggal": formatIndo(x.tgl),
+            "HST": x.hst,
+            "Insektisida": x.ins,
+            "Fungisida": x.fun,
+            "Nutrisi": x.nut
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataSemprot), "Penyemprotan");
+
+        // --- SHEET 4: AKTIVITAS (URUT & FORMAT) ---
+        let dataKerja = kLog.sort((a,b) => parseDate(a.tgl) - parseDate(b.tgl)).map(x => ({
+            "Tanggal": formatIndo(x.tgl),
+            "HST": x.hst,
+            "Aktivitas": x.jenis,
+            "Pekerja": x.nama,
+            "Catatan": x.ket
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataKerja), "Aktivitas");
+
+        // --- SHEET 5: KEUANGAN (GABUNG, URUT & FORMAT) ---
+        let finData = [
+            ...(d.jual || []).map(x => ({ tgl: x.tgl, tipe: "MASUK", kat: x.g, ket: "-", qty: x.b, harga: x.h, total: x.total })),
+            ...(d.biaya || []).map(x => ({ tgl: x.tgl, tipe: "KELUAR", kat: x.k, ket: x.ket || "-", qty: x.q, harga: x.h, total: x.total }))
+        ];
+        
+        // Urutkan dari tanggal terlama ke terbaru
+        finData.sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
+
+        let dataKeuangan = finData.map(x => ({
+            "Tanggal": formatIndo(x.tgl),
+            "Tipe": x.tipe,
+            "Kategori": x.kat,
+            "Keterangan": x.ket,
+            "Qty": x.qty,
+            "Harga": x.harga,
+            "Total (Rp)": x.total
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(dataKeuangan), "Keuangan");
+
+        // --- PROSES DOWNLOAD ---
+        const fileName = `Laporan_Full_Melona_${currentGH}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+
+    } catch (err) {
+        console.error("Error Excel:", err);
+        alert("Gagal mengunduh Excel: " + err.message);
+    }
+}
+
+    function refreshAll() {
+        updateUI(); renderLogs(); renderFinance();
+        if(myChart) myChart.destroy(); initChart();
+    }
+
+    function updateUI() {
+        const savedDate = localStorage.getItem(currentGH + '_tgl_tanam');
+        const harvestDate = localStorage.getItem(currentGH + '_tgl_panen');
+        const infoEl = document.getElementById('top-info');
+        const progEl = document.getElementById('progress-bar');
+        const banner = document.getElementById('notif-banner');
+        const text = document.getElementById('notif-text');
+        let activeData = getActiveData();
+        let hst = 0; targetPPM = 0;
+        if (savedDate) {
+        const skrg = new Date();
+        skrg.setHours(0,0,0,0);
+
+        const tanam = new Date(savedDate);
+        tanam.setHours(0,0,0,0);
+
+        // Jika sudah ada aktivitas Panen, HST berhenti pada tanggal panen.
+        const tanggalAcuan = harvestDate ? new Date(harvestDate) : skrg;
+        tanggalAcuan.setHours(0,0,0,0);
+        hst = Math.floor((tanggalAcuan - tanam) / (1000 * 60 * 60 * 24)) + 1;
+
+        if (hst < 1) hst = 1;
+            infoEl.innerText = `${currentGH}: ${hst} HST | ${new Date().toLocaleDateString('id-ID')}`;
+            infoEl.innerHTML = `<strong>${currentGH}</strong>: ${hst} HST${harvestDate ? ' | 🛑 HST Berhenti (Panen)' : ''} | ${activeData.v} (${activeData.pop} Pohon)`;
+            progEl.style.width = Math.min((hst/65)*100, 100) + "%";
+            banner.style.display = (hst >= 28 && hst <= 32 || hst >= 38 && hst <= 42 || hst >= 53 && hst <= 57) ? "block" : "none";
+            if(hst >= 28 && hst <= 32) text.innerText = "Masa Polinasi!";
+            else if(hst >= 38 && hst <= 42) text.innerText = "Seleksi Buah!";
+            else if(hst >= 53 && hst <= 57) text.innerText = "Fase Netting!";
+        } else {
+            infoEl.innerText = `${currentGH}: Belum Tanam`;
+            progEl.style.width = "0%";
+            banner.style.display = "none";
+        }
+        let tableHtml = "";
+        jadwal.forEach((item, idx) => {
+            let prevH = idx === 0 ? 0 : jadwal[idx-1].h + 1;
+            let active = (savedDate && hst >= prevH && hst <= item.h);
+            if(active) { targetPPM = item.p; targetPH = item.ph; }
+            tableHtml += `<tr style="${active ? 'background:#e8f5e9; font-weight:bold; border: 2px solid #2e7d32;' : ''}"><td>${item.h}</td><td>${item.p}</td><td>${item.ph}</td><td>${item.i}</td></tr>`;
+        });
+        document.getElementById('tabel-nutrisi').innerHTML = tableHtml;
+        updateStorageInfo();
+    }
+
+    function switchGH() {
+        currentGH = document.getElementById('gh-selector').value;
+        localStorage.setItem('active_gh', currentGH);
+        refreshAll();
+    }
+
+    function promptAddGH() {
+        const name = prompt("Nama GH Baru:");
+        if (name && !ghList.includes(name)) {
+            ghList.push(name);
+            localStorage.setItem('gh_list', JSON.stringify(ghList));
+            currentGH = name;
+            localStorage.setItem('active_gh', currentGH);
+            updateGHSelector();
+            refreshAll();
+        }
+    }
+
+    function promptRemoveGH() {
+        if (ghList.length <= 1) return alert("Minimal 1 GH.");
+        if (confirm(`Hapus ${currentGH}?`)) {
+            ghList = ghList.filter(g => g !== currentGH);
+            localStorage.setItem('gh_list', JSON.stringify(ghList));
+            currentGH = ghList[0];
+            localStorage.setItem('active_gh', currentGH);
+            updateGHSelector();
+            refreshAll();
+        }
+    }
+
+    function updateGHSelector() {
+        document.getElementById('gh-selector').innerHTML = ghList.map(gh => `<option value="${gh}" ${gh === currentGH ? 'selected' : ''}>${gh}</option>`).join("");
+    }
+
+    function tambahVarietasTemp() {
+        let n = document.getElementById('v-nama').value;
+        let p = document.getElementById('v-pop').value;
+        if(!n || !p) return alert("Isi varietas & populasi!");
+        varietasTemp.push({ nama: n, pop: parseInt(p) });
+        document.getElementById('v-nama').value = ""; document.getElementById('v-pop').value = "";
+        renderVarietasTemp();
+    }
+
+    function renderVarietasTemp() {
+        document.getElementById('v-list-display').innerHTML = varietasTemp.map((x, i) => `<span class="v-tag">${x.nama} (${x.pop}) <b onclick="varietasTemp.splice(${i},1);renderVarietasTemp()" style="color:red">×</b></span>`).join("");
+    }
+
+function mulaiPeriode() {
+    if(varietasTemp.length === 0) return alert("Tambahkan varietas dulu!");
+    
+    if(confirm("Mulai periode baru? Data saat ini akan dipindahkan ke RIWAYAT dan data aktif akan dibersihkan.")) {
+        
+        // --- PROSES PENGARSIPAN DATA LAMA ---
+        let oldData = getActiveData();
+        let tglTanamLama = localStorage.getItem(currentGH + '_tgl_tanam');
+        
+        // Jika ada data varietas (berarti periode sebelumnya memang ada)
+        if (oldData.v !== "-") {
+            let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+            
+            // Masukkan data aktif ke dalam arsip riwayat
+            history.unshift({
+                v: oldData.v,
+                pop: oldData.pop,
+                tgl_mulai: tglTanamLama || "Tidak tercatat",
+                tgl_selesai: new Date().toLocaleDateString('id-ID'),
+                biaya: oldData.biaya,
+                jual: oldData.jual,
+                dana: oldData.dana || [],
+                saldoAwal: parseFloat(oldData.saldoAwal) || 0
+            });
+            
+            localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
+        }
+
+        // --- PROSES PEMBERSIHAN DATA AKTIF UNTUK PERIODE BARU ---
+        localStorage.removeItem(currentGH + '_daily_records'); 
+        localStorage.removeItem(currentGH + '_tgl_tanam');
+        localStorage.removeItem(currentGH + '_tgl_panen');
+        localStorage.setItem(currentGH + '_logs', "[]");
+        localStorage.setItem(currentGH + '_kerja', "[]");
+        localStorage.setItem(currentGH + '_no_transaksi_counter', '1');
+
+        let newData = { 
+            v_list: varietasTemp, 
+            v: varietasTemp.map(x => x.nama).join(", "), 
+            pop: varietasTemp.reduce((s, x) => s + x.pop, 0), 
+            biaya: [], 
+            jual: [],
+            dana: [],
+            saldoAwal: parseFloat(document.getElementById('saldo-awal-periode')?.value) || 0
+        };
+        saveActiveData(newData);
+
+        varietasTemp = [];
+        document.getElementById('v-list-display').innerHTML = "";
+        refreshAll(); 
+        alert("Periode baru dimulai! Data lama berhasil diarsipkan ke riwayat.");
+    }
+}
+
+    // Variabel global untuk melacak index yang sedang diedit
+let editIndexNutrisi = null;
+
+function renderRekapNutrisi() {
+    if (!currentGH) return;
+    const container = document.getElementById('rekap-nutrisi-container');
+    if (!container) return;
+
+    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    const sortedLogs = [...dailyLogs].sort((a, b) => b.hst - a.hst);
+    
+    let html = `
+    <div style="margin-top:20px;">
+        <h4 style="font-size:14px; color:#2e7d32;">Riwayat Input Terakhir</h4>
+        <table style="width:100%; border-collapse:collapse; font-size:12px; background:white; border-radius:8px; overflow:hidden;">
+            <tr style="background:#f4f4f4;">
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Tgl (HST)</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Liter</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">PPM</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">pH</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Aksi</th>
+            </tr>`;
+
+    sortedLogs.slice(0, 5).forEach((log) => {
+    const originalIndex = dailyLogs.findIndex(l => l.hst === log.hst);
+    html += `
+    <tr>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.tgl} (${log.hst})</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.liter}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.ppm}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.ph}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee; display: flex; gap: 10px; justify-content: center;">
+            <button style="background:none; border:none; color:#f39c12; cursor:pointer;" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
+            <button style="background:none; border:none; color:red; cursor:pointer;" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
+        </td>
+    </tr>`;
+});
+
+    html += `</table></div>`;
+    container.innerHTML = html;
+}
+
+// Fungsi Edit Nutrisi
+function prepareEditNutrisi(index) {
+    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    const data = dailyLogs[index];
+    
+    // Isi form dengan data lama
+    document.getElementById('tgl-nutrisi-input').value = convertToInputDate(data.tgl);
+    document.getElementById('liter').value = data.liter;
+    document.getElementById('ppm-now').value = data.ppm;
+    document.getElementById('ph-now').value = data.ph;
+    
+    // Set mode edit (Gunakan global variable yang sudah ada di file Anda)
+    isEditMode = true;
+    editIdx = index;
+    editType = 'nutrisi';
+    
+    alert("Data dimuat ke form. Silakan edit lalu tekan 'SIMPAN DATA RIIL'.");
+    window.scrollTo({ top: 500, behavior: 'smooth' }); 
+}
+
+function hapusNutrisi(index) {
+    if(confirm("Hapus data nutrisi ini?")) {
+        let dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+        dailyLogs.splice(index, 1);
+        localStorage.setItem(currentGH + '_daily_records', JSON.stringify(dailyLogs));
+        refreshAll();
+    }
+}
+// 1. Deklarasi Variabel Global (Wajib di Paling Atas)
+    var isEditMode = false;
+    var editIdx = null;
+    var editType = null;
+
+    // 2. Fungsi Simpan Transaksi
+    window.tambahBarisBiaya = function() {
+    const container = document.getElementById('biaya-rows');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'biaya-row';
+    row.style.cssText = 'margin-bottom:10px;';
+    row.innerHTML = `<div class="biaya-input-grid" style="display:grid;grid-template-columns:minmax(0,2fr) minmax(70px,0.8fr) minmax(110px,1.4fr) 36px;gap:6px;align-items:end;">
+        <div><label style="font-size:11px;font-weight:bold;display:block;margin-bottom:2px;">Keterangan</label><input type="text" class="biaya-ket" placeholder="Merk, jenis, dll..." style="width:100%;padding:8px;border-radius:5px;border:1px solid #ccc;box-sizing:border-box;"></div>
+        <div><label style="font-size:11px;font-weight:bold;display:block;margin-bottom:2px;">Qty</label><input type="number" class="biaya-qty" placeholder="0" step="any" style="width:100%;padding:8px;border-radius:5px;border:1px solid #ccc;box-sizing:border-box;"></div>
+        <div><label style="font-size:11px;font-weight:bold;display:block;margin-bottom:2px;">Harga Satuan</label><input type="number" class="biaya-harga" placeholder="Rp 0" step="any" style="width:100%;padding:8px;border-radius:5px;border:1px solid #ccc;box-sizing:border-box;"></div>
+        <div style="display:flex;align-items:end;">
+            <button type="button" class="btn-hapus-biaya-row" onclick="hapusBarisBiaya(this)" title="Hapus item" style="background:#e53935;color:white;border:none;width:34px;height:34px;border-radius:50%;font-size:20px;font-weight:bold;cursor:pointer;line-height:30px;padding:0;">×</button>
+        </div>
+    </div>`;
+    container.appendChild(row);
+    updateTombolBarisBiaya();
+};
+window.hapusBarisBiaya=function(btn){
+    const c=document.getElementById('biaya-rows');
+    const rows=c?c.querySelectorAll('.biaya-row'):[];
+    if(rows.length<=1)return alert('Minimal harus ada 1 item biaya.');
+    btn.closest('.biaya-row').remove();
+    updateTombolBarisBiaya();
+};
+function updateTombolBarisBiaya(){
+    const rows=document.querySelectorAll('#biaya-rows .biaya-row');
+    rows.forEach((r,i)=>{
+        const add=r.querySelector('.btn-tambah-biaya-row');
+        const del=r.querySelector('.btn-hapus-biaya-row');
+        if(add) add.style.display=i===0?'inline-block':'none';
+        if(del) del.style.display=i===0?'none':'inline-block';
+    });
+}
+function resetBarisBiaya(){
+    const c=document.getElementById('biaya-rows');
+    if(!c)return;
+    c.querySelectorAll('.biaya-row').forEach((r,i)=>{if(i>0)r.remove();});
+    const f=c.querySelector('.biaya-row');
+    if(f){
+        f.querySelector('.biaya-qty').value='';
+        f.querySelector('.biaya-harga').value='';
+        f.querySelector('.biaya-ket').value='';
+    }
+    const kat=document.getElementById('f-kat'); if(kat) kat.selectedIndex=0;
+    updateTombolBarisBiaya();
+}
+updateTombolBarisBiaya();
+
+function getNextNoTransaksi(){
+    const key=currentGH + '_no_transaksi_counter';
+    const next=parseInt(localStorage.getItem(key)||'1',10)||1;
+    return String(next).padStart(3,'0');
+}
+function refreshNoTransaksi(){
+    const el=document.getElementById('f-no-transaksi');
+    if(el) el.value=getNextNoTransaksi();
+}
+function incrementNoTransaksi(){
+    const key=currentGH + '_no_transaksi_counter';
+    const current=parseInt(localStorage.getItem(key)||'1',10)||1;
+    localStorage.setItem(key,String(current+1));
+    refreshNoTransaksi();
+}
+refreshNoTransaksi();
+
+window.simpanTransaksi=function(tipe){
+    let data=getActiveData(); let tgl=document.getElementById('f-tgl').value||new Date().toISOString().split('T')[0]; let recordBaru={};
+    if(tipe==='biaya'){
+        const kat=document.getElementById('f-kat').value;
+        const rows=Array.from(document.querySelectorAll('#biaya-rows .biaya-row'));
+        if(!rows.length)return alert('Tambahkan minimal satu item biaya.');
+        const noTransaksi=getNextNoTransaksi();
+        const notaId=`TRX-${noTransaksi}-${tgl}-${Date.now()}`;
+        const records=[];
+        for(let i=0;i<rows.length;i++){
+            const row=rows[i],q=parseFloat(row.querySelector('.biaya-qty').value),h=parseFloat(row.querySelector('.biaya-harga').value),ket=row.querySelector('.biaya-ket').value;
+            if(!Number.isFinite(q)||q<=0||!Number.isFinite(h)||h<=0)return alert('Mohon isi Qty dan Harga Satuan pada semua item biaya.');
+            records.push({tgl,k:kat,q,h,total:q*h,ket:ket||'-',notaId,noTransaksi,itemNo:i+1});
+        }
+        if(isEditMode&&editType==='biaya'){
+            data.biaya[editIdx]={...records[0],noTransaksi:data.biaya[editIdx].noTransaksi||noTransaksi,notaId:data.biaya[editIdx].notaId||notaId,itemNo:data.biaya[editIdx].itemNo||1};
+        }else{
+            records.reverse().forEach(r=>data.biaya.unshift(r));
+            incrementNoTransaksi();
+        }
+        resetBarisBiaya(); document.getElementById('f-tgl').value='';
+    }else{let g=document.getElementById('s-grade').value,b=parseFloat(document.getElementById('s-berat').value),h=parseFloat(document.getElementById('s-harga').value);if(!b||!h)return alert('Isi berat dan harga!');recordBaru={tgl,g,b,h,total:b*h};if(isEditMode&&editType==='jual')data.jual[editIdx]=recordBaru;else data.jual.unshift(recordBaru);document.getElementById('s-berat').value='';document.getElementById('s-harga').value='';}
+    if(isEditMode){isEditMode=false;editIdx=null;editType=null;let btn=document.getElementById(tipe==='biaya'?'btn-simpan-biaya':'btn-simpan-jual');if(btn){btn.innerText=tipe==='biaya'?'+ TAMBAH PENGELUARAN':'SIMPAN TRANSAKSI';btn.style.background='#2e7d32';}}
+    saveActiveData(data);renderFinance();alert('Data berhasil disimpan!');
+};
+
+function renderFinance() {
+    refreshNoTransaksi();
+    let d = getActiveData();
+    document.getElementById('f-active-v').innerText = d.v;
+    
+    // 1. FUNGSI PEMBANTU TANGGAL (Bisa baca format - atau /)
+    const parseDate = (dateStr) => {
+        if(!dateStr) return new Date(0);
+        const sep = dateStr.includes('-') ? '-' : '/';
+        const p = dateStr.split(sep);
+        // Jika format YYYY-MM-DD (dari input date) vs DD/MM/YYYY (manual)
+        return sep === '-' ? new Date(p[0], p[1]-1, p[2]) : new Date(p[2], p[1]-1, p[0]);
+    };
+
+    // Fungsi untuk mengubah objek tanggal menjadi string dd-mm-yyyy
+    const formatIndo = (dateObj) => {
+        const dd = String(dateObj.getDate()).padStart(2, '0');
+        const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+        const yyyy = dateObj.getFullYear();
+        return `${dd}-${mm}-${yyyy}`;
+    };
+
+    // 2. PERHITUNGAN KEUANGAN
+    let tBiaya = (d.biaya || []).reduce((sum, item) => sum + item.total, 0);
+    let tJual = (d.jual || []).reduce((sum, item) => sum + item.total, 0);
+    let laba = tJual - tBiaya;
+    let roi = tBiaya > 0 ? (laba / tBiaya) * 100 : 0;
+
+    // ARUS KAS: modal/hutang tidak dihitung sebagai pendapatan laba rugi
+    const danaList = d.dana || [];
+    const saldoAwal = parseFloat(d.saldoAwal) || 0;
+    const danaMasuk = danaList.filter(x => x.arah === 'in').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
+    const danaKeluar = danaList.filter(x => x.arah === 'out').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
+    const kasMasuk = tJual + danaMasuk;
+    const kasKeluar = tBiaya + danaKeluar;
+    const saldoAkhir = saldoAwal + kasMasuk - kasKeluar;
+    const totalModal = danaList.filter(x=>x.jenis==='Tambahan Modal / Investasi').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
+    const totalPinjam = danaList.filter(x=>x.jenis==='Hutang / Pinjaman').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
+    const bayarHutang = danaList.filter(x=>x.jenis==='Pembayaran Hutang').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
+    const setTxt=(id,v)=>{const el=document.getElementById(id);if(el)el.innerText='Rp '+v.toLocaleString('id-ID');};
+    setTxt('kas-saldo-awal',saldoAwal); setTxt('kas-masuk',kasMasuk); setTxt('kas-keluar',kasKeluar); setTxt('kas-saldo-akhir',saldoAkhir);
+    setTxt('status-modal',saldoAwal+totalModal); setTxt('status-hutang',Math.max(0,totalPinjam-bayarHutang));
+
+    document.getElementById('res-biaya').innerText = "Rp " + tBiaya.toLocaleString();
+    document.getElementById('res-jual').innerText = "Rp " + tJual.toLocaleString();
+    document.getElementById('res-laba').innerText = "Rp " + laba.toLocaleString();
+    document.getElementById('res-laba').style.color = laba >= 0 ? "#2e7d32" : "#c62828";
+    
+    let roiEl = document.getElementById('res-roi');
+    roiEl.innerText = roi.toFixed(1) + "%";
+    roiEl.className = roi >= 0 ? "roi-positive" : "roi-negative";
+
+    // 3. TAMPILAN KASBON (Urut & Format dd-mm-yyyy)
+    let totalGajiGross = d.akumulasiGaji || 0;
+    let totalKasbon = d.totalKasbon || 0;
+    document.getElementById('display-akumulasi-gaji').innerHTML = `
+        <div style="font-size: 11px; color: #666; text-align: left;">
+            Total Hak Gaji: Rp ${totalGajiGross.toLocaleString()}<br>
+            Total Kasbon: <span style="color:red;">- Rp ${totalKasbon.toLocaleString()}</span>
+        </div>
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0;">
+        <div style="font-size: 14px; font-weight: bold; color: #2e7d32; text-align: left;">
+            Sisa Bayar: Rp ${(totalGajiGross - totalKasbon).toLocaleString()}
+        </div>`;
+
+    let listKasbonHtml = (d.detailKasbon || [])
+        .sort((a,b) => parseDate(b.tgl) - parseDate(a.tgl))
+        .map(k => {
+            const tglFix = formatIndo(parseDate(k.tgl));
+            return `<div style="border-bottom: 1px dashed #eee; padding: 3px 0;">• ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></div>`;
+        }).join("");
+    
+    const listKasbonEl = document.getElementById('list-kasbon-nama');
+    if(listKasbonEl) listKasbonEl.innerHTML = listKasbonHtml || "<small>Belum ada riwayat kasbon.</small>";
+
+    // 4. DETAIL TRANSAKSI GABUNGAN (URUT TERBARU & FORMAT dd-mm-yyyy)
+    let gabungan = [
+        ...(d.jual || []).map((x, i) => ({...x, tipe: 'in', oriIdx: i})),
+        ...(d.biaya || []).map((x, i) => ({...x, tipe: 'out', oriIdx: i})),
+        ...(d.dana || []).map((x, i) => ({...x, tipe: x.arah, oriIdx: i, isDana:true}))
+    ];
+
+    // Sorting Descending (Terbaru di atas)
+    gabungan.sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
+
+    let detailHtml = "";
+    gabungan.forEach((x) => {
+        const tglTampil = formatIndo(parseDate(x.tgl));
+        
+        if (x.isDana) {
+            const badge = x.arah === 'in' ? 'badge-in' : 'badge-out';
+            detailHtml += `<div class="trans-item"><span class="${badge}">[${x.arah==='in'?'IN':'OUT'}] ${tglTampil} - ${x.jenis}</span><span>Rp ${(parseFloat(x.nominal)||0).toLocaleString()} <b onclick="hapusDana(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span></div><div style="font-size:11px;color:#555;margin:-6px 0 8px 0;">Ket: ${x.ket||'-'}</div>`;
+        } else if (x.tipe === 'in') {
+            detailHtml += `
+            <div class="trans-item">
+                <span class="badge-in">[IN] ${tglTampil} - ${x.g}</span>
+                <span>
+                Rp ${x.total.toLocaleString()} 
+                <b onclick="editFinance('jual', ${x.oriIdx})" style="color:#f39c12; cursor:pointer; margin-left:10px;">✏️</b>
+                <b onclick="hapusFinance('jual', ${x.oriIdx})" style="color:red; cursor:pointer; margin-left:10px;">×</b>
+            </span>
+            </div>`;
+        } else {
+            detailHtml += `
+            <div class="trans-item" style="flex-direction: column; align-items: flex-start; border-bottom: 1px solid #eee; padding: 10px 0;">
+                <div style="display: flex; justify-content: space-between; width: 100%;">
+                    <span class="badge-out">[OUT] ${tglTampil} - ${x.k}</span>
+                    <span>
+                    Rp ${x.total.toLocaleString()} 
+                    <b onclick="editFinance('biaya', ${x.oriIdx})" style="color:#f39c12; cursor:pointer; margin-left:10px;">✏️</b>
+                    <b onclick="hapusFinance('biaya', ${x.oriIdx})" style="color:red; cursor:pointer; margin-left:10px;">×</b>
+                </span>
+             </div>
+                <div style="font-size: 11px; color: #555; margin-top: 4px; font-style: italic;">Ket: ${x.ket}</div>
+            </div>`;
+        }
+    });
+    
+    document.getElementById('transaksi-detail-list').innerHTML = detailHtml || "<small>Belum ada transaksi</small>";
+    checkLimit('transaksi-detail-list', 'btn-trans-more', gabungan.length);
+
+    // 5. RIWAYAT ARSIP
+    let hist = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+    document.getElementById('riwayat-finance').innerHTML = hist.map((h, index) => {
+        let b = (h.biaya || []).reduce((s, i) => s + i.total, 0);
+        let j = (h.jual || []).reduce((s, i) => s + i.total, 0);
+        return `
+        <div class="history-card" style="border-left-color:#666;">
+            <div style="display:flex; justify-content:space-between;">
+                <div><b>${h.v}</b><br><small>${h.tgl_mulai} - ${h.tgl_selesai || 'Selesai'}</small></div>
+                <div style="display: flex; gap: 5px;">
+                    <button onclick="lihatDetailArsip(${index})" style="font-size:10px; padding:5px; background:#2e7d32; color:white; border:none; border-radius:4px;">DETAIL</button>
+                    <button onclick="hapusRiwayatPeriode(${index})" style="font-size:10px; padding:5px; background:#e74c3c; color:white; border:none; border-radius:4px;">HAPUS</button>
+                </div>
+            </div>
+            <br>Laba: Rp ${(j-b).toLocaleString()}
+        </div>`;
+    }).join("");
+}
+
+function simpanLog(tipe) {
+    let valTgl = document.getElementById(tipe + '-tgl').value; 
+    if(!valTgl) return alert("Pilih tanggal dulu!");
+    
+    const savedDate = localStorage.getItem(currentGH + '_tgl_tanam');
+    let hstLog = 0;
+    if(savedDate) {
+        let d1 = new Date(savedDate).setHours(0,0,0,0);
+        let d2 = new Date(valTgl).setHours(0,0,0,0);
+        hstLog = Math.floor((d2 - d1) / (1000 * 60 * 60 * 24)) + 1;
+
+        // Jika periode sudah berakhir karena Panen, gunakan HST saat Panen.
+        const tglPanen = localStorage.getItem(currentGH + '_tgl_panen');
+        if (tglPanen) {
+            const dPanen = new Date(tglPanen).setHours(0,0,0,0);
+            hstLog = Math.floor((dPanen - d1) / (1000 * 60 * 60 * 24)) + 1;
+        }
+    }
+
+    if(tipe === 'semprot') {
+        const imgInput = document.getElementById('semprot-img');
+        const file = imgInput.files[0];
+
+        if (file) {
+            // Validasi ukuran awal
+            if (file.size > 2 * 1024 * 1024) return alert("File terlalu besar! Maksimal 2MB");
+            
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = function (event) {
+                const img = new Image();
+                img.src = event.target.result;
+                img.onload = function () {
+    // --- PROSES CROPPING & KOMPRESI 1:1 ---
+    const canvas = document.createElement('canvas');
+    const SIZE = 600; // Ukuran standar kotak 600x600 px
+    canvas.width = SIZE;
+    canvas.height = SIZE;
+    const ctx = canvas.getContext('2d');
+
+    // Hitung koordinat untuk memotong bagian tengah (center crop)
+    let sourceX, sourceY, sourceSize;
+    if (img.width > img.height) {
+        // Foto Landscape
+        sourceSize = img.height;
+        sourceX = (img.width - img.height) / 2;
+        sourceY = 0;
+    } else {
+        // Foto Portrait
+        sourceSize = img.width;
+        sourceX = 0;
+        sourceY = (img.height - img.width) / 2;
+    }
+
+    // Gambar ke canvas dengan teknik cropping:
+    // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
+    ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, SIZE, SIZE);
+    
+    // Simpan hasil kompresi
+    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+    prosesSimpanSemprot(valTgl, hstLog, compressedBase64);
+};
+            };
+        } else {
+            prosesSimpanSemprot(valTgl, hstLog, null);
+        }
+    } else {
+        let biayaGajiSesiIni = 0;
+        let detailPekerja = [];
+        let masterPekerja = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+        const selectedCheckboxes = document.querySelectorAll('input[name="worker_choice"]:checked');
+        
+        if(selectedCheckboxes.length === 0) return alert("Pilih minimal satu pekerja!");
+
+        /*
+         * PENANDA GAJI TETAP PER PERIODE
+         * Gaji tetap hanya ditambahkan SEKALI untuk setiap pekerja dalam satu periode,
+         * sehingga tidak bertambah lagi setiap kali aktivitas kerja baru disimpan.
+         * Penanda ini tetap tersimpan sampai periode baru dimulai.
+         */
+        let activeDataUntukGajiTetap = getActiveData();
+        if (!Array.isArray(activeDataUntukGajiTetap.gajiTetapSudahMasuk)) {
+            activeDataUntukGajiTetap.gajiTetapSudahMasuk = [];
+        }
+        const normalisasiNamaPekerja = (nama) => String(nama || '').trim().toLowerCase();
+        let gajiTetapTambahan = 0;
+
+// --- VALIDASI BATAS MAKSIMAL 1 HARI (DIPERBAIKI) ---
+const tglInputIndo = new Date(valTgl).toLocaleDateString('id-ID');
+
+for (let cb of selectedCheckboxes) {
+    let namaPekerja = cb.value;
+    let parentRow = cb.closest('.worker-item-row');
+    let durasiBaru = parseFloat(parentRow.querySelector('.worker-duration').value);
+    let totalDurasiLama = 0;
+
+    ghList.forEach(gh => {
+        const logs = JSON.parse(localStorage.getItem(gh + '_kerja') || "[]");
+        logs.forEach((log, idx) => {
+            const isSameGH = (gh === currentGH);
+            const isSameIndex = (isEditMode && idx === editIdx);
+            
+            if (log.tgl === tglInputIndo) {
+                if (isSameGH && isSameIndex) return; 
+
+                const regex = new RegExp(`${namaPekerja.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s\\(([^|]+)`, "g");
+                let match;
+                while ((match = regex.exec(log.nama)) !== null) {
+                    totalDurasiLama += parseFloat(match[1]);
+                }
+            }
+        });
+    });
+
+    if ((totalDurasiLama + durasiBaru) > 1.001) {
+        alert(`SIMPAN GAGAL!\n\n${namaPekerja} sudah bekerja ${totalDurasiLama} hari pada ${tglInputIndo}.\nBatas maksimal adalah 1 hari.`);
+        return; 
+    }
+}
+
+// --- PROSES HITUNG GAJI ---
+selectedCheckboxes.forEach((cb) => {
+    let parentRow = cb.closest('.worker-item-row');
+    let namaPekerja = cb.value;
+    let dataMaster = masterPekerja.find(p => p.nama === namaPekerja);
+    let tarifLemburPerJam = dataMaster ? parseFloat(dataMaster.tarifLembur || 0) : 0;
+    
+    let durasi = parseFloat(parentRow.querySelector('.worker-duration').value);
+    let lemburJam = parseFloat(parentRow.querySelector('.worker-overtime').value) || 0;
+    let bonusNominal = parseFloat(parentRow.querySelector('.worker-bonus').value) || 0;
+    let gajiPerHari = parseFloat(cb.getAttribute('data-gaji')) || 0;
+    
+    let totalGajiIndividu = (gajiPerHari * durasi) + (lemburJam * tarifLemburPerJam) + bonusNominal;
+    biayaGajiSesiIni += totalGajiIndividu;
+
+    // Tambahkan Gaji Tetap hanya SEKALI per pekerja dalam periode aktif.
+    const namaNormal = normalisasiNamaPekerja(namaPekerja);
+    const sudahMasuk = activeDataUntukGajiTetap.gajiTetapSudahMasuk
+        .some(nama => normalisasiNamaPekerja(nama) === namaNormal);
+
+    if (!sudahMasuk) {
+        const gajiTetapPekerja = dataMaster ? parseFloat(dataMaster.gajiTetap || 0) : 0;
+        if (gajiTetapPekerja > 0) {
+            gajiTetapTambahan += gajiTetapPekerja;
+        }
+        // Tetap simpan penanda walaupun nominal saat ini 0 agar aktivitas berikutnya
+        // tidak dianggap sebagai pekerja baru dan terhitung berulang.
+        activeDataUntukGajiTetap.gajiTetapSudahMasuk.push(namaPekerja);
+    }
+
+    let detailStr = `${namaPekerja} (${durasi}H|L:${lemburJam}|B:${bonusNominal})`;
+    detailPekerja.push(detailStr);
+});
+
+let dataKerja = {
+    tgl: tglInputIndo,
+    hst: (hstLog <= 0) ? 0 : hstLog,
+    nama: detailPekerja.join(", "),
+    jenis: document.getElementById('kerja-jenis').value,
+    ket: document.getElementById('kerja-ket').value
+};
+
+let logK = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+let activeData = activeDataUntukGajiTetap;
+// Gaji aktivitas mengikuti selisih saat edit. Gaji tetap ditambahkan terpisah
+// hanya ketika pekerja pertama kali tercatat pada periode ini.
+let penyesuaianGaji = biayaGajiSesiIni + gajiTetapTambahan;
+
+if (isEditMode) {
+    let dataLama = logK[editIdx];
+    if (dataLama) {
+        let biayaLama = hitungBiayaDariString(dataLama.nama);
+        penyesuaianGaji = (biayaGajiSesiIni - biayaLama) + gajiTetapTambahan;
+    }
+    
+    // PERBAIKAN 1: Update data di posisi aslinya
+    logK[editIdx] = dataKerja;
+
+    // Reset state edit
+    isEditMode = false;
+    editIdx = null;
+    const btn = document.getElementById('btn-simpan-kerja');
+    if(btn) {
+        btn.innerText = "SIMPAN AKTIVITAS";
+        btn.style.background = ""; 
+    }
+} else {
+    // PERBAIKAN 2: Hanya unshift jika data BENAR-BENAR BARU
+    logK.unshift(dataKerja);
+}
+
+// Update saldo Dashboard
+activeData.akumulasiGaji = Math.max(0, (activeData.akumulasiGaji || 0) + penyesuaianGaji);
+saveActiveData(activeData);
+
+// Update riwayat log kerja ke LocalStorage
+if(dataKerja.jenis === 'Pindah Tanam') {
+    localStorage.setItem(currentGH + '_tgl_tanam', valTgl);
+    localStorage.removeItem(currentGH + '_tgl_panen');
+    dataKerja.hst = 1;
+}
+
+// Panen menjadi tanggal berhenti HST.
+if(dataKerja.jenis === 'Panen') {
+    localStorage.setItem(currentGH + '_tgl_panen', valTgl);
+    dataKerja.hst = hstLog;
+}
+
+localStorage.setItem(currentGH + '_kerja', JSON.stringify(logK));
+
+// Bersihkan UI dan Render Ulang
+document.getElementById('kerja-ket').value = "";
+if(typeof loadWorkerCheckboxes === "function") loadWorkerCheckboxes();
+
+// Pastikan pemanggilan fungsi render sudah benar (perhatikan huruf besar/kecil)
+if(typeof renderLogs === "function") {
+    renderLogs(); 
+} else if(typeof renderlogs === "function") {
+    renderlogs();
+}
+
+finishSave();
+    }
+};
+
+// Fungsi bantuan agar saldo Akumulasi Gaji sinkron saat edit
+function hitungBiayaDariString(namaStr) {
+    let total = 0;
+    let masterPekerja = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    const daftar = namaStr.split(", ");
+    daftar.forEach(item => {
+        const match = item.match(/(.+)\s\(([^H]+)H\|L:([^|]+)\|B:([^)]+)\)/);
+        if (match) {
+            const nama = match[1].trim();
+            const durasi = parseFloat(match[2]);
+            const lembur = parseFloat(match[3]);
+            const bonus = parseFloat(match[4]);
+            let dataMaster = masterPekerja.find(p => p.nama === nama);
+            if (dataMaster) {
+                total += (parseFloat(dataMaster.gajiHarian || dataMaster.gaji || 0) * durasi) +
+                         (parseFloat(dataMaster.tarifLembur || 0) * lembur) + bonus;
+            }
+        }
+    });
+    return total;
+}
+    
+// Fungsi pembantu khusus simpan semprot agar kode rapi
+function prosesSimpanSemprot(tgl, hst, imgBase64) {
+    let logS = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+    
+    // LOGIKA FOTO: Jika ada foto baru (imgBase64), pakai itu. 
+    // Jika tidak ada tapi sedang mode edit, pakai foto lama (tempEditImg).
+    let finalImg = imgBase64 || (isEditMode ? tempEditImg : "");
+
+    let dataBaru = {
+        tgl: new Date(tgl).toLocaleDateString('id-ID'), // Simpan balik ke format Indo
+        hst: (hst <= 0) ? 0 : hst,
+        ins: document.getElementById('ins-nama').value + " (" + document.getElementById('ins-dosis').value + ")",
+        fun: document.getElementById('fun-nama').value + " (" + document.getElementById('fun-dosis').value + ")",
+        nut: document.getElementById('nut-nama').value + " (" + document.getElementById('nut-dosis').value + ")",
+        ket: document.getElementById('semprot-ket').value,
+        img: finalImg
+    };
+
+    if (isEditMode && editType === 'semprot') {
+        logS[editIdx] = dataBaru; // MENIMPA
+        isEditMode = false;
+        editIdx = null;
+        editType = null;
+        tempEditImg = ""; 
+        
+        const btn = document.getElementById('btn-simpan-semprot');
+        btn.innerText = "SIMPAN DATA SEMPROT";
+        btn.style.background = "#2e7d32";
+    } else {
+        logS.unshift(dataBaru); // TAMBAH BARU
+    }
+
+    localStorage.setItem(currentGH + '_logs', JSON.stringify(logS));
+    
+    // Reset Preview & Form
+    document.getElementById('preview-semprot-edit').innerHTML = "";
+    ["ins-nama","ins-dosis","fun-nama","fun-dosis","nut-nama","nut-dosis","semprot-ket"].forEach(id => {
+        document.getElementById(id).value = "";
+    });
+    
+    renderLogs();
+    finishSave(); 
+    alert("Data Semprot Berhasil Disimpan!");
+}
+function prepareEditKerja(index) {
+    const currentGH = localStorage.getItem('active_gh');
+    const logs = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+    
+    // index di sini adalah originalIndex yang dikirim dari tombol ✏️ di renderLogs
+    const data = logs[index];
+
+    if (!data) {
+        console.error("Data tidak ditemukan pada indeks:", index);
+        return;
+    }
+
+    // Set state edit menggunakan indeks asli database
+    isEditMode = true;
+    editIdx = index; 
+    editType = 'kerja';
+
+    // 1. Isi field dasar (Tanggal, Jenis, Keterangan)
+    // Pastikan fungsi convertToInputDate Anda sudah benar (mengubah dd/mm/yyyy ke yyyy-mm-dd)
+    document.getElementById('kerja-tgl').value = convertToInputDate(data.tgl);
+    document.getElementById('kerja-jenis').value = data.jenis;
+    document.getElementById('kerja-ket').value = data.ket || "";
+
+    // 2. Reset semua checkbox dan input pekerja ke kondisi awal
+    const rows = document.querySelectorAll('.worker-item-row');
+    rows.forEach(row => {
+        row.querySelector('input[name="worker_choice"]').checked = false;
+        row.querySelector('.worker-duration').value = "1";
+        row.querySelector('.worker-overtime').value = "0";
+        row.querySelector('.worker-bonus').value = "0";
+    });
+
+    // 3. Parsing data nama untuk mencentang kembali pekerja yang bertugas
+    if (data.nama) {
+        const daftarPekerja = data.nama.split(", ");
+        
+        daftarPekerja.forEach(item => {
+            // REGEX IMPROVED: Menangani spasi dan angka desimal dengan lebih akurat
+            // Format yang dicari: Nama Pekerja (1H|L:0|B:0)
+            const match = item.match(/(.+?)\s*\(([\d.]+)H\|L:([\d.]+)\|B:([\d.]+)\)/);
+            
+            if (match) {
+                const namaSaved = match[1].trim();
+                const durasiSaved = match[2];
+                const lemburSaved = match[3];
+                const bonusSaved = match[4];
+
+                // Cari baris pekerja di UI yang namanya cocok
+                rows.forEach(row => {
+                    const cb = row.querySelector('input[name="worker_choice"]');
+                    if (cb.value.trim() === namaSaved) {
+                        cb.checked = true;
+                        row.querySelector('.worker-duration').value = durasiSaved;
+                        row.querySelector('.worker-overtime').value = lemburSaved;
+                        row.querySelector('.worker-bonus').value = bonusSaved;
+                    }
+                });
+            }
+        });
+    }
+
+    // 4. Ubah tampilan tombol simpan menjadi UPDATE
+    const btn = document.getElementById('btn-simpan-kerja');
+    if (btn) {
+        btn.innerText = "UPDATE AKTIVITAS";
+        btn.style.background = "#f39c12"; 
+    }
+    
+    // Scroll otomatis ke form input agar user tahu sedang mode edit
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+    
+function finishSave() {
+    updateUI(); 
+    renderLogs();
+    renderFinance();
+    alert("Data berhasil disimpan!");
+}
+
+function renderLogs() {
+    const currentGH = localStorage.getItem('active_gh');
+    let sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+    let kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+
+    const parseDate = (dateStr) => {
+        if(!dateStr) return 0;
+        const [day, month, year] = dateStr.split('/');
+        return new Date(year, month - 1, day).getTime();
+    };
+
+    // --- STRATEGI: Simpan Indeks Asli Sebelum Diurutkan ---
+    let sLogMapped = sLog.map((item, index) => ({ ...item, originalIndex: index }));
+    let kLogMapped = kLog.map((item, index) => ({ ...item, originalIndex: index }));
+
+    // Urutkan berdasarkan tanggal terbaru
+    sLogMapped.sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
+    kLogMapped.sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
+
+    // 1. Render Riwayat Semprot
+    document.getElementById('riwayat-semprot').innerHTML = sLogMapped.map((i) => `
+        <div class="history-card" style="position: relative; padding: 12px; border-bottom: 1px solid #eee;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <b style="font-size: 13px;">${i.tgl} (HST ${i.hst})</b>
+                <div style="display: flex; gap: 15px; align-items: center; margin-left: 10px;">
+                    <span onclick="prepareEditSemprot(${i.originalIndex})" style="cursor:pointer; font-size: 18px; color: #f39c12;">✏️</span>
+                    <span onclick="hapusItem('${currentGH}_logs', ${i.originalIndex})" style="cursor:pointer; font-size: 18px; color: #e74c3c;">🗑️</span>
+                </div>
+            </div>
+            <div style="margin-top: 5px; font-size: 11px; color: #444;">
+                🧪 ${i.nut || '-'} | 🕷️ ${i.ins || '-'} | 🍄 ${i.fun || '-'}
+            </div>
+            ${i.ket ? `<div style="font-size: 11px; color: #666; font-style: italic; margin-top: 5px;">Catatan: ${i.ket}</div>` : ''}
+            ${i.img ? `<div style="margin-top: 10px;"><img src="${i.img}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;"></div>` : ''}
+        </div>
+    `).join("");
+
+    checkLimit('riwayat-semprot', 'btn-semprot-more', sLogMapped.length);
+
+    // 2. Render Riwayat Kerja
+    document.getElementById('riwayat-kerja').innerHTML = kLogMapped.map((i) => `
+        <div class="history-card" style="border-left-color:#f39c12; position: relative; padding: 12px;">
+            <div style="display: flex; justify-content: space-between;">
+                <b>${i.tgl} (HST ${i.hst})</b>
+                <div style="display: flex; gap: 15px;">
+                    <span onclick="prepareEditKerja(${i.originalIndex})" style="cursor:pointer; font-size: 18px;">✏️</span>
+                    <span onclick="hapusItem('${currentGH}_kerja', ${i.originalIndex})" style="cursor:pointer; font-size: 18px;">🗑️</span>
+                </div>
+            </div>
+            <div style="margin-top: 5px;">🛠️ <b>${i.jenis}</b> | 👥 ${i.nama || '-'}</div>
+            ${i.ket ? `<div style="font-size:11px; color:#666; font-style:italic; margin-top:5px;">Ket: ${i.ket}</div>` : ''}
+        </div>
+    `).join("");
+
+    checkLimit('riwayat-kerja', 'btn-kerja-more', kLogMapped.length);
+}
+    function hitungAB() {
+        let l = document.getElementById('liter').value; let p = document.getElementById('ppm-now').value;
+        if(!targetPPM || !l) return alert("Isi data!");
+        let selisih = targetPPM - (p || 0);
+        document.getElementById('hasil-calc').innerText = selisih <= 0 ? "PPM CUKUP" : "A & B: " + ((selisih/1000)*5*l).toFixed(0) + " ml";
+    }
+
+    function hitungPH() {
+        let l = parseFloat(document.getElementById('liter').value);
+        let cur = parseFloat(document.getElementById('ph-now').value);
+        let kon = parseFloat(document.getElementById('ph-concentrate').value);
+        if(!l || !cur) return alert("Isi data!");
+        let diff = cur - targetPH;
+        let dosis = Math.abs(diff) * l * (kon === 0.5 ? 0.1 : 0.25);
+        document.getElementById('hasil-ph').innerText = diff > 0 ? `pH DOWN: ${dosis.toFixed(1)} ml` : `pH UP: ${dosis.toFixed(1)} ml`;
+    }
+
+    function openTab(evt, name) {
+        document.querySelectorAll(".tab-content").forEach(t => t.style.display = "none");
+        document.querySelectorAll(".nav-item").forEach(n => n.classList.remove("active"));
+        document.getElementById(name).style.display = "block"; evt.currentTarget.classList.add("active");
+    }
+
+    function initChart() {
+    const ctx = document.getElementById('ppmChart').getContext('2d');
+    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    
+    // Urutkan data riil berdasarkan HST
+    dailyLogs.sort((a, b) => a.hst - b.hst);
+
+    if(myChart) myChart.destroy();
+
+    // KUNCI PERBAIKAN: Gunakan label yang konsisten (Angka HST saja)
+    // Kita buat label dari H1 sampai H65 agar urut
+    const labels = Array.from({length: 65}, (_, i) => i + 1);
+
+    myChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels, 
+            datasets: [
+                {
+                    label: 'Target PPM',
+                    // Mapping data target agar berada di titik H yang sesuai
+                    data: labels.map(h => {
+                        let target = jadwal.find(j => h <= j.h);
+                        return target ? {x: h, y: target.p} : null;
+                    }),
+                    borderColor: '#2e7d32',
+                    borderDash: [5, 5],
+                    pointRadius: 0, // Sembunyikan titik target agar tidak ramai
+                    tension: 0.3,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Riil PPM',
+                    data: dailyLogs.map(l => ({x: l.hst, y: l.ppm})),
+                    backgroundColor: 'rgba(27, 94, 32, 0.2)',
+                    borderColor: '#1b5e20',
+                    fill: true,
+                    tension: 0.4,
+                    yAxisID: 'y'
+                },
+                {
+                    label: 'Target pH',
+                    data: labels.map(h => {
+                        let target = jadwal.find(j => h <= j.h);
+                        return target ? {x: h, y: target.ph} : null;
+                    }),
+                    borderColor: '#f39c12',
+                    borderDash: [2, 2],
+                    pointRadius: 0,
+                    tension: 0.3,
+                    yAxisID: 'y1'
+                },
+                {
+                    label: 'Riil pH',
+                    data: dailyLogs.map(l => ({x: l.hst, y: l.ph})),
+                    borderColor: '#e67e22',
+                    pointRadius: 4,
+                    tension: 0.4,
+                    yAxisID: 'y1'
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    title: { display: true, text: 'Hari Setelah Tanam (HST)', font: { size: 8 } },
+                    ticks: {
+                        // Hanya tampilkan label kelipatan 5 atau 10 agar tidak penuh
+                        callback: function(val, index) {
+                            return index % 2 === 0 ? this.getLabelForValue(val) : '';
+                        }
+                    }
+                },
+                y: {
+                    position: 'left',
+                    title: { display: true, text: 'PPM' }
+                },
+                y1: {
+                    position: 'right',
+                    min: 4, max: 8,
+                    grid: { drawOnChartArea: false },
+                    title: { display: true, text: 'pH' }
+                }
+            }
+        }
+    });
+}
+
+function toggleModal(s) { 
+    document.getElementById('modalMaster').style.display = s ? 'flex' : 'none'; 
+    if(s) renderMasterPekerja(); // Pastikan memanggil renderMasterPekerja, bukan renderWorkerMaster
+}
+    
+function addWorker() {
+    const nama = document.getElementById('new-worker-name').value.trim();
+    const gaji = parseFloat(document.getElementById('worker-salary').value) || 0;
+    const gajiTetap = parseFloat(document.getElementById('worker-fixed-salary').value) || 0;
+    const lembur = parseFloat(document.getElementById('worker-ot-rate').value) || 0;
+
+    if (nama === "") return alert("Nama pekerja harus diisi!");
+
+    let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    
+    // Gunakan 'gajiHarian' agar sinkron dengan fungsi hitungBiaya
+    w.push({ 
+        nama: nama, 
+        gajiHarian: gaji,
+        gajiTetap: gajiTetap,
+        tarifLembur: lembur 
+    });
+    
+    localStorage.setItem('master_pekerja_v2', JSON.stringify(w));
+
+    // Reset Form
+    document.getElementById('new-worker-name').value = "";
+    document.getElementById('worker-salary').value = "";
+    document.getElementById('worker-fixed-salary').value = "";
+    document.getElementById('worker-ot-rate').value = "";
+    
+    renderMasterPekerja();
+    if(typeof loadWorkerCheckboxes === "function") loadWorkerCheckboxes();
+}
+
+function renderMasterPekerja() {
+    let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    // Kompatibilitas data lama: tambahkan field gajiTetap jika belum ada.
+    let perluSimpan = false;
+    w = w.map(p => {
+        if (p.gajiTetap === undefined || p.gajiTetap === null) {
+            perluSimpan = true;
+            return { ...p, gajiTetap: 0 };
+        }
+        return p;
+    });
+    if (perluSimpan) localStorage.setItem('master_pekerja_v2', JSON.stringify(w));
+    let container = document.getElementById('worker-list-master');
+    
+    if (w.length === 0) {
+        container.innerHTML = "<div style='text-align:center; padding:20px; color:gray;'><small>Belum ada data pekerja.</small></div>";
+        return;
+    }
+
+    let html = `
+        <table style="width:100%; border-collapse:collapse; font-size:11px; text-align:left; background: white;">
+            <tr style="background:#f4f4f4; color: #333;">
+                <th style="padding:10px 5px; border-bottom:2px solid #ddd;">Nama</th>
+                <th style="padding:10px 5px; border-bottom:2px solid #ddd;">Gaji/H</th>
+                <th style="padding:10px 5px; border-bottom:2px solid #ddd;">Gaji Tetap</th>
+                <th style="padding:10px 5px; border-bottom:2px solid #ddd;">Lembur/J</th>
+                <th style="padding:10px 5px; border-bottom:2px solid #ddd; text-align:center;">Aksi</th>
+            </tr>`;
+            
+    w.forEach((x, index) => {
+        let gajiHarian = x.gajiHarian || x.gaji || 0;
+        let tarifLembur = x.tarifLembur || 0;
+        let gajiTetap = parseFloat(x.gajiTetap || 0);
+
+        html += `
+        <tr>
+            <td style="padding:10px 5px; border-bottom:1px solid #eee;"><b>${x.nama}</b></td>
+            <td style="padding:10px 5px; border-bottom:1px solid #eee;">Rp ${gajiHarian.toLocaleString()}</td>
+            <td style="padding:10px 5px; border-bottom:1px solid #eee;">Rp ${gajiTetap.toLocaleString()}</td>
+            <td style="padding:10px 5px; border-bottom:1px solid #eee;">Rp ${tarifLembur.toLocaleString()}</td>
+            <td style="padding:10px 5px; border-bottom:1px solid #eee; text-align:center; white-space:nowrap;">
+                <button onclick="editWorker(${index})" style="background:#fbc02d; color:black; border:none; border-radius:4px; padding:5px 8px; cursor:pointer; font-size:10px; margin-right:4px;">EDIT</button>
+                <button onclick="removeWorker(${index})" style="background:#e53935; color:white; border:none; border-radius:4px; padding:5px 8px; cursor:pointer; font-size:10px;">HAPUS</button>
+            </td>
+        </tr>`;
+    });
+    
+    html += `</table>`;
+    container.innerHTML = html;
+}
+
+function renderWorkerMaster() {
+    let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    // Perhatikan bagian x.nama di bawah ini, bukan hanya x
+    document.getElementById('worker-list-master').innerHTML = w.map((x, i) => `
+        <div style="display:flex; justify-content:space-between; padding:8px; border-bottom:1px solid #eee; font-size:12px;">
+            <span>${x.nama} (Harian: Rp ${parseFloat(x.gajiHarian ?? x.gaji ?? 0).toLocaleString()} | Tetap: Rp ${parseFloat(x.gajiTetap || 0).toLocaleString()})</span>
+            <span onclick="removeWorker(${i})" style="color:red; cursor:pointer; font-weight:bold;">✖</span>
+        </div>`).join("");
+}
+
+    function removeWorker(i) {
+        let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]"); w.splice(i, 1);
+        localStorage.setItem('master_pekerja_v2', JSON.stringify(w)); renderMasterPekerja(); loadWorkerCheckboxes();
+    }
+function loadWorkerCheckboxes() {
+    let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    let container = document.getElementById('worker-checkbox-list');
+    
+    if (w.length === 0) {
+        container.innerHTML = "<small style='color:red;'>Belum ada master pekerja. Tambah di menu Pekerja.</small>";
+        return;
+    }
+
+    let opt = w.map(x => `<option value="${x.nama}">${x.nama}</option>`).join("");
+    document.getElementById('nama-kasbon-select').innerHTML = `<option value="">-- Pilih Pekerja --</option>` + opt;
+    document.getElementById('select-slip-pekerja').innerHTML = `<option value="">-- Pilih Pekerja --</option>` + opt;
+
+    // Render baris pekerja dengan layout flex sejajar
+    container.innerHTML = w.map(x => `
+    <div class="worker-item-row" style="display:flex; align-items:center; gap:5px; margin-bottom:8px; background:#fff; padding:0px 8px 8px 8px; border-radius:8px; border:1px solid #eee; justify-content: space-between;">
+        
+        <div style="display:flex; align-items:center; gap:8px; flex: 1; min-width: 80px; padding-top: 3px;">
+            <input type="checkbox" name="worker_choice" value="${x.nama}" data-gaji="${x.gajiHarian ?? x.gaji ?? 0}" style="width:18px; height:18px; margin:0;">
+            <span style="font-size:12px; font-weight:bold; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${x.nama}</span>
+        </div>
+        
+        <div style="display:flex; gap:3px; align-items: flex-end;">
+            <div style="width:50px;">
+                <label style="font-size:8px; color:#666; display:block; margin-bottom:0px; line-height:1; padding-top: 2px;">DURASI</label>
+                <select class="worker-duration" style="width:100%; padding:2px; font-size:11px; border:1px solid #2e7d32; border-radius:4px; background: #f0fdf4; height: 24px;">
+                    <option value="1">1H</option>
+                    <option value="0.5">0.5H</option>
+                </select>
+            </div>
+            
+            <div style="width:50px;">
+                <label style="font-size:8px; color:#666; display:block; margin-bottom:0px; line-height:1; padding-top: 2px;">LEMBUR</label>
+                <input type="number" class="worker-overtime" placeholder="Jm" style="width:100%; font-size:11px; padding:2px 4px; border:1px solid #ccc; border-radius:4px; height: 24px;">
+            </div>
+
+            <div style="width:90px;">
+                <label style="font-size:8px; color:#666; display:block; margin-bottom:0px; line-height:1; padding-top: 2px;">BONUS</label>
+                <input type="number" class="worker-bonus" placeholder="Rp" style="width:100%; font-size:11px; padding:2px 4px; border:1px solid #ccc; border-radius:4px; height: 24px;">
+            </div>
+        </div>
+    </div>
+`).join("");
+}
+
+    // Fungsi Hapus untuk Log Semprot dan Log Kerja
+function hapusItem(key, index) {
+    if(confirm("Hapus data ini?")) {
+        let data = JSON.parse(localStorage.getItem(key) || "[]");
+        let itemDihapus = data[index];
+        if (!itemDihapus) {
+            alert("Data tidak ditemukan.");
+            return;
+        }
+
+        // Jika Pindah Tanam dihapus, reset periode.
+        if(itemDihapus.jenis === "Pindah Tanam") {
+            if(confirm("Anda menghapus data 'Pindah Tanam'. Reset HST menjadi 0/Belum Tanam?")) {
+                localStorage.removeItem(currentGH + '_tgl_tanam');
+                localStorage.removeItem(currentGH + '_tgl_panen');
+            }
+        }
+
+        // Jika Panen dihapus, ambil kembali Panen paling awal yang tersisa.
+        if(key === currentGH + '_kerja' && itemDihapus.jenis === "Panen") {
+            const panenTersisa = data.filter(x => x.jenis === "Panen" && x.tgl)
+                .map(x => {
+                    const p = x.tgl.split('/');
+                    return p.length === 3 ? `${p[2]}-${p[1]}-${p[0]}` : x.tgl;
+                }).sort();
+            if (panenTersisa.length) localStorage.setItem(currentGH + '_tgl_panen', panenTersisa[0]);
+            else localStorage.removeItem(currentGH + '_tgl_panen');
+        }
+
+        /*
+         * KHUSUS RIWAYAT KERJA:
+         * Saat aktivitas dihapus, Akumulasi Gaji harus ikut disesuaikan.
+         * - Gaji harian + lembur + bonus aktivitas yang dihapus dikurangi.
+         * - Gaji tetap dikurangi HANYA jika pekerja tersebut sudah tidak memiliki
+         *   aktivitas kerja lain pada periode aktif.
+         * Dengan cara ini gaji tetap tidak pernah terhitung ganda.
+         */
+        if (key === currentGH + '_kerja') {
+            const activeData = getActiveData();
+            if (!Array.isArray(activeData.gajiTetapSudahMasuk)) {
+                activeData.gajiTetapSudahMasuk = [];
+            }
+
+            const normalisasiNama = (nama) => String(nama || '').trim().toLowerCase();
+            const masterPekerja = JSON.parse(localStorage.getItem('master_pekerja_v2') || '[]');
+
+            // Kurangi seluruh komponen gaji aktivitas yang benar-benar berasal
+            // dari riwayat kerja yang akan dihapus.
+            let pengurangAkumulasi = hitungBiayaDariString(itemDihapus.nama || '');
+
+            // Ambil nama pekerja dari format: Nama (1H|L:0|B:0), Nama2 (...)
+            const pekerjaDihapus = [];
+            const daftarDetail = String(itemDihapus.nama || '').split(', ');
+            daftarDetail.forEach(detail => {
+                const match = detail.match(/^(.+?)\s*\(/);
+                if (match) pekerjaDihapus.push(match[1].trim());
+            });
+
+            // Hapus dulu dari array agar pengecekan aktivitas tersisa akurat.
+            data.splice(index, 1);
+
+            pekerjaDihapus.forEach(namaPekerja => {
+                const namaNormal = normalisasiNama(namaPekerja);
+
+                // Cek apakah pekerja masih muncul di aktivitas lain.
+                const masihAdaAktivitas = data.some(log => {
+                    const daftar = String(log.nama || '').split(', ');
+                    return daftar.some(detail => {
+                        const match = detail.match(/^(.+?)\s*\(/);
+                        return match && normalisasiNama(match[1]) === namaNormal;
+                    });
+                });
+
+                // Jika tidak ada aktivitas lagi, berarti ini adalah aktivitas
+                // terakhir pekerja pada periode ini. Hapus penanda dan kurangi
+                // gaji tetap yang sebelumnya hanya dimasukkan satu kali.
+                if (!masihAdaAktivitas) {
+                    const idxPenanda = activeData.gajiTetapSudahMasuk.findIndex(
+                        nama => normalisasiNama(nama) === namaNormal
+                    );
+
+                    if (idxPenanda !== -1) {
+                        const dataMaster = masterPekerja.find(
+                            p => normalisasiNama(p.nama) === namaNormal
+                        );
+                        const gajiTetap = dataMaster ? parseFloat(dataMaster.gajiTetap || 0) : 0;
+                        pengurangAkumulasi += Math.max(0, gajiTetap);
+                        activeData.gajiTetapSudahMasuk.splice(idxPenanda, 1);
+                    }
+                }
+            });
+
+            activeData.akumulasiGaji = Math.max(0,
+                (parseFloat(activeData.akumulasiGaji) || 0) - pengurangAkumulasi
+            );
+            saveActiveData(activeData);
+            localStorage.setItem(key, JSON.stringify(data));
+        } else {
+            data.splice(index, 1);
+            localStorage.setItem(key, JSON.stringify(data));
+        }
+        
+        // Refresh semua tampilan
+        renderLogs();
+        updateUI(); 
+    }
+}
+
+function prepareEditSemprot(index) {
+    const logs = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+    const d = logs[index];
+
+    isEditMode = true;
+    editIdx = index;
+    editType = 'semprot';
+    tempEditImg = d.img || ""; // Simpan string foto lama
+
+    // 1. Isi Tanggal & Form Obat
+    document.getElementById('semprot-tgl').value = convertToInputDate(d.tgl);
+    
+    const parseField = (str) => {
+        const val = str.split(' (')[0] || "";
+        const dos = str.includes('(') ? str.split('(')[1].replace(')', '') : "";
+        return { val, dos };
+    };
+
+    const ins = parseField(d.ins);
+    document.getElementById('ins-nama').value = ins.val;
+    document.getElementById('ins-dosis').value = ins.dos;
+
+    const fun = parseField(d.fun);
+    document.getElementById('fun-nama').value = fun.val;
+    document.getElementById('fun-dosis').value = fun.dos;
+
+    const nut = parseField(d.nut);
+    document.getElementById('nut-nama').value = nut.val;
+    document.getElementById('nut-dosis').value = nut.dos;
+
+    document.getElementById('semprot-ket').value = d.ket || "";
+
+    // 2. Tampilkan Foto di Area Preview
+    const previewContainer = document.getElementById('preview-semprot-edit');
+    if (d.img) {
+        previewContainer.innerHTML = `
+            <div style="margin-top: 10px; padding: 10px; border: 1px dashed #ccc; border-radius: 8px; text-align: center; background: #f9f9f9;">
+                <p style="font-size: 11px; color: #666; margin-bottom: 5px;">📸 Foto saat ini:</p>
+                <img src="${d.img}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 2px solid #2e7d32;">
+                <p style="font-size: 10px; color: #e67e22; margin-top: 5px;">*Pilih file baru jika ingin mengganti foto ini</p>
+            </div>`;
+    } else {
+        previewContainer.innerHTML = `<p style="font-size: 11px; color: #999; margin-top:10px;">(Tidak ada foto sebelumnya)</p>`;
+    }
+
+    // 3. Ubah Tombol Simpan
+    const btn = document.getElementById('btn-simpan-semprot');
+    if (btn) {
+        btn.innerText = "UPDATE DATA SEMPROT";
+        btn.style.background = "#f39c12"; // Warna oranye saat mode edit
+    } else {
+        console.error("Error: Tombol dengan ID 'btn-simpan-semprot' tidak ditemukan!");
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+    
+let editMode = false;
+let editTargetIndex = null;
+let editTargetType = null; // 'jual' atau 'biaya'
+
+function editFinance(tipe, idx) {
+    let d = getActiveData();
+    let item = (tipe === 'jual') ? d.jual[idx] : d.biaya[idx];
+
+    // 1. Aktifkan Mode Edit
+    isEditMode = true;
+    editIdx = idx;
+    editType = tipe;
+
+    // 2. Lempar data ke Form
+    document.getElementById('f-tgl').value = convertToInputDate(item.tgl) || item.tgl;
+    
+    if (tipe === 'jual') {
+        document.getElementById('s-grade').value = item.g;
+        document.getElementById('s-berat').value = item.b;
+        document.getElementById('s-harga').value = item.h;
+    } else {
+        document.getElementById('f-kat').value = item.k;
+        document.getElementById('f-qty').value = item.q;
+        document.getElementById('f-harga').value = item.h;
+        document.getElementById('f-ket').value = item.ket || "";
+    }
+
+    // 3. Ubah teks tombol sebagai penanda
+    const btnId = (tipe === 'jual') ? 'btn-simpan-jual' : 'btn-simpan-biaya';
+    const btn = document.getElementById(btnId);
+    if(btn) {
+        btn.innerText = "UPDATE DATA (MENIMPA)";
+        btn.style.background = "#f39c12"; // Oranye agar mencolok
+    }
+
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// Fungsi Hapus untuk Transaksi Keuangan
+window.hapusFinance = function(tipe, index) {
+    if(confirm("Hapus transaksi ini?")) {
+        let d = getActiveData();
+        
+        if(tipe === 'jual') {
+            d.jual.splice(index, 1);
+        } else {
+            let itemDihapus = d.biaya[index];
+            if (!itemDihapus) return;
+
+            // 1. LOGIKA UNTUK PELUNASAN GAJI
+            if (itemDihapus.k === "PELUNASAN GAJI PERIODE") {
+                if (confirm("Anda menghapus pelunasan gaji. Kembalikan nominal ini ke Akumulasi Gaji?")) {
+                    d.akumulasiGaji = (parseFloat(d.akumulasiGaji) || 0) + parseFloat(itemDihapus.total);
+                }
+            }
+            
+// 2. LOGIKA UNTUK KASBON (DITAMBAHKAN VALIDASI NAMA)
+if (itemDihapus.k === "KASBON PEKERJA") {
+    // Ambil nama pekerja dari catatan/keterangan (asumsi itemDihapus.ket berisi nama)
+    // Atau sesuaikan dengan field di mana Anda menyimpan nama pekerja pada log biaya
+    let namaTarget = itemDihapus.namaPekerja || (itemDihapus.ket || "").replace(/^Kasbon:\s*/i, "").trim(); 
+
+    let idxKasbon = (d.detailKasbon || []).findIndex(k => 
+        k.nama === namaTarget && // Cocokkan nama agar tidak salah hapus orang
+        Math.abs(parseFloat(k.nominal) - parseFloat(itemDihapus.total)) < 1 && 
+        k.tgl === itemDihapus.tgl
+    );
+    
+    if (idxKasbon !== -1) {
+        // Kurangi totalKasbon agar Sisa Bayar di Dashboard otomatis naik
+        d.totalKasbon = Math.max(0, (parseFloat(d.totalKasbon) || 0) - parseFloat(itemDihapus.total));
+        // Hapus dari daftar detail kasbon
+        d.detailKasbon.splice(idxKasbon, 1);
+    }
+}
+            
+            d.biaya.splice(index, 1);
+        }
+        
+        saveActiveData(d);
+        renderFinance();
+        alert("Transaksi berhasil dihapus dan saldo disesuaikan.");
+    }
+}
+function lihatDetailArsip(index) {
+    let hist = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+    let data = hist[index];
+    
+    // Kita susun ringkasan aktivitas dalam format teks agar mudah dibaca
+    let detailMsg = `DETAIL PERIODE: ${data.v}\n`;
+    detailMsg += `---------------------------\n`;
+    detailMsg += `Populasi: ${data.pop} pohon\n`;
+    detailMsg += `Total Biaya: Rp ${(data.biaya || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n`;
+    detailMsg += `Total Jual: Rp ${(data.jual || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n\n`;
+    
+    detailMsg += `Ingin melihat detail lengkap aktivitas? \nSilakan gunakan fitur 'Download Laporan' saat periode ini sedang aktif.`;
+
+    alert(detailMsg);
+    
+    // Alternatif: Tampilkan di Console Log untuk pengembang
+    console.log("Data Lengkap Arsip:", data);
+}
+    
+// Fungsi mengekspor seluruh isi LocalStorage ke file JSON
+function exportData() {
+    try {
+        const activeData = getActiveData();
+        const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+        const sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+        const kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+
+        dailyLogs.sort((a, b) => a.hst - b.hst);
+
+        const wb = XLSX.utils.book_new();
+
+        // --- SHEET 1: RINGKASAN ---
+        const terakhir = dailyLogs.length > 0 ? dailyLogs[dailyLogs.length - 1] : { hst: "-", ppm: "-", ph: "-" };
+        const summaryData = [
+            ["LAPORAN RINGKASAN PRODUKSI MELON", ""],
+            ["Nama GreenHouse", currentGH],
+            ["Varietas Tanam", activeData.v],
+            ["Populasi", activeData.pop + " Pohon"],
+            ["Tanggal Laporan", new Date().toLocaleString('id-ID')],
+            ["", ""],
+            ["STATUS TERAKHIR", ""],
+            ["HST Terakhir", terakhir.hst],
+            ["PPM Terakhir", terakhir.ppm],
+            ["pH Terakhir", terakhir.ph]
+        ];
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(summaryData), "Ringkasan");
+
+        // --- SHEET 2: NUTRISI ---
+        const nutrisiExcel = dailyLogs.map(x => ({
+            "HST": x.hst,
+            "TANGGAL": x.tgl,
+            "AIR(LITER)": x.liter,
+            "PPM RIIL": x.ppm,
+            "PH RIIL": x.ph
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(nutrisiExcel), "Nutrisi_Harian");
+
+        // --- SHEET 3: PENYEMPROTAN ---
+        const semprotExcel = sLog.map(x => ({
+            "HST": x.hst,
+            "TANGGAL": x.tgl,
+            "INSEKTISIDA": x.ins,
+            "FUNGISIDA": x.fun,
+            "NUTRISI": x.nut
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(semprotExcel), "Log_Semprot");
+
+        // --- SHEET 4: AKTIVITAS KERJA (Penyesuaian Urutan) ---
+        const kerjaExcel = kLog.map(x => ({
+            "HST": x.hst,
+            "TANGGAL": x.tgl,
+            "JENIS PEKERJAAN": x.jenis,
+            "CATATAN/KETERANGAN": x.ket || "-",
+            "NAMA PEKERJA": x.nama
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(kerjaExcel), "Log_Kerja");
+
+        // --- SHEET 5: KEUANGAN (Penyesuaian Kolom Keterangan) ---
+        let finData = [];
+        let totalJual = 0;
+        let totalBiaya = 0;
+
+        (activeData.jual || []).forEach(x => {
+            finData.push({ 
+                "TANGGAL": x.tgl, 
+                "TIPE": "MASUK (JUAL)", 
+                "NO TRANSAKSI": "-",
+                "KATEGORI": x.g, 
+                "KETERANGAN": "-", 
+                "QTY": x.b ?? 0,
+                "HARGA SATUAN": x.h ?? 0,
+                "TOTAL": x.total 
+            });
+            totalJual += x.total;
+        });
+        (activeData.biaya || []).forEach(x => {
+            finData.push({ 
+                "TANGGAL": x.tgl, 
+                "TIPE": "KELUAR (BIAYA)", 
+                "NO TRANSAKSI": x.noTransaksi || "-",
+                "KATEGORI": x.k, 
+                "KETERANGAN": x.ket || "-", 
+                "QTY": x.q ?? 0,
+                "HARGA SATUAN": x.h ?? 0,
+                "TOTAL": x.total 
+            });
+            totalBiaya += x.total;
+        });
+
+        const ws_finance = XLSX.utils.json_to_sheet(finData);
+        XLSX.utils.sheet_add_aoa(ws_finance, [
+            [],
+            ["", "", "TOTAL PENJUALAN", "", totalJual],
+            ["", "", "TOTAL BIAYA", "", totalBiaya],
+            ["", "", "LABA / RUGI BERSIH", "", totalJual - totalBiaya]
+        ], { origin: -1 });
+        XLSX.utils.book_append_sheet(wb, ws_finance, "Keuangan");
+
+        // --- SHEET 6: LAPORAN ARUS KAS ---
+        const saldoAwalKas = parseFloat(activeData.saldoAwal) || 0;
+        const arusKas = [
+            ...(activeData.jual || []).map(x => ({
+                "TANGGAL": x.tgl,
+                "JENIS ARUS": "MASUK",
+                "SUMBER/KEGIATAN": "Penjualan - " + (x.g || "-"),
+                "NO TRANSAKSI": "-",
+                "KETERANGAN": "-",
+                "MASUK": x.total || 0,
+                "KELUAR": 0
+            })),
+            ...(activeData.biaya || []).map(x => ({
+                "TANGGAL": x.tgl,
+                "JENIS ARUS": "KELUAR",
+                "SUMBER/KEGIATAN": "Biaya - " + (x.k || "-"),
+                "NO TRANSAKSI": x.noTransaksi || "-",
+                "KETERANGAN": x.ket || "-",
+                "MASUK": 0,
+                "KELUAR": x.total || 0
+            })),
+            ...(activeData.dana || []).map(x => ({
+                "TANGGAL": x.tgl,
+                "JENIS ARUS": x.arah === "out" ? "KELUAR" : "MASUK",
+                "SUMBER/KEGIATAN": x.jenis || "Pendanaan",
+                "NO TRANSAKSI": "-",
+                "KETERANGAN": x.ket || "-",
+                "MASUK": x.arah === "in" ? (parseFloat(x.nominal) || 0) : 0,
+                "KELUAR": x.arah === "out" ? (parseFloat(x.nominal) || 0) : 0
+            }))
+        ];
+
+        const parseArusTanggal = (v) => {
+            if (!v) return new Date(0);
+            if (String(v).includes("-")) {
+                const a = String(v).split("-");
+                return new Date(a[0], a[1]-1, a[2]);
+            }
+            const a = String(v).split("/");
+            return new Date(a[2], a[1]-1, a[0]);
+        };
+        arusKas.sort((a,b) => parseArusTanggal(a["TANGGAL"]) - parseArusTanggal(b["TANGGAL"]));
+
+        let saldoBerjalan = saldoAwalKas;
+        const arusKasExcel = [
+            {
+                "TANGGAL": "-",
+                "JENIS ARUS": "SALDO AWAL",
+                "SUMBER/KEGIATAN": "Saldo awal kas periode",
+                "NO TRANSAKSI": "-",
+                "KETERANGAN": "-",
+                "MASUK": saldoAwalKas,
+                "KELUAR": 0,
+                "SALDO": saldoBerjalan
+            }
+        ];
+        arusKas.forEach(x => {
+            saldoBerjalan += (x["MASUK"] || 0) - (x["KELUAR"] || 0);
+            arusKasExcel.push({...x, "SALDO": saldoBerjalan});
+        });
+
+        const totalKasMasuk = arusKas.reduce((a,x)=>a+(x["MASUK"]||0),0);
+        const totalKasKeluar = arusKas.reduce((a,x)=>a+(x["KELUAR"]||0),0);
+        const ws_arus = XLSX.utils.json_to_sheet(arusKasExcel);
+        XLSX.utils.sheet_add_aoa(ws_arus, [
+            [],
+            ["RINGKASAN ARUS KAS", "", "", "", "", "", "", ""],
+            ["Saldo Awal", saldoAwalKas],
+            ["Total Uang Masuk", totalKasMasuk],
+            ["Total Uang Keluar", totalKasKeluar],
+            ["Saldo Kas Akhir", saldoBerjalan]
+        ], { origin: -1 });
+        XLSX.utils.book_append_sheet(wb, ws_arus, "Laporan_Arus_Kas");
+
+        // --- DOWNLOAD ---
+        const fileName = `LAPORAN_MELON_${currentGH}_${new Date().toISOString().split('T')[0]}.xlsx`;
+        XLSX.writeFile(wb, fileName);
+
+        alert("Download Data Laporan Excel");
+    } catch (err) {
+        alert("Gagal export Excel: " + err.message);
+    }
+}
+    
+function importData() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            try {
+                const content = JSON.parse(event.target.result);
+                if (confirm("Timpa semua data dengan file backup ini?")) {
+                    // Masukkan data ke LocalStorage
+                    Object.keys(content).forEach(key => {
+                        localStorage.setItem(key, content[key]);
+                    });
+                    alert("✅ Restore Berhasil! Aplikasi akan memuat ulang.");
+                    window.location.reload();
+                }
+            } catch (err) {
+                alert("❌ File rusak atau bukan format JSON yang benar!");
+            }
+        };
+        // Baris ini harus ada agar file dibaca sebagai teks
+        reader.readAsText(file);
+    };
+    input.click();
+}
+
+function simpanNutrisiRiil() {
+    const inputPPM = document.getElementById('ppm-now');
+    const inputPH = document.getElementById('ph-now');
+    const inputLiters = document.getElementById('liter');
+    const inputTgl = document.getElementById('tgl-nutrisi-input');
+
+    if (!inputLiters.value || !inputPPM.value || !inputPH.value || !inputTgl.value) {
+        return alert("Mohon isi semua data!");
+    }
+
+    const savedDate = localStorage.getItem(currentGH + '_tgl_tanam');
+    if (!savedDate) {
+        return alert("Belum ada tanggal pindah tanam. Simpan aktivitas 'Pindah Tanam' terlebih dahulu.");
+    }
+    const dTanam = new Date(savedDate + 'T00:00:00').getTime();
+    const dInput = new Date(inputTgl.value + 'T00:00:00').getTime();
+    const hst = Math.floor((dInput - dTanam) / (1000 * 60 * 60 * 24)) + 1;
+
+    let dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+
+    let record = {
+        hst: hst,
+        tgl: new Date(inputTgl.value).toLocaleDateString('id-ID'),
+        liter: parseFloat(inputLiters.value),
+        ppm: parseFloat(inputPPM.value),
+        ph: parseFloat(inputPH.value)
+    };
+
+    // LOGIKA EDIT VS SIMPAN BARU
+    if (typeof isEditMode !== 'undefined' && isEditMode && editType === 'nutrisi') {
+        // Jika sedang mode edit, timpa data pada index yang sedang diedit
+        dailyLogs[editIdx] = record;
+        isEditMode = false; // Kembalikan ke mode normal
+        editIdx = null;
+    } else {
+        // Jika simpan baru, cek apakah HST sudah ada
+        let index = dailyLogs.findIndex(l => l.hst === hst);
+        if (index > -1) {
+            if(!confirm(`Data HST ${hst} sudah ada. Ingin menimpa data lama?`)) return;
+            dailyLogs[index] = record;
+        } else {
+            dailyLogs.push(record);
+        }
+    }
+
+    dailyLogs.sort((a, b) => a.hst - b.hst);
+    localStorage.setItem(currentGH + '_daily_records', JSON.stringify(dailyLogs));
+
+    // Reset Form
+    inputPPM.value = "";
+    inputPH.value = "";
+    inputLiters.value = "";
+
+    alert("Data Berhasil Diperbarui!");
+    
+    // --- INI KUNCINYA AGAR TABEL UPDATE OTOMATIS ---
+    renderRekapNutrisi(); 
+    
+    if (typeof initChart === "function") initChart();
+}
+
+function bersihkanSemuaRiwayat() {
+    if(confirm("Hapus seluruh riwayat periode sebelumnya di Greenhouse ini? Tindakan ini tidak bisa dibatalkan.")) {
+        localStorage.removeItem(currentGH + '_history_periods');
+        renderFinance();
+    }
+}
+ function hapusRiwayatPeriode(index) {
+    if(confirm("Apakah Anda yakin ingin menghapus riwayat periode ini secara permanen?")) {
+        let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+        history.splice(index, 1);
+        localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
+        renderFinance(); // Refresh tampilan
+    }
+}
+function postingGajiKeBiaya() {
+    let data = getActiveData();
+    let totalGajiGross = data.akumulasiGaji || 0;
+    let totalKasbon = data.totalKasbon || 0;
+    
+    // Perhitungan Gaji Bersih (Kekurangan yang harus dibayar)
+    let gajiBersih = totalGajiGross - totalKasbon;
+
+    if (gajiBersih <= 0 && totalGajiGross > 0) {
+        return alert("Gaji sudah habis terpotong kasbon. Tidak ada sisa yang perlu diposting.");
+    }
+    
+    if (totalGajiGross <= 0) {
+        return alert("Belum ada akumulasi gaji untuk diposting.");
+    }
+
+    if (confirm(`Total Gaji Kotor: Rp ${totalGajiGross.toLocaleString()}\nTotal Kasbon: Rp ${totalKasbon.toLocaleString()}\n\nPosting SISA GAJI sebesar Rp ${gajiBersih.toLocaleString()} ke pengeluaran periode ini?`)) {
+        
+        // 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
+        let tglManual = document.getElementById('f-tgl').value;
+        let tgl = tglManual || new Date().toISOString().split('T')[0];
+        data.biaya.unshift({
+            tgl: tgl,
+            k: "PELUNASAN GAJI PERIODE",
+            q: 1,
+            h: gajiBersih,
+            total: gajiBersih,
+            ket: "Gaji bersih setelah potong kasbon"
+        });
+
+        // 2. Reset kantung akumulasi gaji dan kasbon karena sudah dianggap lunas/selesai
+        data.akumulasiGaji = 0;
+        data.totalKasbon = 0;
+        data.detailKasbon = []; // Bersihkan riwayat kasbon agar tidak double di periode ini
+
+        saveActiveData(data);
+        renderFinance();
+        alert("Sisa gaji berhasil diposting ke laporan keuangan!");
+    }
+}
+
+function catatKasbon() {
+    let nama = document.getElementById('nama-kasbon-select').value;
+    let nominalInput = document.getElementById('nominal-kasbon').value;
+    let nominal = parseFloat(nominalInput) || 0;
+    
+    if(!nama) return alert("Pilih nama pekerja!");
+    if(!nominal || nominal <= 0) return alert("Masukkan nominal kasbon!");
+
+    if(confirm(`Catat kasbon ${nama} sebesar Rp ${nominal.toLocaleString()}?`)) {
+        let data = getActiveData();
+        // Gunakan format YYYY-MM-DD agar fungsi parseDate di renderFinance tidak error
+        let tglManual = document.getElementById('f-tgl').value;
+        let tgl = tglManual || new Date().toISOString().split('T')[0];
+
+        // 1. Simpan ke daftar biaya riil (Keuangan)
+        // PENTING: Kategori harus "KASBON PEKERJA" agar bisa dideteksi fungsi hapus
+        data.biaya.unshift({
+            tgl: tgl,
+            k: "KASBON PEKERJA", 
+            q: 1,
+            h: nominal,
+            total: nominal,
+            ket: "Kasbon: " + nama,
+            namaPekerja: nama
+        });
+
+        // 2. Simpan ke database kasbon internal periode ini
+        if(!data.detailKasbon) data.detailKasbon = [];
+        
+        data.detailKasbon.push({ 
+            nama: nama, 
+            nominal: nominal, 
+            tgl: tgl 
+        });
+        
+        // Update Total Kasbon (Dashboard)
+        data.totalKasbon = (parseFloat(data.totalKasbon) || 0) + nominal;
+
+        saveActiveData(data);
+        
+        // Bersihkan input & Update tampilan
+        document.getElementById('nominal-kasbon').value = "";
+        renderFinance();
+        alert(`Kasbon ${nama} sebesar Rp ${nominal.toLocaleString()} berhasil dicatat!`);
+    }
+}
+function backupDataJSON() {
+    const allData = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        allData[key] = localStorage.getItem(key);
+    }
+    
+    // Gunakan Blob agar file tidak rusak
+    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    
+    const tgl = new Date().toISOString().split('T')[0];
+    const dlAnchor = document.createElement('a');
+    dlAnchor.href = url;
+    dlAnchor.download = `BACKUP_MELON_ALL_DATA_${tgl}.json`;
+    
+    document.body.appendChild(dlAnchor);
+    dlAnchor.click();
+    document.body.removeChild(dlAnchor);
+    URL.revokeObjectURL(url);
+}
+
+async function exportPDF() {
+    if (!window.jspdf || !window.jspdf.jsPDF) {
+        return alert("Library PDF belum berhasil dimuat. Periksa koneksi internet lalu coba lagi.");
+    }
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    const d = getActiveData();
+    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    const sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+    const kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+
+    // --- FUNGSI PEMBANTU ---
+    const parseDate = (dateStr) => {
+        if(!dateStr) return new Date(0);
+        const sep = dateStr.includes('-') ? '-' : '/';
+        const p = dateStr.split(sep);
+        return sep === '-' ? new Date(p[0], p[1]-1, p[2]) : new Date(p[2], p[1]-1, p[0]);
+    };
+
+    const formatIndo = (dateStr) => {
+        const dObj = (dateStr instanceof Date) ? dateStr : parseDate(dateStr);
+        if (dObj.getTime() <= 0) return "-";
+        const dd = String(dObj.getDate()).padStart(2, '0');
+        const mm = String(dObj.getMonth() + 1).padStart(2, '0');
+        const yyyy = dObj.getFullYear();
+        return `${dd}-${mm}-${yyyy}`;
+    };
+
+    // --- LOGIKA PERIODE OTOMATIS ---
+    let tglMulai = "-";
+    let tglSelesai = formatIndo(new Date()); // Default sampai hari ini
+
+    // 1. Ambil tanggal awal dari log kerja (kLog)
+    if (kLog && kLog.length > 0) {
+        let sortedK = [...kLog].sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
+        tglMulai = formatIndo(sortedK[0].tgl);
+    }
+
+    // 2. Ambil tanggal akhir dari posting gaji terakhir di riwayat biaya
+    if (d.biaya && d.biaya.length > 0) {
+        let postingGaji = d.biaya
+            .filter(item => item.k === "PELUNASAN GAJI PERIODE")
+            .sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
+        
+        if (postingGaji.length > 0) {
+            tglSelesai = formatIndo(postingGaji[0].tgl);
+        }
+    }
+    
+    const periodeDisplay = `${tglMulai} s/d ${tglSelesai}`;
+
+    // --- HEADER LAPORAN ---
+    doc.setFontSize(22);
+    doc.setTextColor(27, 94, 32);
+    doc.text("LAPORAN PRODUKSI MELON", 14, 25);
+    
+    doc.setFontSize(14);
+    doc.setTextColor(0, 0, 0);
+    doc.text(`Greenhouse: ${currentGH}`, 14, 35);
+    
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Varietas: ${d.v} | Populasi: ${d.pop} Pohon`, 14, 42);
+    
+    // MENAMPILKAN PERIODE OTOMATIS
+    doc.setFont(undefined, 'bold');
+    doc.text("Periode Laporan: " + periodeDisplay, 14, 48);
+    doc.setFont(undefined, 'normal');
+    // --- 1. Tabel Nutrisi ---
+    doc.setFontSize(12);
+    doc.setFont(undefined, 'bold');
+    doc.text("1. Rekap Nutrisi Harian", 14, 60);
+    doc.autoTable({
+        startY: 63,
+        head: [['HST', 'Tanggal', 'Air(Liter)', 'PPM Riil', 'pH Riil']],
+        body: dailyLogs.sort((a,b) => a.hst - b.hst).map(x => [x.hst, formatIndo(x.tgl), x.liter, x.ppm, x.ph]),
+        headStyles: { fillColor: [46, 125, 50] }
+    });
+
+// --- 2. Tabel Penyemprotan ---
+    doc.addPage();
+    doc.text("2. Log Penyemprotan", 14, 20);
+    
+    // Siapkan data yang sudah disortir terlebih dahulu agar konsisten
+    const sortedSLog = sLog.sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
+
+    doc.autoTable({
+        startY: 25,
+        head: [['HST', 'Tanggal', 'Produk (I|F|N)', 'Keterangan', 'Foto']],
+        body: sortedSLog.map(x => [
+            x.hst, 
+            formatIndo(x.tgl), 
+            `${x.ins || ''}\n${x.fun || ''}\n${x.nut || ''}`, 
+            x.ket || "-", 
+            "" // Kolom kosong untuk tempat foto
+        ]),
+        headStyles: { fillColor: [46, 125, 50] },
+        columnStyles: { 
+            3: { cellWidth: 40 }, 
+            4: { cellWidth: 30, minCellHeight: 22 } 
+        },
+        didDrawCell: function(data) {
+            // Pastikan kita berada di kolom ke-5 (index 4) dan bagian body
+            if (data.column.index === 4 && data.cell.section === 'body') {
+                // Ambil data langsung dari array yang sudah kita sortir tadi
+                const currentRowData = sortedSLog[data.row.index];
+                
+                // VALIDASI: Cek apakah data dan properti img ada
+                if (currentRowData && currentRowData.img) {
+                    try {
+                        doc.addImage(currentRowData.img, 'JPEG', data.cell.x + 5, data.cell.y + 2, 20, 20);
+                    } catch (err) {
+                        console.error("Gagal menambahkan gambar ke PDF:", err);
+                    }
+                }
+            }
+        }
+    });
+
+    // --- 3. Tabel Aktivitas Kerja ---
+    doc.addPage();
+    doc.text("3. Log Aktivitas Kerja", 14, 20);
+    doc.autoTable({
+        startY: 25,
+        head: [['HST', 'Tanggal', 'Pekerjaan', 'Catatan', 'Pekerja']], 
+        body: kLog.sort((a,b) => parseDate(a.tgl) - parseDate(b.tgl)).map(x => [x.hst, formatIndo(x.tgl), x.jenis, x.ket || "-", x.nama]),
+        headStyles: { fillColor: [46, 125, 50] },
+        styles: { fontSize: 8, overflow: 'linebreak' },
+        columnStyles: { 3: { cellWidth: 55 } } 
+    });
+
+    // --- 4. Tabel Keuangan (PERBAIKAN SORTING & FORMAT) ---
+    doc.addPage();
+    doc.text("4. Laporan Keuangan & Laba Rugi", 14, 20);
+    
+    let tBiaya = 0; let tJual = 0;
+
+    // Gabungkan data agar bisa disortir bersamaan
+    let finDataGabungan = [
+        ...(d.jual || []).map(x => ({...x, tipe: "MASUK", noTransaksi: "-", kat: x.g, qty: x.b, harga: x.h})),
+        ...(d.biaya || []).map(x => ({...x, tipe: "KELUAR", noTransaksi: x.noTransaksi || "-", kat: x.k, qty: x.q, harga: x.h}))
+    ];
+
+    // Sorting dari tanggal terlama ke terbaru (cocok untuk laporan kronologis)
+    finDataGabungan.sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
+
+    // Mapping untuk body tabel
+    let finDataBody = finDataGabungan.map(x => {
+        if(x.tipe === "MASUK") tJual += x.total;
+        else tBiaya += x.total;
+
+        return [
+            formatIndo(x.tgl), 
+            x.tipe, 
+            x.noTransaksi || "-",
+            x.kat, 
+            x.ket || "-", 
+            x.qty ?? 0,
+            `Rp ${(x.harga ?? 0).toLocaleString()}`,
+            `Rp ${x.total.toLocaleString()}`
+        ];
+    });
+
+    doc.autoTable({
+        startY: 25,
+        head: [['Tanggal', 'Tipe', 'No. Transaksi', 'Kategori', 'Keterangan', 'Qty', 'Harga Satuan', 'Total']],
+        body: finDataBody,
+        headStyles: { fillColor: [239, 108, 0] },
+        styles: { fontSize: 7 },
+        columnStyles: { 2: { cellWidth: 18 }, 4: { cellWidth: 38 }, 5: { cellWidth: 12 }, 6: { cellWidth: 24 }, 7: { cellWidth: 27 } }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(11);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Total Penjualan: Rp ${tJual.toLocaleString()}`, 14, finalY);
+    doc.text(`Total Biaya Produksi: Rp ${tBiaya.toLocaleString()}`, 14, finalY + 7);
+    doc.setFont(undefined, 'bold');
+    doc.setFontSize(13);
+    doc.text(`LABA/RUGI BERSIH: Rp ${(tJual - tBiaya).toLocaleString()}`, 14, finalY + 16);
+
+    // --- 5. LAPORAN ARUS KAS ---
+    doc.addPage();
+    doc.text("5. Laporan Arus Kas", 14, 20);
+
+    const saldoAwalKasPDF = parseFloat(d.saldoAwal) || 0;
+    let arusKasPDF = [
+        ...(d.jual || []).map(x => ({tgl:x.tgl, jenis:"Penjualan", ket:x.g || "-", no:"-", masuk:x.total || 0, keluar:0})),
+        ...(d.biaya || []).map(x => ({tgl:x.tgl, jenis:"Biaya - " + (x.k || "-"), ket:x.ket || "-", no:x.noTransaksi || "-", masuk:0, keluar:x.total || 0})),
+        ...(d.dana || []).map(x => ({
+            tgl:x.tgl,
+            jenis:x.jenis || "Pendanaan",
+            ket:x.ket || "-",
+            no:"-",
+            masuk:x.arah === "in" ? (parseFloat(x.nominal)||0) : 0,
+            keluar:x.arah === "out" ? (parseFloat(x.nominal)||0) : 0
+        }))
+    ].sort((a,b)=>parseDate(a.tgl)-parseDate(b.tgl));
+
+    let saldoKasBerjalan = saldoAwalKasPDF;
+    const arusKasBody = [[
+        "-", "SALDO AWAL", "Saldo awal kas periode", "-", 
+        `Rp ${saldoAwalKasPDF.toLocaleString()}`, "-", `Rp ${saldoKasBerjalan.toLocaleString()}`
+    ]];
+    let totalMasukKas = 0, totalKeluarKas = 0;
+    arusKasPDF.forEach(x => {
+        totalMasukKas += x.masuk;
+        totalKeluarKas += x.keluar;
+        saldoKasBerjalan += x.masuk - x.keluar;
+        arusKasBody.push([
+            formatIndo(x.tgl),
+            x.masuk > 0 ? "MASUK - " + x.jenis : "KELUAR - " + x.jenis,
+            x.ket,
+            x.no,
+            x.masuk ? `Rp ${x.masuk.toLocaleString()}` : "-",
+            x.keluar ? `Rp ${x.keluar.toLocaleString()}` : "-",
+            `Rp ${saldoKasBerjalan.toLocaleString()}`
+        ]);
+    });
+
+    doc.autoTable({
+        startY: 25,
+        head: [['Tanggal','Jenis Arus','Keterangan','No. Transaksi','Masuk','Keluar','Saldo']],
+        body: arusKasBody,
+        headStyles: { fillColor: [21, 101, 192] },
+        styles: { fontSize: 7, overflow: 'linebreak' },
+        columnStyles: { 2:{cellWidth:38}, 3:{cellWidth:18}, 4:{cellWidth:25}, 5:{cellWidth:25}, 6:{cellWidth:27} }
+    });
+
+    const kasY = doc.lastAutoTable.finalY + 12;
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'normal');
+    doc.text(`Saldo Awal Kas: Rp ${saldoAwalKasPDF.toLocaleString()}`, 14, kasY);
+    doc.text(`Total Uang Masuk: Rp ${totalMasukKas.toLocaleString()}`, 14, kasY + 6);
+    doc.text(`Total Uang Keluar: Rp ${totalKeluarKas.toLocaleString()}`, 14, kasY + 12);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Saldo Kas Akhir: Rp ${saldoKasBerjalan.toLocaleString()}`, 14, kasY + 18);
+
+    doc.save(`LAPORAN_MELONA_${currentGH}_${new Date().toISOString().split('T')[0]}.pdf`);
+}
+
+function updateStorageInfo() {
+    let total = 0;
+    // Menghitung besar karakter dalam localStorage (1 karakter ≈ 2 bytes)
+    for (let key in localStorage) {
+        if (!localStorage.hasOwnProperty(key)) continue;
+        total += ((localStorage[key].length + key.length) * 2);
+    }
+    
+    // Konversi ke KB atau MB
+    let usedKB = (total / 1024).toFixed(2);
+    let usedMB = (total / (1024 * 1024)).toFixed(2);
+    
+    // Estimasi limit browser adalah 5MB (beberapa HP bisa 10MB)
+    let limit = 5 * 1024 * 1024; 
+    let percent = (total / limit) * 100;
+    if(percent > 100) percent = 100;
+
+    // Update UI
+    document.getElementById('storage-text').innerText = `Digunakan: ${usedMB} MB / 5.00 MB`;
+    const bar = document.getElementById('storage-bar');
+    bar.style.width = percent + '%';
+    
+    // Ubah warna bar jika hampir penuh
+    if(percent > 80) bar.style.background = "#e74c3c"; // Merah
+    else if(percent > 50) bar.style.background = "#f39c12"; // Oranye
+    else bar.style.background = "#2e7d32"; // Hijau
+}
+function toggleBackup() {
+    const content = document.getElementById('backup-content');
+    const arrow = document.getElementById('arrow-icon');
+    
+    if (content.style.display === "none") {
+        content.style.display = "block";
+        arrow.style.transform = "rotate(180deg)"; // Panah jadi ke atas
+    } else {
+        content.style.display = "none";
+        arrow.style.transform = "rotate(0deg)"; // Panah kembali ke bawah
+    }
+}
+function togglePeriodeBaru() {
+    const content = document.getElementById('periode-baru-content');
+    const arrow = document.getElementById('arrow-periode');
+    
+    if (content.style.display === "none") {
+        content.style.display = "block";
+        arrow.style.transform = "rotate(180deg)";
+    } else {
+        content.style.display = "none";
+        arrow.style.transform = "rotate(0deg)";
+    }
+}
+function toggleExpand(listId, btnId) {
+    const list = document.getElementById(listId);
+    const btn = document.getElementById(btnId);
+    if (list.classList.contains('limit-view')) {
+        list.classList.remove('limit-view');
+        btn.innerText = "Sembunyikan ▲";
+    } else {
+        list.classList.add('limit-view');
+        btn.innerText = "Tampilkan Semua ▼";
+    }
+}
+
+// Fungsi pembantu untuk cek jumlah data
+function checkLimit(listId, btnId, length) {
+    const btn = document.getElementById(btnId);
+    if (length > 5) {
+        btn.style.display = "block";
+    } else {
+        btn.style.display = "none";
+    }
+}
+function generateSlipGaji() {
+    const workerName = document.getElementById('select-slip-pekerja').value;
+    if (!workerName) return alert("Pilih pekerja terlebih dahulu!");
+
+    const masterPekerja = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    const pInfo = masterPekerja.find(x => x.nama === workerName);
+    
+    const gajiPokok = pInfo ? parseFloat(pInfo.gajiHarian ?? pInfo.gaji ?? 0) : 0;
+    const tarifLembur = pInfo ? parseFloat(pInfo.tarifLembur || 0) : 0;
+    const gajiTetap = pInfo ? parseFloat(pInfo.gajiTetap || 0) : 0;
+    
+    let hitung1Hari = 0;
+    let hitungSetengahHari = 0;
+    let totalLemburJam = 0;
+    let totalBonus = 0;
+
+    const allKeys = Object.keys(localStorage);
+    const kerjaKeys = allKeys.filter(key => key.endsWith('_kerja'));
+
+    // 1. HITUNG DARI LOG KERJA
+    kerjaKeys.forEach(key => {
+        const kLog = JSON.parse(localStorage.getItem(key) || "[]");
+        kLog.forEach(log => {
+            const regex = new RegExp(`${workerName}\\s\\(([^|]+)\\|L:([^|]+)\\|B:([^)]+)\\)`, "g");
+            let match;
+            while ((match = regex.exec(log.nama)) !== null) {
+                let durasi = parseFloat(match[1]);
+                if (durasi === 1) hitung1Hari++;
+                else if (durasi === 0.5) hitungSetengahHari++;
+
+                totalLemburJam += parseFloat(match[2]);
+                totalBonus += parseFloat(match[3]);
+            }
+        });
+    });
+
+    // 2. HITUNG TOTAL KOTOR (Dibuat SEBELUM sisaGaji)
+    const totalHariKerja = hitung1Hari + (hitungSetengahHari * 0.5);
+    const subtotalPokok = totalHariKerja * gajiPokok;
+    const subtotalLembur = totalLemburJam * tarifLembur;
+    
+    // Ini variabel yang tadi Error (Pastikan namanya sama persis)
+    const subtotalGajiTetap = gajiTetap;
+    const totalGajiKotor = subtotalGajiTetap + subtotalPokok + subtotalLembur + totalBonus;
+
+    // 3. HITUNG KASBON
+    let totalKasbon = 0;
+    let rincianKasbonHtml = "";
+    allKeys.filter(k => k.endsWith('_active_period')).forEach(key => {
+        let d = JSON.parse(localStorage.getItem(key) || "{}");
+        if (d.detailKasbon) {
+            d.detailKasbon.forEach(k => {
+                if (k.nama.trim().toLowerCase() === workerName.trim().toLowerCase()) {
+                    totalKasbon += parseFloat(k.nominal || 0);
+                    rincianKasbonHtml += `<tr><td style="color:#666;">- Kasbon (${k.tgl})</td><td align="right" style="color:#666;">Rp ${parseFloat(k.nominal).toLocaleString()}</td></tr>`;
+                }
+            });
+        }
+    });
+
+    // 4. HITUNG SISA BERSIH
+    const sisaGaji = totalGajiKotor - totalKasbon;
+
+    // 5. UPDATE TAMPILAN
+    const content = `
+        <table style="width:100%; font-size:12px;">
+            <tr><td>Nama</td><td>: <b>${workerName}</b></td></tr>
+            <tr><td>Tanggal</td><td>: ${new Date().toLocaleDateString('id-ID')}</td></tr>
+        </table>
+        <hr style="border: 0; border-top: 1px dashed #000;">
+        <table style="width:100%; font-size:11px; color: #444;">
+            <tr><td>Kerja Penuh (1.0)</td><td align="right">${hitung1Hari}x</td></tr>
+            <tr><td>Setengah Hari (0.5)</td><td align="right">${hitungSetengahHari}x</td></tr>
+            <tr style="font-weight:bold; color:#000;"><td>TOTAL KERJA</td><td align="right">${totalHariKerja} Hari</td></tr>
+        </table>
+        <hr style="border: 0; border-top: 1px dashed #000;">
+        <table style="width:100%; font-size:12px;">
+            <tr><td>Gaji Tetap</td><td align="right">Rp ${subtotalGajiTetap.toLocaleString()}</td></tr>
+            <tr><td>Gaji Harian</td><td align="right">Rp ${subtotalPokok.toLocaleString()}</td></tr>
+            <tr><td>Lembur</td><td align="right">Rp ${subtotalLembur.toLocaleString()}</td></tr>
+            <tr><td>Bonus</td><td align="right">Rp ${totalBonus.toLocaleString()}</td></tr>
+            <tr style="font-weight:bold; background:#f9f9f9;"><td>Subtotal Kotor</td><td align="right">Rp ${totalGajiKotor.toLocaleString()}</td></tr>
+            <tr style="font-weight:bold; color:red;"><td>Total Kasbon</td><td align="right">- Rp ${totalKasbon.toLocaleString()}</td></tr>
+            <tr><td colspan="2"><hr style="border: 0; border-top: 1px solid #000;"></td></tr>
+            <tr style="font-size:14px; font-weight:bold; color: #1b5e20;"><td>SISA DITERIMA</td><td align="right">Rp ${sisaGaji.toLocaleString()}</td></tr>
+        </table>
+    `;
+
+    document.getElementById('slip-detail-content').innerHTML = content;
+    document.getElementById('modalSlip').style.display = 'flex';
+}
+    
+function printSlip() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+        unit: 'mm',
+        format: [80, 160] // Tinggi ditambah sedikit untuk menampung rincian baru
+    });
+
+    const workerName = document.getElementById('select-slip-pekerja').value;
+    if (!workerName) return;
+
+    // --- SETUP HEADER ---
+    doc.setFont("courier", "bold");
+    doc.setFontSize(10);
+    doc.text("SLIP GAJI KARYAWAN", 40, 10, { align: "center" });
+    doc.setFontSize(8);
+    doc.text("--------------------------------", 40, 15, { align: "center" });
+
+    // --- DATA IDENTITAS ---
+    doc.setFont("courier", "normal");
+    doc.text(`Nama    : ${workerName}`, 10, 22);
+    doc.text(`Tanggal : ${new Date().toLocaleDateString('id-ID')}`, 10, 27);
+    doc.text("--------------------------------", 40, 32, { align: "center" });
+
+    // --- LOGIKA EKSTRAKSI DATA DARI MODAL ---
+    // Kita ambil langsung teks dari elemen slip-detail-content yang sudah di-generate sebelumnya
+    const rows = document.querySelectorAll("#slip-detail-content table tr");
+    let y = 38;
+
+    rows.forEach((row) => {
+        const cells = row.querySelectorAll("td");
+        if (cells.length < 2) return; // Lewati baris kosong atau garis
+
+        const label = cells[0].innerText.trim();
+        const value = cells[1].innerText.trim();
+
+        // Lewati label Nama dan Tanggal karena sudah dibuat di header atas
+        if (label === "Nama" || label === "Tanggal") return;
+
+        // Styling Dinamis
+        doc.setFont("courier", "normal");
+        doc.setFontSize(8);
+
+        // Tebalkan teks jika baris Total, Subtotal, atau Sisa Terima
+        if (label.includes("TOTAL") || label.includes("Subtotal") || label.includes("SISA")) {
+            doc.setFont("courier", "bold");
+            if (label.includes("SISA")) {
+                y += 2; // Beri jarak sedikit sebelum baris akhir
+                doc.setFontSize(10);
+            }
+        }
+
+        // Cetak Baris (Kiri: Label, Kanan: Nilai)
+        doc.text(label, 10, y);
+        doc.text(value, 70, y, { align: "right" });
+        
+        y += 4; // Jarak baris standar
+
+        // Tambahkan garis putus-putus setelah Total Durasi dan Subtotal Gaji
+        if (label === "TOTAL DURASI" || label === "Subtotal Gaji") {
+            doc.setFont("courier", "normal");
+            doc.setFontSize(8);
+            doc.text("--------------------------------", 40, y - 1, { align: "center" });
+            y += 4;
+        }
+    });
+
+    // --- FOOTER ---
+    y += 4;
+    doc.setFont("courier", "normal");
+    doc.setFontSize(7);
+    doc.text("--------------------------------", 40, y, { align: "center" });
+    doc.text("Terima kasih atas kerja kerasnya!", 40, y + 5, { align: "center" });
+    doc.text("Printed by Melona Monitoring System", 40, y + 9, { align: "center" });
+
+    // --- GENERATE FILE ---
+    const fileName = `Slip_${workerName.replace(/\s+/g, '_')}.pdf`;
+    doc.save(fileName);
+}
+
+function editWorker(index) {
+    let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    let p = w[index];
+    let gajiValue = p.gajiHarian || p.gaji || 0;
+
+    document.getElementById('edit-worker-index').value = index;
+    document.getElementById('edit-worker-name').value = p.nama;
+    document.getElementById('edit-worker-salary').value = p.gajiHarian ?? p.gaji ?? 0;
+    document.getElementById('edit-worker-fixed-salary').value = p.gajiTetap ?? 0;
+    document.getElementById('edit-worker-ot').value = p.tarifLembur || 0;
+
+    document.getElementById('modalEditWorker').style.display = 'flex';
+}
+
+// 2. Menutup Modal Edit
+function closeEditModal() {
+    document.getElementById('modalEditWorker').style.display = 'none';
+}
+
+// 3. Menyimpan Perubahan dan Sinkronisasi Data Lama
+function saveWorkerEdit() {
+    const index = document.getElementById('edit-worker-index').value;
+    const namaBaru = document.getElementById('edit-worker-name').value.trim();
+    const gajiBaru = parseFloat(document.getElementById('edit-worker-salary').value) || 0;
+    const gajiTetapBaru = parseFloat(document.getElementById('edit-worker-fixed-salary').value) || 0;
+    const lemburBaru = parseFloat(document.getElementById('edit-worker-ot').value) || 0;
+
+    if (!namaBaru) return alert("Nama tidak boleh kosong!");
+
+    let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    const namaLama = w[index].nama;
+
+    // Simpan ke Master
+    w[index] = { nama: namaBaru, gajiHarian: gajiBaru, gajiTetap: gajiTetapBaru, tarifLembur: lemburBaru };
+    localStorage.setItem('master_pekerja_v2', JSON.stringify(w));
+
+    // OTOMATIS SINKRON KE AKTIVITAS LAMA
+    syncAllOldData(namaLama, namaBaru);
+
+    alert("Data Berhasil Diperbarui & Disinkronkan!");
+    closeEditModal();
+    renderMasterPekerja(); // Refresh tabel master
+    loadWorkerCheckboxes(); // Refresh checkbox di form input
+}
+
+// 4. Fungsi Sinkronisasi (Deep Search & Replace)
+function syncAllOldData(namaLama, namaBaru) {
+    // Cari semua key localStorage yang mengandung data kerja (untuk semua GH)
+    const allKeys = Object.keys(localStorage).filter(key => key.endsWith('_kerja'));
+    
+    allKeys.forEach(key => {
+        let logs = JSON.parse(localStorage.getItem(key) || "[]");
+        let isChanged = false;
+
+        logs = logs.map(log => {
+            // Regex untuk mencari nama di dalam format: Nama (1H|L:0|B:0)
+            // Mengganti nama tapi mempertahankan angka durasi, lembur, dan bonusnya
+            if (log.nama.includes(namaLama)) {
+                log.nama = log.nama.split(', ').map(p => {
+                    if (p.includes(namaLama)) {
+                        return p.replace(namaLama, namaBaru);
+                    }
+                    return p;
+                }).join(', ');
+                isChanged = true;
+            }
+            return log;
+        });
+
+        if (isChanged) {
+            localStorage.setItem(key, JSON.stringify(logs));
+        }
+    });
+}
+
+function syncOldData(namaLama, namaBaru) {
+    const allKeys = Object.keys(localStorage).filter(key => key.endsWith('_kerja'));
+    
+    allKeys.forEach(key => {
+        let logs = JSON.parse(localStorage.getItem(key) || "[]");
+        let isChanged = false;
+
+        logs = logs.map(log => {
+            let daftarPekerja = log.nama.split(', ');
+            
+            let daftarBaru = daftarPekerja.map(p => {
+                let teks = p.trim();
+
+                // Regex ini menangkap: (1H), (1 H), (0.5H), (0.5 H)
+                const regexLama = /\((\d\.?\d?)\s?H\)(?!\|)/g;
+
+                if (teks.includes(namaLama)) {
+                    if (regexLama.test(teks)) {
+                        isChanged = true;
+                        // Mengubah "Hirul (1 H)" menjadi "Hirul (1H|L:0|B:0)"
+                        return teks.replace(regexLama, "($1H|L:0|B:0)").replace(namaLama, namaBaru);
+                    }
+                }
+                return teks;
+            });
+
+            log.nama = daftarBaru.join(', ');
+            return log;
+        });
+
+        if (isChanged) {
+            localStorage.setItem(key, JSON.stringify(logs));
+        }
+    });
+}
+
+function toggleTabel() {
+        var x = document.getElementById("kontainer-tabel");
+        var panah = document.getElementById("panah-tabel");
+        
+        // Cek kondisi display saat ini
+        if (x.style.display === "none" || x.style.display === "") {
+            x.style.display = "block";
+            panah.innerHTML = "▲";
+        } else {
+            x.style.display = "none";
+            panah.innerHTML = "▼";
+        }
+    }
+    
+    function hitungCepat() {
+        const dosis = parseFloat(document.getElementById('input-dosis').value);
+        const tangki = parseFloat(document.getElementById('input-tangki').value);
+        const hasilDiv = document.getElementById('hasil-hitung');
+        const totalDisplay = document.getElementById('total-dosis');
+
+        if (dosis > 0 && tangki > 0) {
+            const total = dosis * tangki;
+            // Menampilkan maksimal 2 angka di belakang koma jika perlu
+            totalDisplay.innerText = Number.isInteger(total) ? total : total.toFixed(1);
+            hasilDiv.style.display = 'block';
+        } else {
+            alert("Harap masukkan angka dosis dan volume tangki yang valid.");
+        }
+    }
+
+    // Fungsi untuk mengubah "15/3/2026" menjadi "2026-03-15" agar diterima input type="date"
+function convertToInputDate(dateStr) {
+    if (!dateStr) return "";
+    
+    // Pecah string berdasarkan "/"
+    const parts = dateStr.split('/');
+    if (parts.length !== 3) return "";
+    
+    const day = parts[0].padStart(2, '0');
+    const month = parts[1].padStart(2, '0');
+    const year = parts[2];
+    
+    // Return format wajib HTML5: yyyy-mm-dd
+    return `${year}-${month}-${day}`;
+}
+
+window.onload = () => {
+    // 1. Inisialisasi Dasar UI
+    updateGHSelector();
+
+    // 2. Set Tanggal Default (Hari Ini)
+    const hariIni = new Date().toISOString().split('T')[0];
+    document.getElementById('tgl-nutrisi-input').value = hariIni;
+    document.getElementById('semprot-tgl').value = hariIni;
+    document.getElementById('kerja-tgl').value = hariIni;
+    document.getElementById('f-tgl').value = hariIni;
+    
+    // --- 3. LOGIKA PEMBERSIH FORMAT MASSAL (ANTI-SPASI) ---
+    // Mencari semua data di localStorage yang berakhiran '_kerja'
+    const keys = Object.keys(localStorage).filter(k => k.endsWith('_kerja'));
+    
+    keys.forEach(key => {
+        let logs = JSON.parse(localStorage.getItem(key) || "[]");
+        let adaPerubahan = false;
+
+        logs.forEach(log => {
+            /** * REGEX EXPLANATION:
+             * \(           : Cari kurung buka
+             * (\d\.?\d?)   : Group 1: Ambil angka (bisa 1 atau 0.5)
+             * \s?          : Cari spasi JIKA ADA (mengatasi masalah "1 H")
+             * H\)          : Cari huruf H dan kurung tutup
+             * (?!\|L:)     : Pastikan di depannya BELUM ADA format "|L:" (agar tidak double)
+             **/
+            const polaLama = /\((\d\.?\d?)\s?H\)(?!\|L:)/g;
+
+            if (polaLama.test(log.nama)) {
+                // Ubah "(1 H)" atau "(1H)" menjadi "(1H|L:0|B:0)"
+                log.nama = log.nama.replace(polaLama, "($1H|L:0|B:0)");
+                adaPerubahan = true;
+            }
+        });
+
+        // Simpan kembali ke localStorage hanya jika ada yang diperbaiki
+        if (adaPerubahan) {
+            localStorage.setItem(key, JSON.stringify(logs));
+            console.log(`✅ Format diperbaiki pada key: ${key}`);
+        }
+    });
+
+    // --- 4. SINKRONISASI NAMA DARI MASTER ---
+    const masterPekerja = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+    masterPekerja.forEach(p => {
+        // Ini memastikan jika ada perubahan nama di master, data lama ikut update
+        syncOldData(p.nama, p.nama); 
+    });
+
+    // 5. Render Ulang Semua Komponen UI
+    initChart(); 
+    updateUI(); 
+    renderLogs(); 
+    loadWorkerCheckboxes(); 
+    renderFinance();
+    renderRekapNutrisi();
+    
+    console.log("🚀 Aplikasi siap & Data telah disinkronkan.");
+};
+
+  // 1. Konfigurasi Firebase
+const _k = "AIzaSyC3m3twzsoh";
+const _v = "DczU5OmNKtkzQK0nqbkjMdc";
+
+const firebaseConfig = {
+    apiKey: _k + _v, // Gabungkan secara dinamis
+    authDomain: "melona-monitoring-system.firebaseapp.com",
+    projectId: "melona-monitoring-system",
+    storageBucket: "melona-monitoring-system.firebasestorage.app",
+    messagingSenderId: "1068089319994",
+    appId: "1:1068089319994:web:786a8f7f708a6a1a974b03"
+};
+
+// Inisialisasi Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// --- FUNGSI HELPER UNTUK MENGATUR TAMPILAN ---
+function setDisplay(login, app, loading = 'none') {
+    document.getElementById('lock-screen').style.display = login;
+    document.getElementById('main-app').style.display = app;
+    // Jika Anda menambahkan id="loading-initial" seperti saran sebelumnya:
+    const loader = document.getElementById('loading-initial');
+    if(loader) loader.style.display = loading;
+}
+
+// 2. FUNGSI LOGIN
+window.loginGoogle = function() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    auth.signInWithPopup(provider)
+        .then((result) => {
+            console.log("Login sukses:", result.user.email);
+        })
+        .catch((error) => {
+            alert("Gagal Login: " + error.message);
+        });
+};
+
+// 3. OBSERVER STATUS LOGIN
+auth.onAuthStateChanged(async (user) => {
+    if (user) {
+        // 1. Cek status pembayaran
+        await cekStatus(user);
+        
+        // 2. Gunakan nama fungsi yang benar (updateGHSelector)
+        if (typeof updateGHSelector === "function") {
+            updateGHSelector(); 
+        }
+
+        // 3. Pastikan currentGH sudah terisi, lalu render
+        if (currentGH) {
+            renderRekapNutrisi();
+            if (typeof renderFinance === "function") renderFinance();
+            if (typeof renderLogs === "function") renderLogs();
+        }
+        
+        console.log("Aplikasi Melona Siap!");
+    } else {
+        setDisplay('flex', 'none');
+        document.getElementById('btn-login-google').style.display = 'block';
+        document.getElementById('payment-area').style.display = 'none';
+    }
+});
+
+// 4. CEK STATUS PEMBAYARAN DI FIRESTORE
+async function cekStatus(user) {
+    try {
+        // Menggunakan doc(user.email) sesuai kode asli Anda
+        const userRef = db.collection('users').doc(user.email);
+        const doc = await userRef.get();
+
+        if (doc.exists && doc.data().isPaid === true) {
+            // JIKA SUDAH BAYAR: Sembunyikan login, tampilkan app
+            setDisplay('none', 'block');
+            document.getElementById('user-name').innerText = user.displayName;
+        } else {
+            // JIKA BELUM BAYAR: Tampilkan area pembayaran di dalam lock-screen
+            setDisplay('flex', 'none');
+            document.getElementById('btn-login-google').style.display = 'none';
+            document.getElementById('payment-area').style.display = 'block';
+            document.getElementById('lock-status').innerText = "Halo " + user.displayName + ", akun Anda belum aktif.";
+            
+            if (!doc.exists) {
+                await userRef.set({
+                    nama: user.displayName,
+                    email: user.email,
+                    isPaid: false,
+                    registeredAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Database Error:", error);
+        // Jika error (misal koneksi), tetap sembunyikan app demi keamanan
+        setDisplay('flex', 'none');
+        alert("Terjadi kesalahan sinkronisasi database.");
+    }
+}
+
+// 5. FUNGSI LOGOUT
+window.logout = function() {
+    auth.signOut().then(() => {
+        location.reload(); // Refresh untuk memastikan state bersih
+    });
+};
+
+// 6. WHATSAPP ADMIN
+window.prosesBayar = function() {
+    const user = auth.currentUser;
+    if (user) {
+        const namaUser = user.displayName;
+        const emailUser = user.email;
+        const pesan = `Halo Admin, saya sudah transfer untuk aktivasi Melona Monitoring System.\n\n` +
+                      `Nama: ${namaUser}\n` +
+                      `Email: ${emailUser}\n` +
+                      `Mohon segera diproses. Terima kasih.`;
+        
+        const waUrl = `https://wa.me/6285779081808?text=${encodeURIComponent(pesan)}`;
+        window.open(waUrl, '_blank');
+    } else {
+        alert("Silakan login terlebih dahulu.");
+    }
+};
+    
+let deferredPrompt;
+const btnInstall = document.getElementById('btnInstallMelona');
+
+// Event ini hanya akan jalan jika manifest & service worker VALID
+window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('PWA Valid! Menampilkan tombol install...');
+    e.preventDefault();
+    deferredPrompt = e;
+    // Tampilkan tombol manual
+    btnInstall.style.display = 'block';
+});
+
+if (btnInstall) btnInstall.addEventListener('click', async () => {
+    if (deferredPrompt) {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        if (outcome === 'accepted') {
+            btnInstall.style.display = 'none';
+        }
+        deferredPrompt = null;
+    }
+});
+
+// ===== EXTENSI KEUANGAN: MODAL, HUTANG, SALDO KAS =====
+window.simpanDana = function(){
+  const d=getActiveData();
+  const jenis=document.getElementById('dana-jenis').value;
+  const nominal=parseFloat(document.getElementById('dana-nominal').value);
+  const tgl=document.getElementById('dana-tgl').value || new Date().toISOString().slice(0,10);
+  const ket=document.getElementById('dana-ket').value.trim();
+  if(!nominal || nominal<=0) return alert('Isi nominal dana terlebih dahulu.');
+  const arah=(jenis==='Tambahan Modal / Investasi'||jenis==='Hutang / Pinjaman')?'in':'out';
+  d.dana=d.dana||[];
+  d.dana.unshift({tgl,jenis,nominal,ket:ket||'-',arah});
+  saveActiveData(d);
+  document.getElementById('dana-nominal').value=''; document.getElementById('dana-ket').value='';
+  renderFinance(); alert('Transaksi dana berhasil disimpan.');
+};
+window.hapusDana=function(i){
+  if(!confirm('Hapus transaksi dana ini?')) return;
+  const d=getActiveData(); (d.dana||[]).splice(i,1); saveActiveData(d); renderFinance();
+};
+// Pastikan periode lama yang belum punya field dana tetap kompatibel
+const _oldGetActiveData = typeof getActiveData==='function' ? getActiveData : null;
+if(_oldGetActiveData){
+  window.getActiveData=function(){
+    const d=_oldGetActiveData(); d.dana=d.dana||[]; d.saldoAwal=parseFloat(d.saldoAwal)||0; return d;
+  };
+}
+</script>
+</div>
+</body>
+</html>
