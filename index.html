@@ -7,6 +7,7 @@
     <title>Melona Monitoring System V1</title>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2e7d32">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="melona_logo.png">
     <link rel="apple-touch-icon" href="melona_logo.png">
@@ -303,12 +304,12 @@
         </div>
 
         <div style="display: flex; gap: 10px;">
-            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 13px;" onclick="exportData()">📊 EXCEL</button>
-            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 13px;" onclick="exportPDF()">📄 PDF</button>
+            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 11px;" onclick="exportData()">📊 EXCEL</button>
+            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 11px;" onclick="exportPDF()">📄 PDF</button>
         </div>
 
         <div class="storage-info">
-            <strong>☁️ Penyimpanan Cloud</strong>
+            <strong>☁️ Penyimpanan Cloud Supabase</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
             <div class="progress-container">
                 <div id="storage-bar" class="progress-bar"></div>
@@ -738,10 +739,15 @@ window.getPeriodeLaporan = function(d) {
 };
     
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js')
-            .then(reg => console.log('Service Worker terdaftar!', reg))
-            .catch(err => console.log('Gagal daftar SW', err));
+    window.addEventListener('load', async () => {
+        try {
+            const registration = await navigator.serviceWorker.register('./service-worker.js', {
+                scope: './'
+            });
+            console.log('Service Worker PWA terdaftar:', registration.scope);
+        } catch (err) {
+            console.error('Gagal daftar Service Worker PWA:', err);
+        }
     });
 }
   
@@ -3177,7 +3183,7 @@ function updateStorageInfo() {
     const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di Supabase
     let percent = Math.min(100, (total / limit) * 100);
     const text = document.getElementById('storage-text');
-    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Cloud aktif` : `Cache perangkat: ${usedMB} MB`;
+    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Supabase aktif` : `Cache perangkat: ${usedMB} MB`;
     const bar = document.getElementById('storage-bar');
     if (bar) bar.style.width = percent + '%';
 }
@@ -3950,7 +3956,7 @@ function updateCloudStatus(text) {
         if (container) {
             el = document.createElement('span');
             el.id = 'cloud-sync-status';
-            el.style.cssText = 'position:absolute;right:2px;top:2px;font-size:10px;background:rgba(255,255,255,.15);padding:4px 7px;border-radius:12px;';
+            el.style.cssText = 'position:absolute;right:10px;top:8px;font-size:10px;background:rgba(255,255,255,.15);padding:4px 7px;border-radius:12px;';
             container.style.position = 'relative';
             container.appendChild(el);
         }
