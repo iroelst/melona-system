@@ -3599,6 +3599,11 @@ let cloudSyncTimer = null;
 let loadingCloudData = false;
 let cloudLastSync = null;
 
+// Mencegah dua proses login/session memuat data bersamaan.
+let processingAuthUserId = null;
+let processingAuthPromise = null;
+
+
 const _nativeSetItem = Storage.prototype.setItem;
 const _nativeRemoveItem = Storage.prototype.removeItem;
 const _nativeClear = Storage.prototype.clear;
@@ -3653,6 +3658,18 @@ function collectLocalStorageData() {
         }
     }
     return data;
+}
+
+function clearApplicationStorageForUserSwitch() {
+    Object.keys(localStorage).forEach(key => {
+        if (isApplicationStorageKey(key)) {
+            _nativeRemoveItem.call(localStorage, key);
+        }
+    });
+
+    // Kembalikan state dasar aplikasi. Data user akan diisi dari Supabase.
+    _nativeSetItem.call(localStorage, "gh_list", JSON.stringify(["GH 1"]));
+    _nativeSetItem.call(localStorage, "active_gh", "GH 1");
 }
 
 
@@ -3814,10 +3831,14 @@ async function loadCloudData() {
 
         } else {
             /*
-             * Akun Supabase belum mempunyai data.
-             * Jangan hapus data lokal; jadikan data perangkat pertama
-             * sebagai data awal akun ini.
+             * Akun ini belum mempunyai data cloud.
+             * JANGAN memakai localStorage sebelumnya karena localStorage
+             * adalah milik browser/perangkat, bukan milik user.
+             * Mulai akun baru dengan data kosong agar data user lain
+             * tidak pernah ikut tersalin ke akun ini.
              */
+            clearApplicationStorageForUserSwitch();
+
             loadingCloudData = false;
             supabaseReady = true;
 
@@ -3987,47 +4008,77 @@ supabaseClient.auth.onAuthStateChange(
 );
 
 async function handleSupabaseLogin(user) {
-    try {
-        console.log("User Supabase:", user.email);
-
-        // PENTING: jangan tampilkan aplikasi sebelum status pembayaran diperiksa.
-        // Login sekarang memakai Supabase Auth, sedangkan status pembayaran lama
-        // tetap dibaca dari Firestore berdasarkan email.
-        const paymentOK = await cekStatusSupabaseUser(user);
-
-        if (!paymentOK) {
-            // Akun belum aktif: cekStatusSupabaseUser sudah menampilkan layar pembayaran.
-            return;
-        }
-
-        // Hanya akun yang sudah dibayar yang boleh masuk ke aplikasi.
-        setDisplay("none", "block");
-
-        const nameElement = document.getElementById("user-name");
-        if (nameElement) {
-            nameElement.innerText =
-                user.user_metadata?.full_name ||
-                user.user_metadata?.name ||
-                user.email;
-        }
-
-        // Ambil data cloud milik user_id Supabase yang sedang login.
-        await loadCloudData();
-
-        if (typeof updateGHSelector === "function") updateGHSelector();
-        if (typeof renderRekapNutrisi === "function") renderRekapNutrisi();
-        if (typeof renderFinance === "function") renderFinance();
-        if (typeof renderLogs === "function") renderLogs();
-        if (typeof renderMasterPekerja === "function") renderMasterPekerja();
-        if (typeof loadWorkerCheckboxes === "function") loadWorkerCheckboxes();
-
-        console.log("☁️ Data berhasil dimuat");
-
-    } catch (error) {
-        console.error("Login handler error:", error);
-        setDisplay("flex", "none");
-        alert("Gagal memeriksa akun:\n" + error.message);
+    // Supabase Auth event dan getSession() dapat sama-sama memanggil handler.
+    // Jangan biarkan dua proses login berjalan bersamaan.
+    if (processingAuthUserId === user.id && processingAuthPromise) {
+        return processingAuthPromise;
     }
+
+    processingAuthUserId = user.id;
+
+    processingAuthPromise = (async () => {
+        try {
+            console.log("User Supabase:", user.email);
+
+            // Periksa pembayaran terlebih dahulu.
+            const paymentOK = await cekStatusSupabaseUser(user);
+
+            if (!paymentOK) {
+                return false;
+            }
+
+            /*
+             * PENTING UNTUK MULTI-USER:
+             * localStorage bukan penyimpanan per-user.
+             * Sebelum membaca data user ini dari Supabase, hapus SEMUA
+             * data aplikasi milik user sebelumnya.
+             *
+             * Storage/Auth Supabase tidak disentuh karena helper hanya
+             * menghapus key aplikasi.
+             */
+            clearApplicationStorageForUserSwitch();
+
+            // Pastikan UI belum menampilkan data lama.
+            refreshAppStateFromStorage();
+
+            setDisplay("none", "block");
+
+            const nameElement = document.getElementById("user-name");
+            if (nameElement) {
+                nameElement.innerText =
+                    user.user_metadata?.full_name ||
+                    user.user_metadata?.name ||
+                    user.email;
+            }
+
+            // Sekarang hanya mengambil row milik user.id ini.
+            const loaded = await loadCloudData();
+
+            if (!loaded) {
+                console.error("Data cloud user gagal dimuat.");
+                setDisplay("flex", "none");
+                return false;
+            }
+
+            // Render ulang setelah data user yang benar masuk.
+            refreshAppStateFromStorage();
+
+            console.log("☁️ Data user berhasil dimuat:", user.id);
+            return true;
+
+        } catch (error) {
+            console.error("Login handler error:", error);
+            setDisplay("flex", "none");
+            alert("Gagal memuat akun:\n" + error.message);
+            return false;
+
+        } finally {
+            processingAuthPromise = null;
+            processingAuthUserId = null;
+        }
+    })();
+
+    return processingAuthPromise;
 }
 
 // Cek status pembayaran berdasarkan email akun Supabase.
@@ -4226,6 +4277,10 @@ window.logout = async function () {
         );
         return;
     }
+
+    // Hapus data aplikasi lokal saat logout.
+    // Data cloud tetap aman di Supabase.
+    clearApplicationStorageForUserSwitch();
 
     location.reload();
 };
