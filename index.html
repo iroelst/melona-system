@@ -3440,20 +3440,6 @@ window.onload = () => {
 
   // 1. Konfigurasi Firebase
 
-// Pastikan session Supabase diproses setelah seluruh fungsi aplikasi tersedia.
-window.addEventListener("load", async () => {
-    setTimeout(async () => {
-        const user = await getCurrentSupabaseUser();
-        if (user) {
-            const ok = await loadCloudData();
-            if (ok) {
-                supabaseReady = true;
-                updateCloudStatus("☁️ Tersinkron");
-            }
-        }
-    }, 300);
-});
-
 const _k = "AIzaSyC3m3twzsoh";
 const _v = "DczU5OmNKtkzQK0nqbkjMdc";
 
@@ -3759,29 +3745,6 @@ function refreshAppStateFromStorage() {
     if (typeof updateStorageInfo === "function") updateStorageInfo();
 }
 
-// Inisialisasi Auth: data cloud dimuat hanya setelah session Supabase valid.
-supabaseClient.auth.onAuthStateChange((event, session) => {
-    console.log("Supabase auth:", event, session ? session.user.email : "no session");
-
-    if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
-        if (session) {
-            setTimeout(async () => {
-                const ok = await loadCloudData();
-                if (ok) {
-                    supabaseReady = true;
-                    updateCloudStatus("☁️ Tersinkron");
-                }
-            }, 0);
-        }
-    }
-
-    if (event === "SIGNED_OUT") {
-        supabaseReady = false;
-        clearTimeout(cloudSyncTimer);
-        updateCloudStatus("🔒 Belum login");
-    }
-});
-
 function updateCloudStatus(text) {
     let el = document.getElementById('cloud-sync-status');
     if (!el) {
@@ -3805,11 +3768,18 @@ window.syncSupabaseNow = async function() {
 
 // --- FUNGSI HELPER UNTUK MENGATUR TAMPILAN ---
 function setDisplay(login, app, loading = 'none') {
-    document.getElementById('lock-screen').style.display = login;
-    document.getElementById('main-app').style.display = app;
-    // Jika Anda menambahkan id="loading-initial" seperti saran sebelumnya:
+    const lock = document.getElementById('lock-screen');
+    const main = document.getElementById('main-app');
     const loader = document.getElementById('loading-initial');
-    if(loader) loader.style.display = loading;
+
+    if (lock) lock.style.display = login;
+    if (main) main.style.display = app;
+
+    // Loader hanya tampil selama sesi awal belum diketahui.
+    // Begitu status login diputuskan, loader wajib ditutup.
+    if (loader) {
+        loader.style.display = loading;
+    }
 }
 
 // 2. FUNGSI LOGIN
@@ -3971,13 +3941,27 @@ async function handleSupabaseLogin(user) {
 (async function initSupabaseSession() {
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
+
         if (session && session.user) {
             await handleSupabaseLogin(session.user);
+        } else {
+            setDisplay("flex", "none", "none");
         }
+
     } catch (err) {
         console.error("Gagal memeriksa sesi Supabase:", err);
+        setDisplay("flex", "none", "none");
     }
 })();
+
+// Pengaman: jangan biarkan layar "Menghubungkan ke Melona System..."
+// menutupi aplikasi tanpa batas waktu.
+setTimeout(() => {
+    const loader = document.getElementById('loading-initial');
+    if (loader && loader.style.display !== 'none') {
+        loader.style.display = 'none';
+    }
+}, 10000);
 
 // 5. CEK STATUS PEMBAYARAN DI FIREBASE
 
