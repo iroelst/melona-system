@@ -1351,48 +1351,97 @@ function simpanLog(tipe) {
         const file = imgInput.files[0];
 
         if (file) {
-            // Validasi ukuran awal
-            if (file.size > 2 * 1024 * 1024) return alert("File terlalu besar! Maksimal 2MB");
-            
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = function (event) {
-                const img = new Image();
-                img.src = event.target.result;
-                img.onload = function () {
-    // --- PROSES CROPPING & KOMPRESI 1:1 ---
-    const canvas = document.createElement('canvas');
-    const SIZE = 600; // Ukuran standar kotak 600x600 px
-    canvas.width = SIZE;
-    canvas.height = SIZE;
-    const ctx = canvas.getContext('2d');
+            if (file.size > 2 * 1024 * 1024) {
+                return alert("File terlalu besar! Maksimal 2MB");
+            }
 
-    // Hitung koordinat untuk memotong bagian tengah (center crop)
-    let sourceX, sourceY, sourceSize;
-    if (img.width > img.height) {
-        // Foto Landscape
-        sourceSize = img.height;
-        sourceX = (img.width - img.height) / 2;
-        sourceY = 0;
-    } else {
-        // Foto Portrait
-        sourceSize = img.width;
-        sourceX = 0;
-        sourceY = (img.height - img.width) / 2;
-    }
+            try {
+                // Crop 1:1 dan kompresi seperti sebelumnya, tetapi hasilnya
+                // sekarang diupload ke Supabase Storage, bukan disimpan Base64.
+                const compressedBase64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
 
-    // Gambar ke canvas dengan teknik cropping:
-    // drawImage(image, sx, sy, sWidth, sHeight, dx, dy, dWidth, dHeight)
-    ctx.drawImage(img, sourceX, sourceY, sourceSize, sourceSize, 0, 0, SIZE, SIZE);
-    
-    // Simpan hasil kompresi
-    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
-    prosesSimpanSemprot(valTgl, hstLog, compressedBase64);
-};
-            };
+                    reader.onload = function(event) {
+                        const img = new Image();
+
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const SIZE = 600;
+                            canvas.width = SIZE;
+                            canvas.height = SIZE;
+
+                            const ctx = canvas.getContext('2d');
+
+                            let sourceX, sourceY, sourceSize;
+
+                            if (img.width > img.height) {
+                                sourceSize = img.height;
+                                sourceX = (img.width - img.height) / 2;
+                                sourceY = 0;
+                            } else {
+                                sourceSize = img.width;
+                                sourceX = 0;
+                                sourceY = (img.height - img.width) / 2;
+                            }
+
+                            ctx.drawImage(
+                                img,
+                                sourceX,
+                                sourceY,
+                                sourceSize,
+                                sourceSize,
+                                0,
+                                0,
+                                SIZE,
+                                SIZE
+                            );
+
+                            resolve(canvas.toDataURL('image/jpeg', 0.7));
+                        };
+
+                        img.onerror = () => reject(
+                            new Error("Foto tidak dapat diproses.")
+                        );
+
+                        img.src = event.target.result;
+                    };
+
+                    reader.onerror = () => reject(
+                        new Error("Gagal membaca foto.")
+                    );
+
+                    reader.readAsDataURL(file);
+                });
+
+                const compressedBlob =
+                    await blobFromDataUrl(compressedBase64);
+
+                const photoPath =
+                    await uploadSemprotPhoto(compressedBlob);
+
+                await prosesSimpanSemprot(
+                    valTgl,
+                    hstLog,
+                    photoPath
+                );
+
+            } catch (err) {
+                console.error("Upload foto gagal:", err);
+
+                alert(
+                    "Foto gagal diupload ke Supabase Storage.\n\n" +
+                    err.message
+                );
+            }
+
         } else {
-            prosesSimpanSemprot(valTgl, hstLog, null);
+            await prosesSimpanSemprot(
+                valTgl,
+                hstLog,
+                null
+            );
         }
+
     } else {
         let biayaGajiSesiIni = 0;
         let detailPekerja = [];
@@ -1578,12 +1627,23 @@ function hitungBiayaDariString(namaStr) {
 }
     
 // Fungsi pembantu khusus simpan semprot agar kode rapi
-function prosesSimpanSemprot(tgl, hst, imgBase64) {
+async function prosesSimpanSemprot(tgl, hst, imgBase64) {
     let logS = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
     
-    // LOGIKA FOTO: Jika ada foto baru (imgBase64), pakai itu. 
-    // Jika tidak ada tapi sedang mode edit, pakai foto lama (tempEditImg).
-    let finalImg = imgBase64 || (isEditMode ? tempEditImg : "");
+    // Foto baru adalah path Supabase Storage.
+    // Jika edit tanpa foto baru, pertahankan path foto lama.
+    const oldImg = isEditMode ? tempEditImg : "";
+    let finalImg = imgBase64 || oldImg;
+
+    if (
+        isEditMode &&
+        editType === 'semprot' &&
+        imgBase64 &&
+        oldImg &&
+        oldImg !== imgBase64
+    ) {
+        await deleteSemprotPhoto(oldImg);
+    }
 
     let dataBaru = {
         tgl: new Date(tgl).toLocaleDateString('id-ID'), // Simpan balik ke format Indo
@@ -1610,6 +1670,7 @@ function prosesSimpanSemprot(tgl, hst, imgBase64) {
     }
 
     localStorage.setItem(currentGH + '_logs', JSON.stringify(logS));
+    scheduleCloudSave();
     scheduleCloudSave();
     
     // Reset Preview & Form
@@ -1701,10 +1762,17 @@ function finishSave() {
     alert("Data berhasil disimpan!");
 }
 
-function renderLogs() {
+async function renderLogs() {
     const currentGH = localStorage.getItem('active_gh');
     let sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
     let kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+
+    const photoUrls = {};
+    for (let idx = 0; idx < sLog.length; idx++) {
+        if (sLog[idx].img) {
+            photoUrls[idx] = await getSemprotPhotoUrl(sLog[idx].img);
+        }
+    }
 
     const parseDate = (dateStr) => {
         if(!dateStr) return 0;
@@ -1734,7 +1802,7 @@ function renderLogs() {
                 🧪 ${i.nut || '-'} | 🕷️ ${i.ins || '-'} | 🍄 ${i.fun || '-'}
             </div>
             ${i.ket ? `<div style="font-size: 11px; color: #666; font-style: italic; margin-top: 5px;">Catatan: ${i.ket}</div>` : ''}
-            ${i.img ? `<div style="margin-top: 10px;"><img src="${i.img}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;"></div>` : ''}
+            ${i.img && photoUrls[i.originalIndex] ? `<div style="margin-top: 10px;"><img src="${photoUrls[i.originalIndex]}" style="width: 80px; height: 80px; object-fit: cover; border-radius: 8px;"></div>` : ''}
         </div>
     `).join("");
 
@@ -2124,7 +2192,7 @@ function hapusItem(key, index) {
     }
 }
 
-function prepareEditSemprot(index) {
+async function prepareEditSemprot(index) {
     const logs = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
     const d = logs[index];
 
@@ -2162,7 +2230,7 @@ function prepareEditSemprot(index) {
         previewContainer.innerHTML = `
             <div style="margin-top: 10px; padding: 10px; border: 1px dashed #ccc; border-radius: 8px; text-align: center; background: #f9f9f9;">
                 <p style="font-size: 11px; color: #666; margin-bottom: 5px;">📸 Foto saat ini:</p>
-                <img src="${d.img}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 2px solid #2e7d32;">
+                <img src="${await getSemprotPhotoUrl(d.img)}" style="width: 120px; height: 120px; object-fit: cover; border-radius: 8px; border: 2px solid #2e7d32;">
                 <p style="font-size: 10px; color: #e67e22; margin-top: 5px;">*Pilih file baru jika ingin mengganti foto ini</p>
             </div>`;
     } else {
@@ -3477,6 +3545,56 @@ function collectLocalStorageData() {
         }
     }
     return data;
+}
+
+
+const SUPABASE_PHOTO_BUCKET = "melona-foto";
+
+async function uploadSemprotPhoto(fileOrBlob) {
+    const user = await getCurrentSupabaseUser();
+    if (!user) throw new Error("Session login Supabase tidak ditemukan.");
+
+    const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
+    const filePath = `${user.id}/semprot/${fileName}`;
+
+    const { error } = await supabaseClient.storage
+        .from(SUPABASE_PHOTO_BUCKET)
+        .upload(filePath, fileOrBlob, {
+            cacheControl: "3600",
+            upsert: false,
+            contentType: "image/jpeg"
+        });
+
+    if (error) throw error;
+    return filePath;
+}
+
+async function getSemprotPhotoUrl(photoValue, expiresIn = 3600) {
+    if (!photoValue) return "";
+    if (String(photoValue).startsWith("data:image/")) return photoValue;
+
+    const { data, error } = await supabaseClient.storage
+        .from(SUPABASE_PHOTO_BUCKET)
+        .createSignedUrl(photoValue, expiresIn);
+
+    if (error) {
+        console.error("Gagal membuat signed URL foto:", error);
+        return "";
+    }
+    return data?.signedUrl || "";
+}
+
+async function deleteSemprotPhoto(photoValue) {
+    if (!photoValue || String(photoValue).startsWith("data:image/")) return;
+    const { error } = await supabaseClient.storage
+        .from(SUPABASE_PHOTO_BUCKET)
+        .remove([photoValue]);
+    if (error) console.warn("Foto Storage gagal dihapus:", error);
+}
+
+async function blobFromDataUrl(dataUrl) {
+    const response = await fetch(dataUrl);
+    return await response.blob();
 }
 
 async function saveCloudDataNow() {
