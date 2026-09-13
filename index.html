@@ -1537,6 +1537,9 @@ if(dataKerja.jenis === 'Panen') {
 
 localStorage.setItem(currentGH + '_kerja', JSON.stringify(logK));
 
+// Sinkronkan data kerja ke Supabase setelah penyimpanan lokal berhasil.
+scheduleCloudSave();
+
 // Bersihkan UI dan Render Ulang
 document.getElementById('kerja-ket').value = "";
 if(typeof loadWorkerCheckboxes === "function") loadWorkerCheckboxes();
@@ -1607,6 +1610,7 @@ function prosesSimpanSemprot(tgl, hst, imgBase64) {
     }
 
     localStorage.setItem(currentGH + '_logs', JSON.stringify(logS));
+    scheduleCloudSave();
     
     // Reset Preview & Form
     document.getElementById('preview-semprot-edit').innerHTML = "";
@@ -1890,6 +1894,7 @@ function addWorker() {
     });
     
     localStorage.setItem('master_pekerja_v2', JSON.stringify(w));
+    scheduleCloudSave();
 
     // Reset Form
     document.getElementById('new-worker-name').value = "";
@@ -3366,6 +3371,21 @@ window.onload = () => {
 };
 
   // 1. Konfigurasi Firebase
+
+// Pastikan session Supabase diproses setelah seluruh fungsi aplikasi tersedia.
+window.addEventListener("load", async () => {
+    setTimeout(async () => {
+        const user = await getCurrentSupabaseUser();
+        if (user) {
+            const ok = await loadCloudData();
+            if (ok) {
+                supabaseReady = true;
+                updateCloudStatus("☁️ Tersinkron");
+            }
+        }
+    }, 300);
+});
+
 const _k = "AIzaSyC3m3twzsoh";
 const _v = "DczU5OmNKtkzQK0nqbkjMdc";
 
@@ -3386,7 +3406,15 @@ const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lyp9oQrzzy2MGQulM9OfCg_XEGeUjLH
 
 const supabaseClient = window.supabase.createClient(
     SUPABASE_URL,
-    SUPABASE_PUBLISHABLE_KEY
+    SUPABASE_PUBLISHABLE_KEY,
+    {
+        auth: {
+            persistSession: true,
+            autoRefreshToken: true,
+            detectSessionInUrl: true,
+            storageKey: "melona-supabase-auth"
+        }
+    }
 );
 
 let supabaseReady = false;
@@ -3395,9 +3423,6 @@ let cloudSyncTimer = null;
 let loadingCloudData = false;
 let cloudLastSync = null;
 
-// Data aplikasi tetap dibaca dari localStorage sebagai cache.
-// PENTING: jangan pernah ikut menyimpan/menghapus token Supabase/Firebase.
-// Jika token auth ikut terhapus, pengguna akan langsung dianggap logout.
 const _nativeSetItem = Storage.prototype.setItem;
 const _nativeRemoveItem = Storage.prototype.removeItem;
 const _nativeClear = Storage.prototype.clear;
@@ -3405,6 +3430,7 @@ const _nativeClear = Storage.prototype.clear;
 function isAuthStorageKey(key) {
     const k = String(key || '').toLowerCase();
     return (
+        k === 'melona-supabase-auth' ||
         k.startsWith('sb-') ||
         k.includes('supabase') ||
         k.includes('firebase') ||
@@ -3416,59 +3442,37 @@ function isAuthStorageKey(key) {
     );
 }
 
-Storage.prototype.setItem = function(key, value) {
-    _nativeSetItem.call(this, key, value);
-    if (
-        this === window.localStorage &&
-        supabaseReady &&
-        !loadingCloudData &&
-        !isAuthStorageKey(key)
-    ) {
-        scheduleCloudSave();
+function isApplicationStorageKey(key) {
+    return !!key && !isAuthStorageKey(key);
+}
+
+/*
+ * Jangan lagi mem-patch Storage.prototype untuk memicu sinkronisasi.
+ * Patch global dapat ikut menangkap perubahan session/auth dari library
+ * Supabase dan menyebabkan perilaku login/logout yang tidak terduga.
+ *
+ * Sinkronisasi dipanggil secara eksplisit setelah data aplikasi berubah.
+ */
+
+async function getCurrentSupabaseUser() {
+    const { data: { user }, error } = await supabaseClient.auth.getUser();
+    if (error) {
+        console.error("Supabase getUser error:", error);
+        return null;
     }
-};
+    return user || null;
+}
 
-Storage.prototype.removeItem = function(key) {
-    _nativeRemoveItem.call(this, key);
-    if (
-        this === window.localStorage &&
-        supabaseReady &&
-        !loadingCloudData &&
-        !isAuthStorageKey(key)
-    ) {
-        scheduleCloudSave();
-    }
-};
-
-Storage.prototype.clear = function() {
-    // Jangan gunakan clear() pada localStorage setelah login karena
-    // Supabase menyimpan session/token di localStorage.
-    _nativeClear.call(this);
-    if (this === window.localStorage && supabaseReady && !loadingCloudData) {
-        scheduleCloudSave();
-    }
-};
-
-async function cloudUserKey() {
-
-    const {
-        data: {
-            user
-        }
-    } = await supabaseClient.auth.getUser();
-
-    return user && user.email
-        ? user.email.toLowerCase().trim()
-        : null;
+async function getCurrentUserId() {
+    const user = await getCurrentSupabaseUser();
+    return user ? user.id : null;
 }
 
 function collectLocalStorageData() {
     const data = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        // Hanya data aplikasi yang dikirim ke Supabase.
-        // Token/session authentication tidak pernah dikirim.
-        if (key && !isAuthStorageKey(key)) {
+        if (isApplicationStorageKey(key)) {
             data[key] = localStorage.getItem(key);
         }
     }
@@ -3476,148 +3480,189 @@ function collectLocalStorageData() {
 }
 
 async function saveCloudDataNow() {
+    if (!supabaseReady || loadingCloudData || cloudSyncBusy) return false;
 
-    if (
-        !supabaseClient ||
-        !supabaseReady ||
-        loadingCloudData
-    ) {
-        return;
-    }
-
-    const email =
-        await cloudUserKey();
-
-    if (!email || cloudSyncBusy) {
-        return;
+    const user = await getCurrentSupabaseUser();
+    if (!user) {
+        console.warn("Tidak ada session Supabase. Data cloud tidak disimpan.");
+        updateCloudStatus("⚠️ Belum login");
+        return false;
     }
 
     cloudSyncBusy = true;
 
     try {
+        const payload = collectLocalStorageData();
 
-        const payload =
-            collectLocalStorageData();
+        /*
+         * Tabel melona_user_data versi ini memakai user_id sebagai pemilik data.
+         * Jika kolom user_id sudah dibuat sesuai RLS, gunakan upsert berdasarkan
+         * user_id. Email tetap tersedia di payload bila aplikasi membutuhkannya,
+         * tetapi bukan lagi identitas keamanan data.
+         */
+        const row = {
+            user_id: user.id,
+            user_email: user.email || null,
+            data: payload,
+            updated_at: new Date().toISOString()
+        };
 
-        const { error } =
-            await supabaseClient
-                .from("melona_user_data")
-                .upsert({
+        const { error } = await supabaseClient
+            .from("melona_user_data")
+            .upsert(row, { onConflict: "user_id" });
 
-                    user_email: email,
+        if (error) throw error;
 
-                    data: payload,
-
-                    updated_at:
-                        new Date().toISOString()
-
-                }, {
-                    onConflict:
-                        "user_email"
-                });
-
-        if (error) {
-            throw error;
-        }
-
-        updateCloudStatus(
-            "☁️ Tersinkron"
-        );
+        cloudLastSync = new Date();
+        updateCloudStatus("☁️ Tersinkron");
+        return true;
 
     } catch (err) {
-
-        console.error(
-            "Supabase save error:",
-            err
-        );
-
-        updateCloudStatus(
-            "⚠️ Gagal sinkron"
-        );
+        console.error("Supabase save error:", err);
+        updateCloudStatus("⚠️ Gagal sinkron");
+        return false;
 
     } finally {
-
         cloudSyncBusy = false;
-
     }
-
 }
 
 function scheduleCloudSave() {
+    if (!supabaseReady || loadingCloudData) return;
     clearTimeout(cloudSyncTimer);
-    cloudSyncTimer = setTimeout(saveCloudDataNow, 800);
+    cloudSyncTimer = setTimeout(() => {
+        saveCloudDataNow();
+    }, 800);
 }
 
 async function loadCloudData() {
     if (!supabaseClient) {
-        updateCloudStatus('⚙️ Supabase belum diatur');
+        updateCloudStatus("⚙️ Supabase belum diatur");
         return false;
     }
-    const email = await cloudUserKey();
-    if (!email) return false;
-    updateCloudStatus('☁️ Mengambil data...');
+
+    const user = await getCurrentSupabaseUser();
+    if (!user) {
+        supabaseReady = false;
+        updateCloudStatus("⚠️ Belum login");
+        return false;
+    }
+
+    updateCloudStatus("☁️ Mengambil data...");
+
     try {
         const { data: row, error } = await supabaseClient
-            .from('melona_user_data')
-            .select('data, updated_at')
-            .eq('user_email', email)
+            .from("melona_user_data")
+            .select("data, updated_at")
+            .eq("user_id", user.id)
             .maybeSingle();
+
         if (error) throw error;
 
         loadingCloudData = true;
-        if (row && row.data && typeof row.data === 'object') {
-            // Data cloud menjadi sumber utama untuk perangkat baru.
-            // Hapus hanya cache DATA APLIKASI. Jangan menyentuh token/session Supabase.
+
+        if (row && row.data && typeof row.data === "object") {
+            /*
+             * Hapus hanya data aplikasi.
+             * Session Supabase berada di storage key terpisah dan TIDAK disentuh.
+             */
             Object.keys(localStorage).forEach(k => {
-                if (!isAuthStorageKey(k)) {
+                if (isApplicationStorageKey(k)) {
                     _nativeRemoveItem.call(localStorage, k);
                 }
             });
 
             Object.entries(row.data).forEach(([key, value]) => {
-                if (!isAuthStorageKey(key)) {
+                if (isApplicationStorageKey(key)) {
                     _nativeSetItem.call(localStorage, key, String(value));
                 }
             });
+
             cloudLastSync = row.updated_at ? new Date(row.updated_at) : new Date();
-            supabaseReady = true;
-            updateCloudStatus('☁️ Tersinkron');
-        } else {
-            // Akun belum mempunyai data cloud. Upload data lokal yang ada.
-            updateCloudStatus('☁️ Menyimpan data pertama...');
             loadingCloudData = false;
             supabaseReady = true;
-            await saveCloudDataNow();
+
+            refreshAppStateFromStorage();
+            updateCloudStatus("☁️ Tersinkron");
             return true;
+
+        } else {
+            /*
+             * Akun Supabase belum mempunyai data.
+             * Jangan hapus data lokal; jadikan data perangkat pertama
+             * sebagai data awal akun ini.
+             */
+            loadingCloudData = false;
+            supabaseReady = true;
+
+            const saved = await saveCloudDataNow();
+            refreshAppStateFromStorage();
+
+            if (saved) updateCloudStatus("☁️ Tersinkron");
+            return saved;
         }
-        loadingCloudData = false;
-        refreshAppStateFromStorage();
-        updateCloudStatus('☁️ Tersinkron');
-        return true;
+
     } catch (err) {
         loadingCloudData = false;
-        console.error('Supabase load error:', err);
-        updateCloudStatus('⚠️ Cloud tidak terhubung');
-        alert('Gagal mengambil data dari Supabase. Pastikan URL, Anon Key, tabel, dan RLS Supabase sudah benar.');
+        supabaseReady = false;
+        console.error("Supabase load error:", err);
+        updateCloudStatus("⚠️ Cloud tidak terhubung");
+
+        alert(
+            "Gagal mengambil data dari Supabase.\n\n" +
+            "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia.\n\n" +
+            err.message
+        );
+
         return false;
     }
 }
 
 function refreshAppStateFromStorage() {
     try {
-        ghList = JSON.parse(localStorage.getItem('gh_list')) || ['GH 1'];
-    } catch(e) { ghList = ['GH 1']; }
-    currentGH = localStorage.getItem('active_gh') || ghList[0];
-    if (typeof updateGHSelector === 'function') updateGHSelector();
-    if (currentGH) {
-        if (typeof renderRekapNutrisi === 'function') renderRekapNutrisi();
-        if (typeof renderFinance === 'function') renderFinance();
-        if (typeof renderLogs === 'function') renderLogs();
-        if (typeof renderMasterPekerja === 'function') renderMasterPekerja();
-        if (typeof loadWorkerCheckboxes === 'function') loadWorkerCheckboxes();
+        ghList = JSON.parse(localStorage.getItem("gh_list")) || ["GH 1"];
+    } catch (e) {
+        ghList = ["GH 1"];
     }
-    if (typeof updateStorageInfo === 'function') updateStorageInfo();
+
+    currentGH = localStorage.getItem("active_gh") || ghList[0];
+
+    if (typeof updateGHSelector === "function") updateGHSelector();
+
+    if (currentGH) {
+        if (typeof renderRekapNutrisi === "function") renderRekapNutrisi();
+        if (typeof renderFinance === "function") renderFinance();
+        if (typeof renderLogs === "function") renderLogs();
+        if (typeof renderMasterPekerja === "function") renderMasterPekerja();
+        if (typeof loadWorkerCheckboxes === "function") loadWorkerCheckboxes();
+        if (typeof updateUI === "function") updateUI();
+    }
+
+    if (typeof updateStorageInfo === "function") updateStorageInfo();
 }
+
+// Inisialisasi Auth: data cloud dimuat hanya setelah session Supabase valid.
+supabaseClient.auth.onAuthStateChange((event, session) => {
+    console.log("Supabase auth:", event, session ? session.user.email : "no session");
+
+    if (event === "SIGNED_IN" || event === "INITIAL_SESSION" || event === "TOKEN_REFRESHED") {
+        if (session) {
+            setTimeout(async () => {
+                const ok = await loadCloudData();
+                if (ok) {
+                    supabaseReady = true;
+                    updateCloudStatus("☁️ Tersinkron");
+                }
+            }, 0);
+        }
+    }
+
+    if (event === "SIGNED_OUT") {
+        supabaseReady = false;
+        clearTimeout(cloudSyncTimer);
+        updateCloudStatus("🔒 Belum login");
+    }
+});
 
 function updateCloudStatus(text) {
     let el = document.getElementById('cloud-sync-status');
@@ -3855,21 +3900,22 @@ async function cekStatus(user) {
 // 5. FUNGSI LOGOUT
 window.logout = async function () {
 
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = null;
+    cloudSyncBusy = false;
+
     const { error } =
         await supabaseClient.auth.signOut();
 
     if (error) {
-
         alert(
             "Gagal logout: " +
             error.message
         );
-
         return;
     }
 
     location.reload();
-
 };
 
 // 6. WHATSAPP ADMIN
