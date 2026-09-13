@@ -308,7 +308,7 @@
         </div>
 
         <div class="storage-info">
-            <strong>☁️ Penyimpanan Cloud Supabase</strong>
+            <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
             <div class="progress-container">
                 <div id="storage-bar" class="progress-bar"></div>
@@ -3177,7 +3177,7 @@ function updateStorageInfo() {
     const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di Supabase
     let percent = Math.min(100, (total / limit) * 100);
     const text = document.getElementById('storage-text');
-    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Supabase aktif` : `Cache perangkat: ${usedMB} MB`;
+    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Cloud aktif` : `Cache perangkat: ${usedMB} MB`;
     const bar = document.getElementById('storage-bar');
     if (bar) bar.style.width = percent + '%';
 }
