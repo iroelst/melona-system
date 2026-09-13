@@ -757,7 +757,46 @@ if ('serviceWorker' in navigator) {
     ];
     let targetPPM = 0; let targetPH = 6.2;
 
-    function getActiveData() {
+    
+// Standar urutan laporan: tanggal paling lama -> paling baru.
+function parseReportDate(dateStr) {
+    if (!dateStr) return new Date(0);
+    const s = String(dateStr).trim();
+
+    if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+        const p = s.substring(0, 10).split("-");
+        return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+    }
+
+    const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+    if (m) {
+        return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    }
+
+    const d = new Date(s);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+function sortReportByDateOldestFirst(rows, dateIndex = 0) {
+    return [...rows].sort((a, b) => parseReportDate(a?.[dateIndex]) - parseReportDate(b?.[dateIndex]));
+}
+
+function sortReportObjectsByDateOldestFirst(rows, dateKey = "tgl") {
+    return rows.map((row, index) => ({ row, index })).sort((a, b) => {
+        const da = parseReportDate(a.row?.[dateKey]);
+        const db = parseReportDate(b.row?.[dateKey]);
+        const ta = da.getTime();
+        const tb = db.getTime();
+
+        // Selalu tanggal paling lama -> paling baru.
+        // Jika tanggal sama, pertahankan urutan data aslinya.
+        if (ta !== tb) return ta - tb;
+        return a.index - b.index;
+    }).map(item => item.row);
+}
+
+
+function getActiveData() {
         let d = localStorage.getItem(currentGH + '_active_period');
         return d ? JSON.parse(d) : { v: "-", pop: 0, v_list: [], biaya: [], jual: [] };
     }
@@ -2397,7 +2436,8 @@ function exportData() {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(nutrisiExcel), "Nutrisi_Harian");
 
         // --- SHEET 3: PENYEMPROTAN ---
-        const semprotExcel = sLog.map(x => ({
+        const semprotLaporan = sortReportObjectsByDateOldestFirst(sLog, "tgl");
+        const semprotExcel = semprotLaporan.map(x => ({
             "HST": x.hst,
             "TANGGAL": x.tgl,
             "INSEKTISIDA": x.ins,
@@ -2407,7 +2447,8 @@ function exportData() {
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(semprotExcel), "Log_Semprot");
 
         // --- SHEET 4: AKTIVITAS KERJA (Penyesuaian Urutan) ---
-        const kerjaExcel = kLog.map(x => ({
+        const kerjaLaporan = sortReportObjectsByDateOldestFirst(kLog, "tgl");
+        const kerjaExcel = kerjaLaporan.map(x => ({
             "HST": x.hst,
             "TANGGAL": x.tgl,
             "JENIS PEKERJAAN": x.jenis,
@@ -2447,6 +2488,9 @@ function exportData() {
             });
             totalBiaya += x.total;
         });
+
+        // Hanya untuk laporan Excel: tanggal terlama -> terbaru.
+        finData.sort((a, b) => parseReportDate(a["TANGGAL"]) - parseReportDate(b["TANGGAL"]));
 
         const ws_finance = XLSX.utils.json_to_sheet(finData);
         XLSX.utils.sheet_add_aoa(ws_finance, [
@@ -2489,16 +2533,8 @@ function exportData() {
             }))
         ];
 
-        const parseArusTanggal = (v) => {
-            if (!v) return new Date(0);
-            if (String(v).includes("-")) {
-                const a = String(v).split("-");
-                return new Date(a[0], a[1]-1, a[2]);
-            }
-            const a = String(v).split("/");
-            return new Date(a[2], a[1]-1, a[0]);
-        };
-        arusKas.sort((a,b) => parseArusTanggal(a["TANGGAL"]) - parseArusTanggal(b["TANGGAL"]));
+        // Hanya untuk laporan Excel: arus kas kronologis lama -> baru.
+        arusKas.sort((a,b) => parseReportDate(a["TANGGAL"]) - parseReportDate(b["TANGGAL"]));
 
         let saldoBerjalan = saldoAwalKas;
         const arusKasExcel = [
@@ -2868,7 +2904,7 @@ async function exportPDF() {
     doc.text("2. Log Penyemprotan", 14, 20);
     
     // Siapkan data yang sudah disortir terlebih dahulu agar konsisten
-    const sortedSLog = sLog.sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
+    const sortedSLog = [...sLog].sort((a, b) => parseReportDate(a.tgl) - parseReportDate(b.tgl));
 
     doc.autoTable({
         startY: 25,
@@ -2911,7 +2947,7 @@ async function exportPDF() {
     doc.autoTable({
         startY: 25,
         head: [['HST', 'Tanggal', 'Pekerjaan', 'Catatan', 'Pekerja']], 
-        body: kLog.sort((a,b) => parseDate(a.tgl) - parseDate(b.tgl)).map(x => [x.hst, formatIndo(x.tgl), x.jenis, x.ket || "-", x.nama]),
+        body: [...kLog].sort((a,b) => parseReportDate(a.tgl) - parseReportDate(b.tgl)).map(x => [x.hst, formatIndo(x.tgl), x.jenis, x.ket || "-", x.nama]),
         headStyles: { fillColor: [46, 125, 50] },
         styles: { fontSize: 8, overflow: 'linebreak' },
         columnStyles: { 3: { cellWidth: 55 } } 
@@ -2930,7 +2966,7 @@ async function exportPDF() {
     ];
 
     // Sorting dari tanggal terlama ke terbaru (cocok untuk laporan kronologis)
-    finDataGabungan.sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
+    finDataGabungan.sort((a, b) => parseReportDate(a.tgl) - parseReportDate(b.tgl));
 
     // Mapping untuk body tabel
     let finDataBody = finDataGabungan.map(x => {
@@ -2972,18 +3008,66 @@ async function exportPDF() {
     doc.text("5. Laporan Arus Kas", 14, 20);
 
     const saldoAwalKasPDF = parseFloat(d.saldoAwal) || 0;
+
+    // Parser khusus arus kas: mendukung format YYYY-MM-DD,
+    // DD/MM/YYYY, DD-MM-YYYY, dan tanggal ISO dengan waktu.
+    const parseArusKasDate = (dateStr) => {
+        if (!dateStr) return new Date(0);
+
+        const s = String(dateStr).trim();
+
+        // Format input HTML: YYYY-MM-DD atau ISO datetime
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+            const p = s.substring(0, 10).split("-");
+            return new Date(Number(p[0]), Number(p[1]) - 1, Number(p[2]));
+        }
+
+        // Format Indonesia: DD/MM/YYYY atau DD-MM-YYYY
+        const m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})/);
+        if (m) {
+            return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+        }
+
+        const parsed = new Date(s);
+        return isNaN(parsed.getTime()) ? new Date(0) : parsed;
+    };
+
     let arusKasPDF = [
-        ...(d.jual || []).map(x => ({tgl:x.tgl, jenis:"Penjualan", ket:x.g || "-", no:"-", masuk:x.total || 0, keluar:0})),
-        ...(d.biaya || []).map(x => ({tgl:x.tgl, jenis:"Biaya - " + (x.k || "-"), ket:x.ket || "-", no:x.noTransaksi || "-", masuk:0, keluar:x.total || 0})),
-        ...(d.dana || []).map(x => ({
+        ...(d.jual || []).map((x, idx) => ({
+            tgl:x.tgl,
+            jenis:"Penjualan",
+            ket:x.g || "-",
+            no:"-",
+            masuk:parseFloat(x.total)||0,
+            keluar:0,
+            _urutan:idx
+        })),
+        ...(d.biaya || []).map((x, idx) => ({
+            tgl:x.tgl,
+            jenis:"Biaya - " + (x.k || "-"),
+            ket:x.ket || "-",
+            no:x.noTransaksi || "-",
+            masuk:0,
+            keluar:parseFloat(x.total)||0,
+            _urutan:idx
+        })),
+        ...(d.dana || []).map((x, idx) => ({
             tgl:x.tgl,
             jenis:x.jenis || "Pendanaan",
             ket:x.ket || "-",
             no:"-",
             masuk:x.arah === "in" ? (parseFloat(x.nominal)||0) : 0,
-            keluar:x.arah === "out" ? (parseFloat(x.nominal)||0) : 0
+            keluar:x.arah === "out" ? (parseFloat(x.nominal)||0) : 0,
+            _urutan:idx
         }))
-    ].sort((a,b)=>parseDate(a.tgl)-parseDate(b.tgl));
+    ];
+
+    // LAPORAN ARUS KAS: tanggal TERLAMA -> TERBARU.
+    // Jika tanggal sama, pertahankan urutan data yang ada.
+    arusKasPDF.sort((a, b) => {
+        const selisih = parseArusKasDate(a.tgl) - parseArusKasDate(b.tgl);
+        return selisih || (a._urutan - b._urutan);
+    });
 
     let saldoKasBerjalan = saldoAwalKasPDF;
     const arusKasBody = [[
