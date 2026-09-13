@@ -969,35 +969,55 @@ async function downloadFullReport() {
     }
 
     function switchGH() {
-        currentGH = document.getElementById('gh-selector').value;
+        const selected = document.getElementById('gh-selector').value;
+        if (!selected || !ghList.includes(selected)) return;
+
+        currentGH = selected;
         localStorage.setItem('active_gh', currentGH);
-        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
+
+        // Pergantian GH tidak menghapus data GH lain.
         refreshAll();
+        scheduleCloudSave();
     }
 
     function promptAddGH() {
-        const name = prompt("Nama GH Baru:");
-        if (name && !ghList.includes(name)) {
-            ghList.push(name);
-            localStorage.setItem('gh_list', JSON.stringify(ghList));
-            if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
-            currentGH = name;
-            localStorage.setItem('active_gh', currentGH);
-            updateGHSelector();
-            refreshAll();
+        const rawName = prompt("Nama GH Baru:");
+        const name = String(rawName || '').trim();
+
+        if (!name) return;
+        if (name.length > 40) return alert("Nama GH maksimal 40 karakter.");
+        if (ghList.some(g => String(g).toLowerCase() === name.toLowerCase())) {
+            return alert("Nama GH tersebut sudah ada.");
         }
+
+        ghList.push(name);
+        currentGH = name;
+
+        localStorage.setItem('gh_list', JSON.stringify(ghList));
+        localStorage.setItem('active_gh', currentGH);
+
+        updateGHSelector();
+        refreshAll();
+        scheduleCloudSave();
     }
 
     function promptRemoveGH() {
         if (ghList.length <= 1) return alert("Minimal 1 GH.");
-        if (confirm(`Hapus ${currentGH}?`)) {
-            ghList = ghList.filter(g => g !== currentGH);
-            localStorage.setItem('gh_list', JSON.stringify(ghList));
-            currentGH = ghList[0];
-            localStorage.setItem('active_gh', currentGH);
-            updateGHSelector();
-            refreshAll();
-        }
+
+        const removedGH = currentGH;
+        if (!confirm(`Hapus ${removedGH} dari daftar GH?`)) return;
+
+        ghList = ghList.filter(g => g !== removedGH);
+        currentGH = ghList[0] || "GH 1";
+
+        localStorage.setItem('gh_list', JSON.stringify(ghList));
+        localStorage.setItem('active_gh', currentGH);
+
+        updateGHSelector();
+        refreshAll();
+
+        // Sebelumnya perubahan ini tidak pernah dikirim ke Supabase.
+        scheduleCloudSave();
     }
 
     function updateGHSelector() {
@@ -1723,7 +1743,6 @@ async function prosesSimpanSemprot(tgl, hst, imgBase64) {
 
     localStorage.setItem(currentGH + '_logs', JSON.stringify(logS));
     scheduleCloudSave();
-    scheduleCloudSave();
     
     // Reset Preview & Form
     document.getElementById('preview-semprot-edit').innerHTML = "";
@@ -2240,7 +2259,12 @@ function hapusItem(key, index) {
         
         // Refresh semua tampilan
         renderLogs();
-        updateUI(); 
+        updateUI();
+
+        // PENTING: hapusItem sebelumnya hanya mengubah localStorage.
+        // Supabase masih menyimpan snapshot lama, sehingga data kembali
+        // setelah refresh/login.
+        scheduleCloudSave();
     }
 }
 
@@ -3656,6 +3680,7 @@ const supabaseClient = window.supabase.createClient(
 
 let supabaseReady = false;
 let cloudSyncBusy = false;
+let cloudSyncPending = false;
 let cloudSyncTimer = null;
 let loadingCloudData = false;
 let cloudLastSync = null;
@@ -3784,7 +3809,13 @@ async function blobFromDataUrl(dataUrl) {
 }
 
 async function saveCloudDataNow() {
-    if (!supabaseReady || loadingCloudData || cloudSyncBusy) return false;
+    if (!supabaseReady || loadingCloudData) return false;
+
+    // Jangan membuang perubahan jika save sebelumnya masih berjalan.
+    if (cloudSyncBusy) {
+        cloudSyncPending = true;
+        return false;
+    }
 
     const user = await getCurrentSupabaseUser();
     if (!user) {
@@ -3794,6 +3825,7 @@ async function saveCloudDataNow() {
     }
 
     cloudSyncBusy = true;
+    cloudSyncPending = false;
 
     try {
         const payload = collectLocalStorageData();
@@ -3828,11 +3860,23 @@ async function saveCloudDataNow() {
 
     } finally {
         cloudSyncBusy = false;
+
+        // Jika ada perubahan saat write berlangsung, kirim snapshot terbaru.
+        if (cloudSyncPending && supabaseReady && !loadingCloudData) {
+            clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = setTimeout(() => {
+                saveCloudDataNow();
+            }, 100);
+        }
     }
 }
 
 function scheduleCloudSave() {
     if (!supabaseReady || loadingCloudData) return;
+
+    // Selalu tandai bahwa ada perubahan terbaru.
+    cloudSyncPending = true;
+
     clearTimeout(cloudSyncTimer);
     cloudSyncTimer = setTimeout(() => {
         saveCloudDataNow();
