@@ -12,6 +12,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
@@ -306,12 +307,12 @@
         </div>
 
         <div class="storage-info">
-            <strong>💾 Kapasitas Memori HP</strong>
+            <strong>☁️ Penyimpanan Cloud Supabase</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
             <div class="progress-container">
                 <div id="storage-bar" class="progress-bar"></div>
             </div>
-            <small style="color: #666;">*Jika memori penuh segera melakukan Backup</small>
+            <small style="color: #666;">*Data tersimpan di cloud berdasarkan akun login. Backup JSON tetap tersedia sebagai cadangan.</small>
         </div>
     </div>
 </div>
@@ -2918,30 +2919,17 @@ async function exportPDF() {
 
 function updateStorageInfo() {
     let total = 0;
-    // Menghitung besar karakter dalam localStorage (1 karakter ≈ 2 bytes)
     for (let key in localStorage) {
         if (!localStorage.hasOwnProperty(key)) continue;
         total += ((localStorage[key].length + key.length) * 2);
     }
-    
-    // Konversi ke KB atau MB
-    let usedKB = (total / 1024).toFixed(2);
-    let usedMB = (total / (1024 * 1024)).toFixed(2);
-    
-    // Estimasi limit browser adalah 5MB (beberapa HP bisa 10MB)
-    let limit = 5 * 1024 * 1024; 
-    let percent = (total / limit) * 100;
-    if(percent > 100) percent = 100;
-
-    // Update UI
-    document.getElementById('storage-text').innerText = `Digunakan: ${usedMB} MB / 5.00 MB`;
+    const usedMB = (total / (1024 * 1024)).toFixed(2);
+    const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di Supabase
+    let percent = Math.min(100, (total / limit) * 100);
+    const text = document.getElementById('storage-text');
+    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Supabase aktif` : `Cache perangkat: ${usedMB} MB`;
     const bar = document.getElementById('storage-bar');
-    bar.style.width = percent + '%';
-    
-    // Ubah warna bar jika hampir penuh
-    if(percent > 80) bar.style.background = "#e74c3c"; // Merah
-    else if(percent > 50) bar.style.background = "#f39c12"; // Oranye
-    else bar.style.background = "#2e7d32"; // Hijau
+    if (bar) bar.style.width = percent + '%';
 }
 function toggleBackup() {
     const content = document.getElementById('backup-content');
@@ -3395,6 +3383,171 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db = firebase.firestore();
 
+// ============================================================
+// SUPABASE CLOUD STORAGE / SYNC
+// Login tetap menggunakan Firebase, sedangkan seluruh data aplikasi
+// (termasuk foto yang saat ini disimpan sebagai Base64) disinkronkan
+// ke Supabase berdasarkan email akun yang sedang login.
+// ============================================================
+const SUPABASE_URL = "GANTI_DENGAN_SUPABASE_PROJECT_URL";
+const SUPABASE_ANON_KEY = "GANTI_DENGAN_SUPABASE_ANON_KEY";
+const supabaseClient = (window.supabase && SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("GANTI_"))
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    : null;
+
+let supabaseReady = false;
+let cloudSyncBusy = false;
+let cloudSyncTimer = null;
+let loadingCloudData = false;
+let cloudLastSync = null;
+
+// Data lama tetap dibaca oleh aplikasi secara normal dari localStorage.
+// Setelah login, data akun akan diambil dari Supabase lalu dimuat ke localStorage.
+const _nativeSetItem = Storage.prototype.setItem;
+const _nativeRemoveItem = Storage.prototype.removeItem;
+const _nativeClear = Storage.prototype.clear;
+
+Storage.prototype.setItem = function(key, value) {
+    _nativeSetItem.call(this, key, value);
+    if (this === window.localStorage && supabaseReady && !loadingCloudData) scheduleCloudSave();
+};
+Storage.prototype.removeItem = function(key) {
+    _nativeRemoveItem.call(this, key);
+    if (this === window.localStorage && supabaseReady && !loadingCloudData) scheduleCloudSave();
+};
+Storage.prototype.clear = function() {
+    _nativeClear.call(this);
+    if (this === window.localStorage && supabaseReady && !loadingCloudData) scheduleCloudSave();
+};
+
+function cloudUserKey() {
+    const user = auth.currentUser;
+    return user && user.email ? user.email.toLowerCase().trim() : null;
+}
+
+function collectLocalStorageData() {
+    const data = {};
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key) data[key] = localStorage.getItem(key);
+    }
+    return data;
+}
+
+async function saveCloudDataNow() {
+    if (!supabaseClient || !supabaseReady || loadingCloudData) return;
+    const email = cloudUserKey();
+    if (!email || cloudSyncBusy) return;
+    cloudSyncBusy = true;
+    try {
+        const payload = collectLocalStorageData();
+        const { error } = await supabaseClient
+            .from('melona_user_data')
+            .upsert({
+                user_email: email,
+                data: payload,
+                updated_at: new Date().toISOString()
+            }, { onConflict: 'user_email' });
+        if (error) throw error;
+        cloudLastSync = new Date();
+        updateCloudStatus('☁️ Tersinkron');
+    } catch (err) {
+        console.error('Supabase save error:', err);
+        updateCloudStatus('⚠️ Gagal sinkron');
+    } finally {
+        cloudSyncBusy = false;
+    }
+}
+
+function scheduleCloudSave() {
+    clearTimeout(cloudSyncTimer);
+    cloudSyncTimer = setTimeout(saveCloudDataNow, 800);
+}
+
+async function loadCloudData() {
+    if (!supabaseClient) {
+        updateCloudStatus('⚙️ Supabase belum diatur');
+        return false;
+    }
+    const email = cloudUserKey();
+    if (!email) return false;
+    updateCloudStatus('☁️ Mengambil data...');
+    try {
+        const { data: row, error } = await supabaseClient
+            .from('melona_user_data')
+            .select('data, updated_at')
+            .eq('user_email', email)
+            .maybeSingle();
+        if (error) throw error;
+
+        loadingCloudData = true;
+        if (row && row.data && typeof row.data === 'object') {
+            // Data cloud menjadi sumber utama untuk perangkat baru.
+            Object.keys(localStorage).forEach(k => _nativeRemoveItem.call(localStorage, k));
+            Object.entries(row.data).forEach(([key, value]) => {
+                _nativeSetItem.call(localStorage, key, String(value));
+            });
+            cloudLastSync = row.updated_at ? new Date(row.updated_at) : new Date();
+            supabaseReady = true;
+            updateCloudStatus('☁️ Tersinkron');
+        } else {
+            // Akun belum mempunyai data cloud. Upload data lokal yang ada.
+            updateCloudStatus('☁️ Menyimpan data pertama...');
+            loadingCloudData = false;
+            supabaseReady = true;
+            await saveCloudDataNow();
+            return true;
+        }
+        loadingCloudData = false;
+        refreshAppStateFromStorage();
+        updateCloudStatus('☁️ Tersinkron');
+        return true;
+    } catch (err) {
+        loadingCloudData = false;
+        console.error('Supabase load error:', err);
+        updateCloudStatus('⚠️ Cloud tidak terhubung');
+        alert('Gagal mengambil data dari Supabase. Pastikan URL, Anon Key, tabel, dan RLS Supabase sudah benar.');
+        return false;
+    }
+}
+
+function refreshAppStateFromStorage() {
+    try {
+        ghList = JSON.parse(localStorage.getItem('gh_list')) || ['GH 1'];
+    } catch(e) { ghList = ['GH 1']; }
+    currentGH = localStorage.getItem('active_gh') || ghList[0];
+    if (typeof updateGHSelector === 'function') updateGHSelector();
+    if (currentGH) {
+        if (typeof renderRekapNutrisi === 'function') renderRekapNutrisi();
+        if (typeof renderFinance === 'function') renderFinance();
+        if (typeof renderLogs === 'function') renderLogs();
+        if (typeof renderMasterPekerja === 'function') renderMasterPekerja();
+        if (typeof loadWorkerCheckboxes === 'function') loadWorkerCheckboxes();
+    }
+    if (typeof updateStorageInfo === 'function') updateStorageInfo();
+}
+
+function updateCloudStatus(text) {
+    let el = document.getElementById('cloud-sync-status');
+    if (!el) {
+        const container = document.querySelector('.header-top');
+        if (container) {
+            el = document.createElement('span');
+            el.id = 'cloud-sync-status';
+            el.style.cssText = 'position:absolute;right:10px;top:8px;font-size:10px;background:rgba(255,255,255,.15);padding:4px 7px;border-radius:12px;';
+            container.style.position = 'relative';
+            container.appendChild(el);
+        }
+    }
+    if (el) el.textContent = text;
+}
+
+window.syncSupabaseNow = async function() {
+    await saveCloudDataNow();
+    alert('☁️ Sinkronisasi selesai.');
+};
+
+
 // --- FUNGSI HELPER UNTUK MENGATUR TAMPILAN ---
 function setDisplay(login, app, loading = 'none') {
     document.getElementById('lock-screen').style.display = login;
@@ -3421,13 +3574,14 @@ auth.onAuthStateChanged(async (user) => {
     if (user) {
         // 1. Cek status pembayaran
         await cekStatus(user);
-        
-        // 2. Gunakan nama fungsi yang benar (updateGHSelector)
-        if (typeof updateGHSelector === "function") {
-            updateGHSelector(); 
+
+        // 2. Ambil data akun dari Supabase ke perangkat ini
+        if (document.getElementById('main-app').style.display !== 'none') {
+            await loadCloudData();
         }
 
         // 3. Pastikan currentGH sudah terisi, lalu render
+        if (typeof updateGHSelector === "function") updateGHSelector();
         if (currentGH) {
             renderRekapNutrisi();
             if (typeof renderFinance === "function") renderFinance();
