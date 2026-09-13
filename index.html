@@ -2829,6 +2829,32 @@ async function exportPDF() {
     });
 
 // --- 2. Tabel Penyemprotan ---
+    // Ambil foto dari Supabase Storage dan ubah menjadi Data URL agar jsPDF dapat menanamkannya.
+    const pdfPhotoData = new Map();
+    for (const item of sLog) {
+        if (!item?.img) continue;
+        try {
+            if (String(item.img).startsWith('data:image/')) {
+                pdfPhotoData.set(item, item.img);
+            } else {
+                const signedUrl = await getSemprotPhotoUrl(item.img, 600);
+                if (!signedUrl) continue;
+                const response = await fetch(signedUrl);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const blob = await response.blob();
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Gagal membaca foto untuk PDF'));
+                    reader.readAsDataURL(blob);
+                });
+                pdfPhotoData.set(item, dataUrl);
+            }
+        } catch (err) {
+            console.warn('Foto penyemprotan tidak dapat dimasukkan ke PDF:', err);
+        }
+    }
+
     doc.addPage();
     doc.text("2. Log Penyemprotan", 14, 20);
     
@@ -2856,10 +2882,12 @@ async function exportPDF() {
                 // Ambil data langsung dari array yang sudah kita sortir tadi
                 const currentRowData = sortedSLog[data.row.index];
                 
-                // VALIDASI: Cek apakah data dan properti img ada
-                if (currentRowData && currentRowData.img) {
+                // jsPDF tidak dapat langsung menanamkan URL Storage private.
+                // Gunakan Data URL hasil download dari signed URL.
+                const imageData = pdfPhotoData.get(currentRowData);
+                if (imageData) {
                     try {
-                        doc.addImage(currentRowData.img, 'JPEG', data.cell.x + 5, data.cell.y + 2, 20, 20);
+                        doc.addImage(imageData, 'JPEG', data.cell.x + 5, data.cell.y + 1, 20, 20);
                     } catch (err) {
                         console.error("Gagal menambahkan gambar ke PDF:", err);
                     }
