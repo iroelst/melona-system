@@ -3395,23 +3395,58 @@ let cloudSyncTimer = null;
 let loadingCloudData = false;
 let cloudLastSync = null;
 
-// Data lama tetap dibaca oleh aplikasi secara normal dari localStorage.
-// Setelah login, data akun akan diambil dari Supabase lalu dimuat ke localStorage.
+// Data aplikasi tetap dibaca dari localStorage sebagai cache.
+// PENTING: jangan pernah ikut menyimpan/menghapus token Supabase/Firebase.
+// Jika token auth ikut terhapus, pengguna akan langsung dianggap logout.
 const _nativeSetItem = Storage.prototype.setItem;
 const _nativeRemoveItem = Storage.prototype.removeItem;
 const _nativeClear = Storage.prototype.clear;
 
+function isAuthStorageKey(key) {
+    const k = String(key || '').toLowerCase();
+    return (
+        k.startsWith('sb-') ||
+        k.includes('supabase') ||
+        k.includes('firebase') ||
+        k.includes('google') ||
+        k.includes('gsi_') ||
+        k.includes('auth-token') ||
+        k.includes('access_token') ||
+        k.includes('refresh_token')
+    );
+}
+
 Storage.prototype.setItem = function(key, value) {
     _nativeSetItem.call(this, key, value);
-    if (this === window.localStorage && supabaseReady && !loadingCloudData) scheduleCloudSave();
+    if (
+        this === window.localStorage &&
+        supabaseReady &&
+        !loadingCloudData &&
+        !isAuthStorageKey(key)
+    ) {
+        scheduleCloudSave();
+    }
 };
+
 Storage.prototype.removeItem = function(key) {
     _nativeRemoveItem.call(this, key);
-    if (this === window.localStorage && supabaseReady && !loadingCloudData) scheduleCloudSave();
+    if (
+        this === window.localStorage &&
+        supabaseReady &&
+        !loadingCloudData &&
+        !isAuthStorageKey(key)
+    ) {
+        scheduleCloudSave();
+    }
 };
+
 Storage.prototype.clear = function() {
+    // Jangan gunakan clear() pada localStorage setelah login karena
+    // Supabase menyimpan session/token di localStorage.
     _nativeClear.call(this);
-    if (this === window.localStorage && supabaseReady && !loadingCloudData) scheduleCloudSave();
+    if (this === window.localStorage && supabaseReady && !loadingCloudData) {
+        scheduleCloudSave();
+    }
 };
 
 async function cloudUserKey() {
@@ -3431,7 +3466,11 @@ function collectLocalStorageData() {
     const data = {};
     for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key) data[key] = localStorage.getItem(key);
+        // Hanya data aplikasi yang dikirim ke Supabase.
+        // Token/session authentication tidak pernah dikirim.
+        if (key && !isAuthStorageKey(key)) {
+            data[key] = localStorage.getItem(key);
+        }
     }
     return data;
 }
@@ -3528,9 +3567,17 @@ async function loadCloudData() {
         loadingCloudData = true;
         if (row && row.data && typeof row.data === 'object') {
             // Data cloud menjadi sumber utama untuk perangkat baru.
-            Object.keys(localStorage).forEach(k => _nativeRemoveItem.call(localStorage, k));
+            // Hapus hanya cache DATA APLIKASI. Jangan menyentuh token/session Supabase.
+            Object.keys(localStorage).forEach(k => {
+                if (!isAuthStorageKey(k)) {
+                    _nativeRemoveItem.call(localStorage, k);
+                }
+            });
+
             Object.entries(row.data).forEach(([key, value]) => {
-                _nativeSetItem.call(localStorage, key, String(value));
+                if (!isAuthStorageKey(key)) {
+                    _nativeSetItem.call(localStorage, key, String(value));
+                }
             });
             cloudLastSync = row.updated_at ? new Date(row.updated_at) : new Date();
             supabaseReady = true;
