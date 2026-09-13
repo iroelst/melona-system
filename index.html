@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- Payment flow: auto-register new Supabase users as is_paid=false -->
     <title>Melona Monitoring System V1</title>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -4042,6 +4043,7 @@ async function cekStatusSupabaseUser(user) {
         // Status pembayaran sekarang dibaca dari Supabase, bukan Firestore.
         // Login aplikasi juga menggunakan Supabase Auth, sehingga tidak ada
         // ketergantungan pada Firebase Auth untuk membaca status pembayaran.
+        // Cari data pembayaran milik user yang sedang login.
         const { data, error } = await supabaseClient
             .from("melona_payments")
             .select("is_paid")
@@ -4062,11 +4064,63 @@ async function cekStatusSupabaseUser(user) {
             return false;
         }
 
-        if (data && data.is_paid === true) {
+        let paymentData = data;
+
+        // User baru: otomatis dibuat sebagai akun belum bayar.
+        // User hanya boleh membuat record dengan is_paid=false melalui RLS.
+        if (!paymentData) {
+            const namaUser =
+                user.user_metadata?.full_name ||
+                user.user_metadata?.name ||
+                user.email;
+
+            const { data: insertedData, error: insertError } =
+                await supabaseClient
+                    .from("melona_payments")
+                    .insert({
+                        user_id: user.id,
+                        email: user.email,
+                        is_paid: false,
+                        nama: namaUser
+                    })
+                    .select("is_paid")
+                    .single();
+
+            if (insertError) {
+                // Jika record dibuat hampir bersamaan oleh proses lain,
+                // coba baca kembali record tersebut.
+                const { data: retryData, error: retryError } =
+                    await supabaseClient
+                        .from("melona_payments")
+                        .select("is_paid")
+                        .eq("user_id", user.id)
+                        .maybeSingle();
+
+                if (retryError || !retryData) {
+                    console.error("Supabase payment registration error:", insertError);
+                    setDisplay("flex", "none");
+
+                    const paymentArea = document.getElementById("payment-area");
+                    if (paymentArea) paymentArea.style.display = "none";
+
+                    alert(
+                        "Tidak dapat membuat data pembayaran akun.\\n\\n" +
+                        (retryError?.message || insertError.message)
+                    );
+                    return false;
+                }
+
+                paymentData = retryData;
+            } else {
+                paymentData = insertedData;
+            }
+        }
+
+        if (paymentData && paymentData.is_paid === true) {
             return true;
         }
 
-        // Tidak ada record atau belum dibayar -> tetap di halaman pembayaran.
+        // Belum dibayar -> tetap di halaman pembayaran.
         setDisplay("flex", "none");
 
         const loginButton = document.getElementById("btn-login-google");
