@@ -3380,20 +3380,14 @@ const firebaseConfig = {
 
 // Inisialisasi Firebase
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.firestore();
 
-// ============================================================
-// SUPABASE CLOUD STORAGE / SYNC
-// Login tetap menggunakan Firebase, sedangkan seluruh data aplikasi
-// (termasuk foto yang saat ini disimpan sebagai Base64) disinkronkan
-// ke Supabase berdasarkan email akun yang sedang login.
-// ============================================================
-const SUPABASE_URL = "GANTI_DENGAN_SUPABASE_PROJECT_URL";
-const SUPABASE_ANON_KEY = "GANTI_DENGAN_SUPABASE_ANON_KEY";
-const supabaseClient = (window.supabase && SUPABASE_URL.startsWith("https://") && !SUPABASE_URL.includes("GANTI_"))
-    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    : null;
+const SUPABASE_URL = "https://guldxfudpculqkvgdcov.supabase.co/";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lyp9oQrzzy2MGQulM9OfCg_XEGeUjLH";
+
+const supabaseClient = window.supabase.createClient(
+    SUPABASE_URL,
+    SUPABASE_PUBLISHABLE_KEY
+);
 
 let supabaseReady = false;
 let cloudSyncBusy = false;
@@ -3420,9 +3414,17 @@ Storage.prototype.clear = function() {
     if (this === window.localStorage && supabaseReady && !loadingCloudData) scheduleCloudSave();
 };
 
-function cloudUserKey() {
-    const user = auth.currentUser;
-    return user && user.email ? user.email.toLowerCase().trim() : null;
+async function cloudUserKey() {
+
+    const {
+        data: {
+            user
+        }
+    } = await supabaseClient.auth.getUser();
+
+    return user && user.email
+        ? user.email.toLowerCase().trim()
+        : null;
 }
 
 function collectLocalStorageData() {
@@ -3435,28 +3437,71 @@ function collectLocalStorageData() {
 }
 
 async function saveCloudDataNow() {
-    if (!supabaseClient || !supabaseReady || loadingCloudData) return;
-    const email = cloudUserKey();
-    if (!email || cloudSyncBusy) return;
-    cloudSyncBusy = true;
-    try {
-        const payload = collectLocalStorageData();
-        const { error } = await supabaseClient
-            .from('melona_user_data')
-            .upsert({
-                user_email: email,
-                data: payload,
-                updated_at: new Date().toISOString()
-            }, { onConflict: 'user_email' });
-        if (error) throw error;
-        cloudLastSync = new Date();
-        updateCloudStatus('☁️ Tersinkron');
-    } catch (err) {
-        console.error('Supabase save error:', err);
-        updateCloudStatus('⚠️ Gagal sinkron');
-    } finally {
-        cloudSyncBusy = false;
+
+    if (
+        !supabaseClient ||
+        !supabaseReady ||
+        loadingCloudData
+    ) {
+        return;
     }
+
+    const email =
+        await cloudUserKey();
+
+    if (!email || cloudSyncBusy) {
+        return;
+    }
+
+    cloudSyncBusy = true;
+
+    try {
+
+        const payload =
+            collectLocalStorageData();
+
+        const { error } =
+            await supabaseClient
+                .from("melona_user_data")
+                .upsert({
+
+                    user_email: email,
+
+                    data: payload,
+
+                    updated_at:
+                        new Date().toISOString()
+
+                }, {
+                    onConflict:
+                        "user_email"
+                });
+
+        if (error) {
+            throw error;
+        }
+
+        updateCloudStatus(
+            "☁️ Tersinkron"
+        );
+
+    } catch (err) {
+
+        console.error(
+            "Supabase save error:",
+            err
+        );
+
+        updateCloudStatus(
+            "⚠️ Gagal sinkron"
+        );
+
+    } finally {
+
+        cloudSyncBusy = false;
+
+    }
+
 }
 
 function scheduleCloudSave() {
@@ -3558,43 +3603,159 @@ function setDisplay(login, app, loading = 'none') {
 }
 
 // 2. FUNGSI LOGIN
-window.loginGoogle = function() {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    auth.signInWithPopup(provider)
-        .then((result) => {
-            console.log("Login sukses:", result.user.email);
-        })
-        .catch((error) => {
-            alert("Gagal Login: " + error.message);
-        });
+window.loginGoogle = async function () {
+
+    try {
+
+        const redirectUrl =
+            window.location.origin +
+            window.location.pathname;
+
+        const { data, error } =
+            await supabaseClient.auth.signInWithOAuth({
+
+                provider: "google",
+
+                options: {
+                    redirectTo: redirectUrl
+                }
+
+            });
+
+        if (error) {
+            console.error(error);
+
+            alert(
+                "Gagal Login Google:\n" +
+                error.message
+            );
+        }
+
+    } catch (error) {
+
+        console.error(error);
+
+        alert(
+            "Terjadi kesalahan login:\n" +
+            error.message
+        );
+
+    }
+
 };
 
 // 3. OBSERVER STATUS LOGIN
-auth.onAuthStateChanged(async (user) => {
-    if (user) {
-        // 1. Cek status pembayaran
-        await cekStatus(user);
+supabaseClient.auth.onAuthStateChange(
+    async (event, session) => {
 
-        // 2. Ambil data akun dari Supabase ke perangkat ini
-        if (document.getElementById('main-app').style.display !== 'none') {
-            await loadCloudData();
+        console.log(
+            "Supabase Auth:",
+            event,
+            session
+        );
+
+        if (session && session.user) {
+
+            const user = session.user;
+
+            console.log(
+                "Login berhasil:",
+                user.email
+            );
+
+            await handleSupabaseLogin(user);
+
+        } else {
+
+            setDisplay("flex", "none");
+
+            const loginButton =
+                document.getElementById(
+                    "btn-login-google"
+                );
+
+            if (loginButton) {
+                loginButton.style.display =
+                    "block";
+            }
+
         }
 
-        // 3. Pastikan currentGH sudah terisi, lalu render
-        if (typeof updateGHSelector === "function") updateGHSelector();
-        if (currentGH) {
-            renderRekapNutrisi();
-            if (typeof renderFinance === "function") renderFinance();
-            if (typeof renderLogs === "function") renderLogs();
-        }
-        
-        console.log("Aplikasi Melona Siap!");
-    } else {
-        setDisplay('flex', 'none');
-        document.getElementById('btn-login-google').style.display = 'block';
-        document.getElementById('payment-area').style.display = 'none';
     }
-});
+);
+
+async function handleSupabaseLogin(user) {
+
+    try {
+
+        console.log(
+            "User Supabase:",
+            user.email
+        );
+
+        // Tampilkan aplikasi
+        setDisplay("none", "block");
+
+        // Tampilkan nama pengguna
+        const nameElement =
+            document.getElementById("user-name");
+
+        if (nameElement) {
+
+            nameElement.innerText =
+                user.user_metadata?.full_name ||
+                user.user_metadata?.name ||
+                user.email;
+
+        }
+
+        // Ambil data cloud
+        await loadCloudData();
+
+        // Refresh tampilan
+        if (typeof updateGHSelector === "function") {
+            updateGHSelector();
+        }
+
+        if (typeof renderRekapNutrisi === "function") {
+            renderRekapNutrisi();
+        }
+
+        if (typeof renderFinance === "function") {
+            renderFinance();
+        }
+
+        if (typeof renderLogs === "function") {
+            renderLogs();
+        }
+
+        if (typeof renderMasterPekerja === "function") {
+            renderMasterPekerja();
+        }
+
+        if (typeof loadWorkerCheckboxes === "function") {
+            loadWorkerCheckboxes();
+        }
+
+        console.log(
+            "☁️ Data berhasil dimuat"
+        );
+
+    } catch (error) {
+
+        console.error(
+            "Login handler error:",
+            error
+        );
+
+        alert(
+            "Gagal memuat data aplikasi:\n" +
+            error.message
+        );
+
+    }
+
+}
 
 // 4. CEK STATUS PEMBAYARAN DI FIRESTORE
 async function cekStatus(user) {
@@ -3632,10 +3793,23 @@ async function cekStatus(user) {
 }
 
 // 5. FUNGSI LOGOUT
-window.logout = function() {
-    auth.signOut().then(() => {
-        location.reload(); // Refresh untuk memastikan state bersih
-    });
+window.logout = async function () {
+
+    const { error } =
+        await supabaseClient.auth.signOut();
+
+    if (error) {
+
+        alert(
+            "Gagal logout: " +
+            error.message
+        );
+
+        return;
+    }
+
+    location.reload();
+
 };
 
 // 6. WHATSAPP ADMIN
