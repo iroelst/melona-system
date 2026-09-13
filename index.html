@@ -3986,76 +3986,108 @@ supabaseClient.auth.onAuthStateChange(
 );
 
 async function handleSupabaseLogin(user) {
-
     try {
+        console.log("User Supabase:", user.email);
 
-        console.log(
-            "User Supabase:",
-            user.email
-        );
+        // PENTING: jangan tampilkan aplikasi sebelum status pembayaran diperiksa.
+        // Login sekarang memakai Supabase Auth, sedangkan status pembayaran lama
+        // tetap dibaca dari Firestore berdasarkan email.
+        const paymentOK = await cekStatusSupabaseUser(user);
 
-        // Tampilkan aplikasi
+        if (!paymentOK) {
+            // Akun belum aktif: cekStatusSupabaseUser sudah menampilkan layar pembayaran.
+            return;
+        }
+
+        // Hanya akun yang sudah dibayar yang boleh masuk ke aplikasi.
         setDisplay("none", "block");
 
-        // Tampilkan nama pengguna
-        const nameElement =
-            document.getElementById("user-name");
-
+        const nameElement = document.getElementById("user-name");
         if (nameElement) {
-
             nameElement.innerText =
                 user.user_metadata?.full_name ||
                 user.user_metadata?.name ||
                 user.email;
-
         }
 
-        // Ambil data cloud
+        // Ambil data cloud milik user_id Supabase yang sedang login.
         await loadCloudData();
 
-        // Refresh tampilan
-        if (typeof updateGHSelector === "function") {
-            updateGHSelector();
-        }
+        if (typeof updateGHSelector === "function") updateGHSelector();
+        if (typeof renderRekapNutrisi === "function") renderRekapNutrisi();
+        if (typeof renderFinance === "function") renderFinance();
+        if (typeof renderLogs === "function") renderLogs();
+        if (typeof renderMasterPekerja === "function") renderMasterPekerja();
+        if (typeof loadWorkerCheckboxes === "function") loadWorkerCheckboxes();
 
-        if (typeof renderRekapNutrisi === "function") {
-            renderRekapNutrisi();
-        }
-
-        if (typeof renderFinance === "function") {
-            renderFinance();
-        }
-
-        if (typeof renderLogs === "function") {
-            renderLogs();
-        }
-
-        if (typeof renderMasterPekerja === "function") {
-            renderMasterPekerja();
-        }
-
-        if (typeof loadWorkerCheckboxes === "function") {
-            loadWorkerCheckboxes();
-        }
-
-        console.log(
-            "☁️ Data berhasil dimuat"
-        );
+        console.log("☁️ Data berhasil dimuat");
 
     } catch (error) {
-
-        console.error(
-            "Login handler error:",
-            error
-        );
-
-        alert(
-            "Gagal memuat data aplikasi:\n" +
-            error.message
-        );
-
+        console.error("Login handler error:", error);
+        setDisplay("flex", "none");
+        alert("Gagal memeriksa akun:
+" + error.message);
     }
+}
 
+// Cek status pembayaran berdasarkan email akun Supabase.
+// Tidak bergantung pada Firebase Auth.currentUser karena login aplikasi
+// sekarang dilakukan oleh Supabase Auth.
+async function cekStatusSupabaseUser(user) {
+    try {
+        if (!user || !user.email) {
+            setDisplay("flex", "none");
+            return false;
+        }
+
+        const email = user.email.toLowerCase().trim();
+        const userRef = db.collection("users").doc(email);
+        const snap = await userRef.get();
+
+        if (snap.exists && snap.data().isPaid === true) {
+            return true;
+        }
+
+        // Akun belum terdaftar / belum bayar.
+        setDisplay("flex", "none");
+
+        const loginButton = document.getElementById("btn-login-google");
+        if (loginButton) loginButton.style.display = "none";
+
+        const paymentArea = document.getElementById("payment-area");
+        if (paymentArea) paymentArea.style.display = "block";
+
+        const lockStatus = document.getElementById("lock-status");
+        if (lockStatus) {
+            lockStatus.innerText =
+                "Halo " +
+                (user.user_metadata?.full_name || user.user_metadata?.name || user.email) +
+                ", akun Anda belum aktif.";
+        }
+
+        // Coba membuat record user baru jika Firestore Rules mengizinkan.
+        // Jika tidak diizinkan, akun tetap terkunci dan pesan pembayaran tetap tampil.
+        if (!snap.exists) {
+            try {
+                await userRef.set({
+                    nama: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
+                    email: email,
+                    isPaid: false,
+                    registeredAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (writeError) {
+                console.warn("Record user Firebase belum dapat dibuat:", writeError);
+            }
+        }
+
+        return false;
+
+    } catch (error) {
+        console.error("Payment status error:", error);
+        setDisplay("flex", "none");
+        alert("Tidak dapat memeriksa status pembayaran.\n\n" + error.message);
+        return false;
+    }
 }
 
 // 4. Pastikan sesi yang sudah ada diproses saat halaman dibuka
