@@ -4177,20 +4177,47 @@ window.logout = async function () {
 };
 
 // 6. WHATSAPP ADMIN
-window.prosesBayar = function() {
-    const user = auth.currentUser;
-    if (user) {
-        const namaUser = user.displayName;
-        const emailUser = user.email;
+window.prosesBayar = async function() {
+    // Login aplikasi menggunakan Supabase Auth, bukan Firebase Auth.
+    // Buka tab WhatsApp segera dari aksi klik agar tidak diblokir browser,
+    // lalu isi URL setelah user Supabase berhasil diperoleh.
+    const waWindow = window.open('about:blank', '_blank');
+
+    try {
+        const { data: { user }, error } = await supabaseClient.auth.getUser();
+
+        if (error || !user) {
+            if (waWindow) waWindow.close();
+            console.error("Supabase user untuk WhatsApp tidak ditemukan:", error);
+            alert("Sesi login tidak ditemukan. Silakan login kembali.");
+            return;
+        }
+
+        const namaUser =
+            user.user_metadata?.full_name ||
+            user.user_metadata?.name ||
+            user.email ||
+            "Pengguna Melona";
+        const emailUser = user.email || "-";
+
         const pesan = `Halo Admin, saya sudah transfer untuk aktivasi Melona Monitoring System.\n\n` +
                       `Nama: ${namaUser}\n` +
                       `Email: ${emailUser}\n` +
                       `Mohon segera diproses. Terima kasih.`;
-        
+
         const waUrl = `https://wa.me/6285779081808?text=${encodeURIComponent(pesan)}`;
-        window.open(waUrl, '_blank');
-    } else {
-        alert("Silakan login terlebih dahulu.");
+
+        if (waWindow) {
+            waWindow.location.href = waUrl;
+        } else {
+            // Fallback jika browser memblokir tab baru.
+            window.location.href = waUrl;
+        }
+
+    } catch (error) {
+        if (waWindow) waWindow.close();
+        console.error("Gagal membuka WhatsApp:", error);
+        alert("Gagal membuat konfirmasi WhatsApp: " + error.message);
     }
 };
     
