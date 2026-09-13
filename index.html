@@ -4025,8 +4025,7 @@ async function handleSupabaseLogin(user) {
     } catch (error) {
         console.error("Login handler error:", error);
         setDisplay("flex", "none");
-        alert("Gagal memeriksa akun:
-" + error.message);
+        alert("Gagal memeriksa akun:\n" + error.message);
     }
 }
 
