@@ -2582,29 +2582,80 @@ function importData() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
+
     input.onchange = e => {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = function(event) {
+
+        reader.onload = async function(event) {
             try {
                 const content = JSON.parse(event.target.result);
-                if (confirm("Timpa semua data dengan file backup ini?")) {
-                    // Masukkan data ke LocalStorage
-                    Object.keys(content).forEach(key => {
-                        localStorage.setItem(key, content[key]);
-                    });
-                    alert("✅ Restore Berhasil! Aplikasi akan memuat ulang.");
-                    window.location.reload();
+
+                if (!content || typeof content !== "object" || Array.isArray(content)) {
+                    throw new Error("Format backup tidak valid.");
                 }
+
+                // Hanya key data aplikasi yang boleh dipulihkan.
+                const appKeys = Object.keys(content).filter(key =>
+                    isApplicationStorageKey(key) &&
+                    !key.startsWith("__melona_")
+                );
+
+                if (appKeys.length === 0) {
+                    throw new Error("Tidak ditemukan data aplikasi dalam file backup.");
+                }
+
+                const user = await getCurrentSupabaseUser();
+                if (!user) {
+                    throw new Error("Sesi login Supabase tidak ditemukan. Silakan login kembali.");
+                }
+
+                if (!confirm(
+                    "Restore akan mengganti data aplikasi lokal dengan isi backup ini.\n\n" +
+                    "Data cloud Supabase akun Anda akan diperbarui setelah restore.\n\n" +
+                    "Lanjutkan?"
+                )) {
+                    return;
+                }
+
+                // Hapus hanya data aplikasi lokal. Session login tetap aman.
+                Object.keys(localStorage).forEach(key => {
+                    if (isApplicationStorageKey(key)) {
+                        _nativeRemoveItem.call(localStorage, key);
+                    }
+                });
+
+                appKeys.forEach(key => {
+                    _nativeSetItem.call(localStorage, key, String(content[key]));
+                });
+
+                refreshAppStateFromStorage();
+
+                // Sinkronkan hasil restore hanya ke akun Supabase yang sedang login.
+                if (typeof saveCloudDataNow === "function") {
+                    const saved = await saveCloudDataNow();
+                    if (!saved) {
+                        alert(
+                            "Data berhasil dipulihkan di perangkat, tetapi gagal disinkronkan ke Supabase."
+                        );
+                        return;
+                    }
+                }
+
+                alert("✅ Restore berhasil dan data akun ini sudah disinkronkan.");
+                window.location.reload();
+
             } catch (err) {
-                alert("❌ File rusak atau bukan format JSON yang benar!");
+                console.error("Restore error:", err);
+                alert("❌ Restore gagal: " + err.message);
             }
         };
-        // Baris ini harus ada agar file dibaca sebagai teks
+
         reader.readAsText(file);
     };
+
     input.click();
 }
 
@@ -2774,21 +2825,25 @@ function catatKasbon() {
     }
 }
 function backupDataJSON() {
-    const allData = {};
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        allData[key] = localStorage.getItem(key);
-    }
-    
-    // Gunakan Blob agar file tidak rusak
-    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
+    // Backup HANYA data aplikasi.
+    // Token/session Supabase, Firebase, Google, dan storage autentikasi
+    // tidak pernah dimasukkan ke file backup.
+    const allData = collectLocalStorageData();
+
+    allData.__melona_backup_version = "2";
+    allData.__melona_backup_created_at = new Date().toISOString();
+
+    const blob = new Blob(
+        [JSON.stringify(allData, null, 2)],
+        { type: "application/json" }
+    );
     const url = URL.createObjectURL(blob);
-    
+
     const tgl = new Date().toISOString().split('T')[0];
     const dlAnchor = document.createElement('a');
     dlAnchor.href = url;
     dlAnchor.download = `BACKUP_MELON_ALL_DATA_${tgl}.json`;
-    
+
     document.body.appendChild(dlAnchor);
     dlAnchor.click();
     document.body.removeChild(dlAnchor);
