@@ -765,6 +765,9 @@ if ('serviceWorker' in navigator) {
     function saveActiveData(data) {
         localStorage.setItem(currentGH + '_active_period', JSON.stringify(data));
         renderFinance();
+        // Semua perubahan data keuangan (biaya, penjualan, kasbon, gaji, dll.)
+        // harus ikut dikirim ke Supabase.
+        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
     }
 
 // --- FITUR DOWNLOAD LAPORAN LENGKAP (VERSI STABIL MOBILE) ---
@@ -922,6 +925,7 @@ async function downloadFullReport() {
     function switchGH() {
         currentGH = document.getElementById('gh-selector').value;
         localStorage.setItem('active_gh', currentGH);
+        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
         refreshAll();
     }
 
@@ -930,6 +934,7 @@ async function downloadFullReport() {
         if (name && !ghList.includes(name)) {
             ghList.push(name);
             localStorage.setItem('gh_list', JSON.stringify(ghList));
+            if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
             currentGH = name;
             localStorage.setItem('active_gh', currentGH);
             updateGHSelector();
@@ -1087,6 +1092,7 @@ function hapusNutrisi(index) {
         let dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
         dailyLogs.splice(index, 1);
         localStorage.setItem(currentGH + '_daily_records', JSON.stringify(dailyLogs));
+        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
         refreshAll();
     }
 }
@@ -2612,6 +2618,8 @@ function simpanNutrisiRiil() {
 
     dailyLogs.sort((a, b) => a.hst - b.hst);
     localStorage.setItem(currentGH + '_daily_records', JSON.stringify(dailyLogs));
+    // Nutrisi disimpan di key daily_records, jadi harus dijadwalkan ke Supabase.
+    if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 
     // Reset Form
     inputPPM.value = "";
@@ -2637,6 +2645,7 @@ function bersihkanSemuaRiwayat() {
         let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
         history.splice(index, 1);
         localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
+        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
         renderFinance(); // Refresh tampilan
     }
 }
