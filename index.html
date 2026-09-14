@@ -304,8 +304,8 @@
         </div>
 
         <div style="display: flex; gap: 10px;">
-            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 11px;" onclick="exportData()">📊 EXCEL</button>
-            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 11px;" onclick="exportPDF()">📄 PDF</button>
+            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 11px;" onclick="window.exportData()">📊 EXCEL</button>
+            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 11px;" onclick="window.exportPDF()">📄 PDF</button>
         </div>
 
         <div class="storage-info">
@@ -976,7 +976,10 @@ async function downloadFullReport() {
     }
 }
 
-    function refreshAll() {
+    window.exportData = exportData;
+window.exportPDF = exportPDF;
+
+function refreshAll() {
         updateUI(); renderLogs(); renderFinance();
         if(myChart) myChart.destroy(); initChart();
     }
@@ -2625,10 +2628,10 @@ function exportData() {
         dailyLogs.sort((a, b) => a.hst - b.hst);
 
         const wb = XLSX.utils.book_new();
-        const reportBiaya = filterReportByActivePeriod(reportBiaya, "tgl");
-        const reportJual = filterReportByActivePeriod(reportJual, "tgl");
-        const reportDana = filterReportByActivePeriod(reportDana, "tgl");
-        const reportInventaris = filterReportByActivePeriod(reportInventaris, "tgl");
+        const reportBiaya = filterReportByActivePeriod(activeData.biaya || [], "tgl");
+        const reportJual = filterReportByActivePeriod(activeData.jual || [], "tgl");
+        const reportDana = filterReportByActivePeriod(activeData.dana || [], "tgl");
+        const reportInventaris = filterReportByActivePeriod(activeData.inventaris || [], "tgl");
 
         // --- SHEET 1: RINGKASAN ---
         const terakhir = dailyLogs.length > 0 ? dailyLogs[dailyLogs.length - 1] : { hst: "-", ppm: "-", ph: "-" };
@@ -3099,17 +3102,17 @@ function backupDataJSON() {
 }
 
 async function exportPDF() {
-    const reportBiaya = filterReportByActivePeriod(d.biaya || [], "tgl");
-    const reportJual = filterReportByActivePeriod(d.jual || [], "tgl");
-    const reportDana = filterReportByActivePeriod(d.dana || [], "tgl");
-    const reportInventaris = filterReportByActivePeriod(d.inventaris || [], "tgl");
-
+    const d = getActiveData();
     if (!window.jspdf || !window.jspdf.jsPDF) {
         return alert("Library PDF belum berhasil dimuat. Periksa koneksi internet lalu coba lagi.");
     }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const d = getActiveData();
+
+    const reportBiaya = filterReportByActivePeriod(d.biaya || [], "tgl");
+    const reportJual = filterReportByActivePeriod(d.jual || [], "tgl");
+    const reportDana = filterReportByActivePeriod(d.dana || [], "tgl");
+    const reportInventaris = filterReportByActivePeriod(d.inventaris || [], "tgl");
     const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
     const sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
     const kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
