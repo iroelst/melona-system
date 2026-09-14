@@ -2966,21 +2966,52 @@ function simpanNutrisiRiil() {
     if (typeof initChart === "function") initChart();
 }
 
-function bersihkanSemuaRiwayat() {
-    if(confirm("Hapus seluruh riwayat periode sebelumnya di Greenhouse ini? Tindakan ini tidak bisa dibatalkan.")) {
-        localStorage.removeItem(currentGH + '_history_periods');
-        renderFinance();
+async function bersihkanSemuaRiwayat() {
+    if (!confirm("Hapus seluruh riwayat periode sebelumnya di Greenhouse ini? Tindakan ini tidak bisa dibatalkan.")) return;
+
+    localStorage.removeItem(currentGH + '_history_periods');
+    renderFinance();
+
+    // PENTING: hapus juga snapshot lama di Supabase.
+    // Jangan hanya mengandalkan timer 800 ms, karena user bisa refresh
+    // sebelum proses sinkronisasi selesai.
+    if (typeof saveCloudDataNow === 'function') {
+        const ok = await saveCloudDataNow();
+        if (!ok) {
+            alert("Riwayat sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
+            return;
+        }
     }
 }
- function hapusRiwayatPeriode(index) {
-    if(confirm("Apakah Anda yakin ingin menghapus riwayat periode ini secara permanen?")) {
-        let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-        history.splice(index, 1);
-        localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
-        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
-        renderFinance(); // Refresh tampilan
+
+async function hapusRiwayatPeriode(index) {
+    if (!confirm("Apakah Anda yakin ingin menghapus riwayat periode ini secara permanen?")) return;
+
+    let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+
+    if (index < 0 || index >= history.length) {
+        alert("Riwayat periode tidak ditemukan.");
+        return;
+    }
+
+    // Hapus hanya item yang dipilih.
+    history.splice(index, 1);
+    localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
+    renderFinance();
+
+    // PENTING: tunggu sampai snapshot terbaru benar-benar tersimpan.
+    // Dengan demikian refresh tidak akan mengambil kembali riwayat lama dari cloud.
+    if (typeof saveCloudDataNow === 'function') {
+        const ok = await saveCloudDataNow();
+        if (!ok) {
+            alert("Riwayat sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
+            return;
+        }
     }
 }
+window.bersihkanSemuaRiwayat = bersihkanSemuaRiwayat;
+window.hapusRiwayatPeriode = hapusRiwayatPeriode;
+
 function postingGajiKeBiaya() {
     let data = getActiveData();
     let totalGajiGross = data.akumulasiGaji || 0;
