@@ -304,12 +304,12 @@
         </div>
 
         <div style="display: flex; gap: 10px;">
-            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 11px;" onclick="window.exportData()">📊 EXCEL</button>
-            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 11px;" onclick="window.exportPDF()">📄 PDF</button>
+            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 13px;" onclick="window.exportData()">📊 EXCEL</button>
+            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 13px;" onclick="window.exportPDF()">📄 PDF</button>
         </div>
 
         <div class="storage-info">
-            <strong>☁️ Penyimpanan Cloud Supabase</strong>
+            <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
             <div class="progress-container">
                 <div id="storage-bar" class="progress-bar"></div>
@@ -3538,7 +3538,7 @@ function updateStorageInfo() {
     const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di Supabase
     let percent = Math.min(100, (total / limit) * 100);
     const text = document.getElementById('storage-text');
-    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Supabase aktif` : `Cache perangkat: ${usedMB} MB`;
+    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Cloud aktif` : `Cache perangkat: ${usedMB} MB`;
     const bar = document.getElementById('storage-bar');
     if (bar) bar.style.width = percent + '%';
 }
