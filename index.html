@@ -4673,30 +4673,31 @@ async function handleSupabaseLogin(user) {
 // sekarang dilakukan oleh Supabase Auth.
 async function cekStatusSupabaseUser(user) {
     try {
-        if (!user || !user.id || !user.email) {
+        if (!user || !user.id) {
             setDisplay("flex", "none");
             return false;
         }
 
-        // Status pembayaran sekarang dibaca dari Supabase, bukan Firestore.
-        // Login aplikasi juga menggunakan Supabase Auth, sehingga tidak ada
-        // ketergantungan pada Firebase Auth untuk membaca status pembayaran.
-        // Cari data pembayaran milik user yang sedang login.
+        // Satu-satunya sumber status pembayaran aplikasi:
+        // Supabase Auth user.id -> melona_payments.user_id
         const { data, error } = await supabaseClient
             .from("melona_payments")
-            .select("is_paid")
+            .select("user_id, is_paid")
             .eq("user_id", user.id)
             .maybeSingle();
 
         if (error) {
             console.error("Supabase payment check error:", error);
+
+            // Jangan menampilkan halaman pembayaran jika status sebenarnya
+            // belum berhasil dibaca. Tampilkan pesan error dan tetap kunci aplikasi.
             setDisplay("flex", "none");
 
             const paymentArea = document.getElementById("payment-area");
             if (paymentArea) paymentArea.style.display = "none";
 
             alert(
-                "Tidak dapat memeriksa status pembayaran.\\" +
+                "Tidak dapat memeriksa status pembayaran.\n" +
                 error.message
             );
             return false;
@@ -4704,45 +4705,46 @@ async function cekStatusSupabaseUser(user) {
 
         let paymentData = data;
 
-        // User baru: otomatis dibuat sebagai akun belum bayar.
-        // User hanya boleh membuat record dengan is_paid=false melalui RLS.
+        // User baru: buat record pembayaran awal dengan is_paid=false.
+        // RLS melona_payments memang membatasi INSERT ke user sendiri dan false.
         if (!paymentData) {
             const namaUser =
                 user.user_metadata?.full_name ||
                 user.user_metadata?.name ||
-                user.email;
+                user.email ||
+                user.id;
 
             const { data: insertedData, error: insertError } =
                 await supabaseClient
                     .from("melona_payments")
                     .insert({
                         user_id: user.id,
-                        email: user.email,
+                        email: user.email || "",
                         is_paid: false,
                         nama: namaUser
                     })
-                    .select("is_paid")
+                    .select("user_id, is_paid")
                     .single();
 
             if (insertError) {
-                // Jika record dibuat hampir bersamaan oleh proses lain,
-                // coba baca kembali record tersebut.
+                // Kemungkinan record baru saja dibuat oleh proses lain.
                 const { data: retryData, error: retryError } =
                     await supabaseClient
                         .from("melona_payments")
-                        .select("is_paid")
+                        .select("user_id, is_paid")
                         .eq("user_id", user.id)
                         .maybeSingle();
 
                 if (retryError || !retryData) {
                     console.error("Supabase payment registration error:", insertError);
+
                     setDisplay("flex", "none");
 
                     const paymentArea = document.getElementById("payment-area");
                     if (paymentArea) paymentArea.style.display = "none";
 
                     alert(
-                        "Tidak dapat membuat data pembayaran akun.\\" +
+                        "Tidak dapat membuat data pembayaran akun.\n" +
                         (retryError?.message || insertError.message)
                     );
                     return false;
@@ -4754,11 +4756,35 @@ async function cekStatusSupabaseUser(user) {
             }
         }
 
-        if (paymentData && paymentData.is_paid === true) {
+        // Normalisasi boolean agar nilai dari database dibandingkan secara aman.
+        // Supabase PostgreSQL boolean biasanya datang sebagai true/false.
+        const isPaid =
+            paymentData &&
+            (
+                paymentData.is_paid === true ||
+                paymentData.is_paid === "true" ||
+                paymentData.is_paid === 1 ||
+                paymentData.is_paid === "1"
+            );
+
+        console.log("Status pembayaran Supabase:", {
+            user_id: user.id,
+            is_paid: paymentData?.is_paid,
+            normalized: isPaid
+        });
+
+        if (isPaid) {
+            // SUDAH BAYAR -> langsung masuk aplikasi.
+            const loginButton = document.getElementById("btn-login-google");
+            if (loginButton) loginButton.style.display = "none";
+
+            const paymentArea = document.getElementById("payment-area");
+            if (paymentArea) paymentArea.style.display = "none";
+
             return true;
         }
 
-        // Belum dibayar -> tetap di halaman pembayaran.
+        // BELUM BAYAR -> tampilkan pembayaran.
         setDisplay("flex", "none");
 
         const loginButton = document.getElementById("btn-login-google");
@@ -4771,7 +4797,10 @@ async function cekStatusSupabaseUser(user) {
         if (lockStatus) {
             lockStatus.innerText =
                 "Halo " +
-                (user.user_metadata?.full_name || user.user_metadata?.name || user.email) +
+                (user.user_metadata?.full_name ||
+                 user.user_metadata?.name ||
+                 user.email ||
+                 "Pengguna") +
                 ", akun Anda belum aktif. Silakan melakukan pembayaran.";
         }
 
@@ -4780,7 +4809,11 @@ async function cekStatusSupabaseUser(user) {
     } catch (error) {
         console.error("Payment status error:", error);
         setDisplay("flex", "none");
-        alert("Tidak dapat memeriksa status pembayaran.\\" + error.message);
+
+        const paymentArea = document.getElementById("payment-area");
+        if (paymentArea) paymentArea.style.display = "none";
+
+        alert("Tidak dapat memeriksa status pembayaran.\n" + error.message);
         return false;
     }
 }
