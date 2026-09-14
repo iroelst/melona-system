@@ -1064,6 +1064,16 @@ async function downloadFullReport() {
 
 window.mulaiPeriode = function() {
     try {
+        const formatTanggalPeriode = (value) => {
+            const p = String(value || '').split('-').map(Number);
+            if (p.length === 3 && p.every(n => !isNaN(n))) {
+                return String(p[2]).padStart(2,'0') + '-' +
+                       String(p[1]).padStart(2,'0') + '-' +
+                       String(p[0]);
+            }
+            return String(value || '-');
+        };
+
         if (!currentGH) return alert("Pilih GH terlebih dahulu.");
 
         if (!Array.isArray(varietasTemp) || varietasTemp.length === 0) {
@@ -1087,7 +1097,7 @@ window.mulaiPeriode = function() {
             return alert("Tanggal mulai periode tidak valid.");
         }
 
-        if (!confirm("Mulai periode baru dengan tanggal " + formatIndo(tanggalMulaiBaru) +
+        if (!confirm("Mulai periode baru dengan tanggal " + formatTanggalPeriode(tglMulaiBaru) +
             "? Data saat ini akan dipindahkan ke RIWAYAT.")) return;
 
         const oldData = getActiveData();
@@ -1104,7 +1114,7 @@ window.mulaiPeriode = function() {
                 v: oldData.v,
                 pop: oldData.pop,
                 tgl_mulai: oldData.tglMulaiPeriode || tglTanamLama || "Tidak tercatat",
-                tgl_selesai: formatIndo(tglSelesaiLama),
+                tgl_selesai: formatTanggalPeriode(tglSelesaiLama.toISOString().slice(0,10)),
                 biaya: oldData.biaya || [],
                 jual: oldData.jual || [],
                 dana: oldData.dana || [],
@@ -1158,7 +1168,7 @@ window.mulaiPeriode = function() {
         if (typeof refreshAll === 'function') refreshAll();
 
         alert("Periode baru berhasil dimulai.\nTanggal awal laporan: " +
-            formatIndo(tanggalMulaiBaru) +
+            formatTanggalPeriode(tglMulaiBaru) +
             "\nPeriode lama telah masuk ke Riwayat.");
     } catch (err) {
         console.error("Gagal mulai periode baru:", err);
