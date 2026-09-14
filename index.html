@@ -2574,7 +2574,7 @@ function exportData() {
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": x.arah === "out" ? "KELUAR" : "MASUK",
                 "SUMBER/KEGIATAN": x.jenis || "Pendanaan",
-                "NO TRANSAKSI": "-",
+                "NO TRANSAKSI": x.noTransaksi || "-",
                 "KETERANGAN": x.ket || "-",
                 "MASUK": x.arah === "in" ? (parseFloat(x.nominal) || 0) : 0,
                 "KELUAR": x.arah === "out" ? (parseFloat(x.nominal) || 0) : 0
@@ -3167,7 +3167,7 @@ async function exportPDF() {
             tgl:x.tgl,
             jenis:x.jenis || "Pendanaan",
             ket:x.ket || "-",
-            no:"-",
+            no:x.noTransaksi || "-",
             masuk:x.arah === "in" ? (parseFloat(x.nominal)||0) : 0,
             keluar:x.arah === "out" ? (parseFloat(x.nominal)||0) : 0,
             _urutan:idx
