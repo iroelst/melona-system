@@ -828,9 +828,42 @@ function sortReportObjectsByDateOldestFirst(rows, dateKey = "tgl") {
 }
 
 
+// --- HELPER TANGGAL GLOBAL ---
+// Didefinisikan di scope global agar semua menu (termasuk laporan/periode)
+// dapat menggunakannya tanpa bergantung pada fungsi render tertentu.
+function parseDate(dateStr) {
+    if (!dateStr) return new Date(0);
+    if (dateStr instanceof Date) return new Date(dateStr.getTime());
+    const str = String(dateStr).trim();
+    if (!str) return new Date(0);
+
+    // YYYY-MM-DD
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+
+    // DD-MM-YYYY
+    m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+
+    // DD/MM/YYYY
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+function formatIndo(dateValue) {
+    const d = dateValue instanceof Date ? dateValue : parseDate(dateValue);
+    if (!d || isNaN(d.getTime()) || d.getTime() === 0) return "-";
+    return String(d.getDate()).padStart(2,'0') + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getFullYear());
+}
+
 function getActiveData() {
         let d = localStorage.getItem(currentGH + '_active_period');
-        return d ? JSON.parse(d) : { v: "-", pop: 0, v_list: [], biaya: [], jual: [] };
+        return d ? JSON.parse(d) : { v: "-", pop: 0, v_list: [], biaya: [], jual: [], dana: [], inventaris: [], tglMulaiPeriode: null };
     }
 
     function saveActiveData(data) {
