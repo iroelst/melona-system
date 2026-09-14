@@ -1072,6 +1072,9 @@ function mulaiPeriode() {
         localStorage.setItem(currentGH + '_logs', "[]");
         localStorage.setItem(currentGH + '_kerja', "[]");
         localStorage.setItem(currentGH + '_no_transaksi_counter', '1');
+        localStorage.setItem(currentGH + '_no_transaksi_kasbon_counter', '1');
+        localStorage.setItem(currentGH + '_no_transaksi_gaji_counter', '1');
+        localStorage.setItem(currentGH + '_no_transaksi_dana_counter', '1');
 
         let newData = { 
             v_list: varietasTemp, 
@@ -1216,6 +1219,20 @@ function resetBarisBiaya(){
 }
 updateTombolBarisBiaya();
 
+function getNextNoTransaksiByType(type){
+    const key = currentGH + '_no_transaksi_' + type + '_counter';
+    const next = parseInt(localStorage.getItem(key) || '1', 10) || 1;
+    return String(next).padStart(3, '0');
+}
+function incrementNoTransaksiByType(type){
+    const key = currentGH + '_no_transaksi_' + type + '_counter';
+    const current = parseInt(localStorage.getItem(key) || '1', 10) || 1;
+    localStorage.setItem(key, String(current + 1));
+}
+function getNoTransaksiKasbon(){ return 'KSB-' + getNextNoTransaksiByType('kasbon'); }
+function getNoTransaksiGaji(){ return 'GJI-' + getNextNoTransaksiByType('gaji'); }
+function getNoTransaksiDana(){ return 'DANA-' + getNextNoTransaksiByType('dana'); }
+
 function getNextNoTransaksi(){
     const key=currentGH + '_no_transaksi_counter';
     const next=parseInt(localStorage.getItem(key)||'1',10)||1;
@@ -1328,7 +1345,7 @@ function renderFinance() {
         .sort((a,b) => parseDate(b.tgl) - parseDate(a.tgl))
         .map(k => {
             const tglFix = formatIndo(parseDate(k.tgl));
-            return `<div style="border-bottom: 1px dashed #eee; padding: 3px 0;">• ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></div>`;
+            return `<div style="border-bottom: 1px dashed #eee; padding: 3px 0;">• <b>${k.noTransaksi||'-'}</b> · ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></div>`;
         }).join("");
     
     const listKasbonEl = document.getElementById('list-kasbon-nama');
@@ -1350,7 +1367,7 @@ function renderFinance() {
         
         if (x.isDana) {
             const badge = x.arah === 'in' ? 'badge-in' : 'badge-out';
-            detailHtml += `<div class="trans-item"><span class="${badge}">[${x.arah==='in'?'IN':'OUT'}] ${tglTampil} - ${x.jenis}</span><span>Rp ${(parseFloat(x.nominal)||0).toLocaleString()} <b onclick="hapusDana(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span></div><div style="font-size:11px;color:#555;margin:-6px 0 8px 0;">Ket: ${x.ket||'-'}</div>`;
+            detailHtml += `<div class="trans-item"><span class="${badge}">[${x.arah==='in'?'IN':'OUT'}] ${tglTampil} - ${x.jenis}</span><span>Rp ${(parseFloat(x.nominal)||0).toLocaleString()} <b onclick="hapusDana(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span></div><div style="font-size:11px;color:#555;margin:-6px 0 8px 0;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · Ket: ${x.ket||'-'}</div>`;
         } else if (x.tipe === 'in') {
             detailHtml += `
             <div class="trans-item">
@@ -1372,7 +1389,7 @@ function renderFinance() {
                     <b onclick="hapusFinance('biaya', ${x.oriIdx})" style="color:red; cursor:pointer; margin-left:10px;">×</b>
                 </span>
              </div>
-                <div style="font-size: 11px; color: #555; margin-top: 4px; font-style: italic;">Ket: ${x.ket}</div>
+                <div style="font-size: 11px; color: #555; margin-top: 4px; font-style: italic;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · Ket: ${x.ket}</div>
             </div>`;
         }
     });
@@ -2785,7 +2802,8 @@ function postingGajiKeBiaya() {
 
     if (confirm(`Total Gaji Kotor: Rp ${totalGajiGross.toLocaleString()}\nTotal Kasbon: Rp ${totalKasbon.toLocaleString()}\n\nPosting SISA GAJI sebesar Rp ${gajiBersih.toLocaleString()} ke pengeluaran periode ini?`)) {
         
-        // 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
+                const noTransaksiGaji = getNoTransaksiGaji();
+// 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
         let tglManual = document.getElementById('f-tgl').value;
         let tgl = tglManual || new Date().toISOString().split('T')[0];
         data.biaya.unshift({
@@ -2794,7 +2812,10 @@ function postingGajiKeBiaya() {
             q: 1,
             h: gajiBersih,
             total: gajiBersih,
-            ket: "Gaji bersih setelah potong kasbon"
+            ket: "Gaji bersih setelah potong kasbon",
+            noTransaksi: noTransaksiGaji
+        });
+        incrementNoTransaksiByType(\'gaji\')
         });
 
         // 2. Reset kantung akumulasi gaji dan kasbon karena sudah dianggap lunas/selesai
@@ -2822,7 +2843,9 @@ function catatKasbon() {
         let tglManual = document.getElementById('f-tgl').value;
         let tgl = tglManual || new Date().toISOString().split('T')[0];
 
-        // 1. Simpan ke daftar biaya riil (Keuangan)
+                const noTransaksiKasbon = getNoTransaksiKasbon();
+
+// 1. Simpan ke daftar biaya riil (Keuangan)
         // PENTING: Kategori harus "KASBON PEKERJA" agar bisa dideteksi fungsi hapus
         data.biaya.unshift({
             tgl: tgl,
@@ -2831,7 +2854,8 @@ function catatKasbon() {
             h: nominal,
             total: nominal,
             ket: "Kasbon: " + nama,
-            namaPekerja: nama
+            namaPekerja: nama,
+            noTransaksi: noTransaksiKasbon
         });
 
         // 2. Simpan ke database kasbon internal periode ini
@@ -2840,8 +2864,10 @@ function catatKasbon() {
         data.detailKasbon.push({ 
             nama: nama, 
             nominal: nominal, 
-            tgl: tgl 
+            tgl: tgl,
+            noTransaksi: noTransaksiKasbon 
         });
+        incrementNoTransaksiByType('kasbon');
         
         // Update Total Kasbon (Dashboard)
         data.totalKasbon = (parseFloat(data.totalKasbon) || 0) + nominal;
@@ -4467,8 +4493,10 @@ window.simpanDana = function(){
   const ket=document.getElementById('dana-ket').value.trim();
   if(!nominal || nominal<=0) return alert('Isi nominal dana terlebih dahulu.');
   const arah=(jenis==='Tambahan Modal / Investasi'||jenis==='Hutang / Pinjaman')?'in':'out';
+  const noTransaksiDana = getNoTransaksiDana();
   d.dana=d.dana||[];
-  d.dana.unshift({tgl,jenis,nominal,ket:ket||'-',arah});
+  d.dana.unshift({tgl,jenis,nominal,ket:ket||'-',arah,noTransaksi:noTransaksiDana});
+  incrementNoTransaksiByType('dana');
   saveActiveData(d);
   document.getElementById('dana-nominal').value=''; document.getElementById('dana-ket').value='';
   renderFinance(); alert('Transaksi dana berhasil disimpan.');
