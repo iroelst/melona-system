@@ -1345,7 +1345,7 @@ function renderFinance() {
         .sort((a,b) => parseDate(b.tgl) - parseDate(a.tgl))
         .map(k => {
             const tglFix = formatIndo(parseDate(k.tgl));
-            return `<div style="border-bottom: 1px dashed #eee; padding: 3px 0;">• <b>${k.noTransaksi||'-'}</b> · ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></div>`;
+            return `<div style="border-bottom: 1px dashed #eee; padding: 3px 0;">• ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></div>`;
         }).join("");
     
     const listKasbonEl = document.getElementById('list-kasbon-nama');
@@ -1389,7 +1389,7 @@ function renderFinance() {
                     <b onclick="hapusFinance('biaya', ${x.oriIdx})" style="color:red; cursor:pointer; margin-left:10px;">×</b>
                 </span>
              </div>
-                <div style="font-size: 11px; color: #555; margin-top: 4px; font-style: italic;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · Ket: ${x.ket}</div>
+                <div style="font-size: 11px; color: #555; margin-top: 4px; font-style: italic;">Ket: ${x.ket}</div>
             </div>`;
         }
     });
@@ -2802,10 +2802,10 @@ function postingGajiKeBiaya() {
 
     if (confirm(`Total Gaji Kotor: Rp ${totalGajiGross.toLocaleString()}\nTotal Kasbon: Rp ${totalKasbon.toLocaleString()}\n\nPosting SISA GAJI sebesar Rp ${gajiBersih.toLocaleString()} ke pengeluaran periode ini?`)) {
         
-                const noTransaksiGaji = getNoTransaksiGaji();
-// 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
+        // 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
         let tglManual = document.getElementById('f-tgl').value;
         let tgl = tglManual || new Date().toISOString().split('T')[0];
+        const noTransaksiGaji = getNoTransaksiGaji();
         data.biaya.unshift({
             tgl: tgl,
             k: "PELUNASAN GAJI PERIODE",
@@ -2815,8 +2815,7 @@ function postingGajiKeBiaya() {
             ket: "Gaji bersih setelah potong kasbon",
             noTransaksi: noTransaksiGaji
         });
-        incrementNoTransaksiByType(\'gaji\')
-        });
+        incrementNoTransaksiByType('gaji');
 
         // 2. Reset kantung akumulasi gaji dan kasbon karena sudah dianggap lunas/selesai
         data.akumulasiGaji = 0;
@@ -2843,13 +2842,12 @@ function catatKasbon() {
         let tglManual = document.getElementById('f-tgl').value;
         let tgl = tglManual || new Date().toISOString().split('T')[0];
 
-                const noTransaksiKasbon = getNoTransaksiKasbon();
-
-// 1. Simpan ke daftar biaya riil (Keuangan)
+        // 1. Simpan ke daftar biaya riil (Keuangan)
         // PENTING: Kategori harus "KASBON PEKERJA" agar bisa dideteksi fungsi hapus
+        const noTransaksiKasbon = getNoTransaksiKasbon();
         data.biaya.unshift({
             tgl: tgl,
-            k: "KASBON PEKERJA", 
+            k: "KASBON PEKERJA",
             q: 1,
             h: nominal,
             total: nominal,
@@ -2861,11 +2859,11 @@ function catatKasbon() {
         // 2. Simpan ke database kasbon internal periode ini
         if(!data.detailKasbon) data.detailKasbon = [];
         
-        data.detailKasbon.push({ 
-            nama: nama, 
-            nominal: nominal, 
+        data.detailKasbon.push({
+            nama: nama,
+            nominal: nominal,
             tgl: tgl,
-            noTransaksi: noTransaksiKasbon 
+            noTransaksi: noTransaksiKasbon
         });
         incrementNoTransaksiByType('kasbon');
         
