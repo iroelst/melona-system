@@ -207,6 +207,48 @@
     display: none; /* Sembunyikan jika data <= 5 */
 }
 
+
+/* ===== KALENDER TANAM ===== */
+.kalender-tanam-card {
+    background: #fff;
+    border: 1px solid #1b5e20;
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+.kalender-tanam-header {
+    display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer;
+}
+.kalender-tanam-content {
+    display:none; margin-top:15px; border-top:1px solid #eee; padding-top:10px;
+}
+.kt-calendar {
+    width:100%; background:#fff; padding:8px; border-radius:12px;
+}
+.kt-calendar-header {
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
+}
+.kt-calendar-header button {
+    background:#2e7d32; color:white; border:none; padding:7px 10px;
+    border-radius:7px; font-weight:bold; cursor:pointer;
+}
+.kt-month-year { font-size:14px; font-weight:700; margin:0; text-transform:capitalize; }
+.kt-grid {
+    display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
+}
+.kt-day-name { font-weight:700; font-size:9px; text-align:center; color:#666; padding:3px 0; }
+.kt-cell {
+    aspect-ratio:1/1; padding:3px 1px; border-radius:7px; background:#fff;
+    text-align:center; border:1px solid #e8f5e9; display:flex; flex-direction:column;
+    justify-content:center; cursor:pointer; position:relative; overflow:visible;
+}
+.kt-cell:hover { background:#f1f8e9; }
+.kt-date { font-weight:700; font-size:11px; display:block; line-height:1; }
+.kt-pasaran { font-size:6px; color:#f57c00; font-weight:600; display:block; line-height:1.2; }
+.kt-kategori { font-size:6px; font-weight:700; color:#2e7d32; display:block; line-height:1.2; }
+.kt-today { background:#c8e6c9 !important; border:2px solid #2e7d32 !important; }
+
 </style>
 </head>
 <body>
@@ -343,6 +385,26 @@
         <p style="font-size: 9px; color: #666; margin-top: 8px;">*Memulai periode baru akan mengarsipkan data saat ini ke Riwayat.</p>
     </div>
 </div>
+
+<!-- ===== KALENDER TANAM ===== -->
+<div class="kalender-tanam-card">
+    <div class="kalender-tanam-header" onclick="toggleKalenderTanam()">
+        <strong>📅 Kalender Tanam</strong>
+        <span id="arrow-kalender-tanam" style="transition:transform .3s;">▼</span>
+    </div>
+
+    <div id="kalender-tanam-content" class="kalender-tanam-content">
+        <div class="kt-calendar">
+            <div class="kt-calendar-header">
+                <button type="button" onclick="changeKalenderMonth(-1)">‹</button>
+                <h3 id="kt-month-year" class="kt-month-year"></h3>
+                <button type="button" onclick="changeKalenderMonth(1)">›</button>
+            </div>
+            <div class="kt-grid" id="kt-calendar-grid"></div>
+        </div>
+    </div>
+</div>
+
 
         <div class="card" style="padding: 5px;">
     <div style="height: 250px; width: 100%;">
@@ -4880,6 +4942,87 @@ if(_oldGetActiveData){
   };
 }
 refreshNoInventaris();
+
+
+// ===== FITUR KALENDER TANAM =====
+// Kalender ini berdiri sendiri dan tidak menggunakan data aplikasi,
+// localStorage, Supabase, atau data GH.
+let ktCurrentDate = new Date();
+
+function toggleKalenderTanam() {
+    const content = document.getElementById('kalender-tanam-content');
+    const arrow = document.getElementById('arrow-kalender-tanam');
+    if (!content) return;
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'block';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+        renderKalenderTanam();
+    } else {
+        content.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+}
+
+function getKategoriTanamanKT(hari, pasaran) {
+    const data = {
+        "Ahad": {"Pon":"Uwoh","Wage":"Oyot","Kliwon":"Oyot","Legi":"Uwit","Pahing":"Uwit"},
+        "Senin": {"Pon":"Godong","Wage":"Uwoh","Kliwon":"Uwoh","Legi":"Oyot","Pahing":"Oyot"},
+        "Selasa": {"Pon":"Uwit","Wage":"Godong","Kliwon":"Godong","Legi":"Uwoh","Pahing":"Uwoh"},
+        "Rabu": {"Pon":"Uwit","Wage":"Godong","Kliwon":"Godong","Legi":"Uwoh","Pahing":"Uwoh"},
+        "Kamis": {"Pon":"Godong","Wage":"Uwoh","Kliwon":"Uwoh","Legi":"Oyot","Pahing":"Oyot"},
+        "Jum'at": {"Pon":"Oyot","Wage":"Uwit","Kliwon":"Uwit","Legi":"Godong","Pahing":"Godong"},
+        "Sabtu": {"Pon":"Uwoh","Wage":"Oyot","Kliwon":"Oyot","Legi":"Uwit","Pahing":"Uwit"}
+    };
+    return data[hari] ? data[hari][pasaran] : '-';
+}
+
+function getWetonKT(date) {
+    const hariList = ["Minggu","Senin","Selasa","Rabu","Kamis","Jum'at","Sabtu"];
+    const pasaranList = ["Pon","Wage","Kliwon","Legi","Pahing"];
+    const refDate = new Date(2026, 0, 1);
+    const diffDays = Math.floor((date - refDate) / (1000 * 60 * 60 * 24));
+    const hIdx = (4 + diffDays % 7 + 7) % 7;
+    const hNama = (hIdx === 0) ? "Ahad" : hariList[hIdx];
+    const pIdx = ((0 + diffDays) % 5 + 5) % 5;
+    return { h: hNama, p: pasaranList[pIdx] };
+}
+
+function renderKalenderTanam() {
+    const title = document.getElementById('kt-month-year');
+    const grid = document.getElementById('kt-calendar-grid');
+    if (!title || !grid) return;
+
+    const year = ktCurrentDate.getFullYear();
+    const month = ktCurrentDate.getMonth();
+    title.innerText = new Date(year, month).toLocaleDateString('id-ID', {month:'long', year:'numeric'});
+    grid.innerHTML = '';
+
+    ['Min','Sen','Sel','Rab','Kam','Jum','Sab'].forEach(d => {
+        grid.innerHTML += `<div class="kt-day-name">${d}</div>`;
+    });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>';
+
+    const today = new Date();
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const {h, p} = getWetonKT(date);
+        const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear() ? 'kt-today' : '';
+
+        const cell = document.createElement('div');
+        cell.className = `kt-cell ${isToday}`;
+        cell.innerHTML = `<span class="kt-date">${day}</span><span class="kt-pasaran">${p}</span><span class="kt-kategori">${getKategoriTanamanKT(h,p)}</span>`;
+        grid.appendChild(cell);
+    }
+}
+
+function changeKalenderMonth(step) {
+    ktCurrentDate.setMonth(ktCurrentDate.getMonth() + step);
+    renderKalenderTanam();
+}
+
 </script>
 </div>
 </body>
