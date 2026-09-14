@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- Payment flow: auto-register new Supabase users as is_paid=false -->
     <title>Melona Monitoring System V1</title>
     <meta name="mobile-web-app-capable" content="yes">
@@ -208,86 +208,6 @@
 }
 
 </style>
-
-<style id="melona-pwa-layout-fix">
-/* Melona PWA/mobile layout stability.
-   Prevents the UI from becoming desktop-sized/small after a reload. */
-html {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    margin: 0;
-    padding: 0;
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
-}
-
-html, body {
-    box-sizing: border-box;
-}
-
-*, *::before, *::after {
-    box-sizing: border-box;
-}
-
-body {
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    margin: 0;
-    overflow-x: hidden;
-}
-
-@media screen and (max-width: 600px) {
-    body {
-        min-height: 100vh;
-        min-height: 100dvh;
-    }
-
-    /* Do not allow a desktop-width application shell on a phone. */
-    #main-app {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        margin-left: 0 !important;
-        margin-right: 0 !important;
-        transform: none !important;
-    }
-
-    .container,
-    .header,
-    .nav-bar {
-        max-width: 100% !important;
-        min-width: 0 !important;
-    }
-
-    img, video, canvas, iframe {
-        max-width: 100%;
-    }
-
-    input, select, textarea, button {
-        max-width: 100%;
-        min-width: 0;
-    }
-}
-
-/* Standalone PWA gets the same viewport sizing after reload. */
-@media all and (display-mode: standalone) {
-    html, body {
-        width: 100%;
-        min-width: 0;
-        max-width: 100%;
-    }
-
-    #main-app {
-        width: 100% !important;
-        min-width: 0 !important;
-        max-width: 100% !important;
-        transform: none !important;
-    }
-}
-</style>
-
 </head>
 <body>
     <div id="loading-initial" style="position:fixed; top:0; left:0; width:100%; height:100dvh; min-height:100vh; background:white; z-index:100000; display:flex; justify-content:center; align-items:center; font-family:sans-serif;">
@@ -2354,9 +2274,53 @@ function renderWorkerMaster() {
         </div>`).join("");
 }
 
-    function removeWorker(i) {
-        let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]"); w.splice(i, 1);
-        localStorage.setItem('master_pekerja_v2', JSON.stringify(w)); renderMasterPekerja(); loadWorkerCheckboxes();
+    async function removeWorker(i) {
+        let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+
+        if (!w[i]) return;
+
+        const namaPekerja = w[i].nama || "";
+        if (!confirm(`Hapus pekerja "${namaPekerja}" dari Master Pekerja?`)) return;
+
+        // 1. Hapus dari LocalStorage terlebih dahulu.
+        w.splice(i, 1);
+        localStorage.setItem('master_pekerja_v2', JSON.stringify(w));
+
+        // 2. Render langsung agar UI berubah tanpa menunggu cloud.
+        renderMasterPekerja();
+        loadWorkerCheckboxes();
+
+        /*
+         * 3. PENTING:
+         * Master Pekerja ikut berada di snapshot melona_user_data.data.
+         * Jika hanya LocalStorage yang diubah, saat refresh loadCloudData()
+         * dapat mengembalikan snapshot lama dari Supabase.
+         *
+         * Karena itu setelah HAPUS, simpan snapshot TERBARU ke Supabase
+         * segera, bukan hanya menjadwalkan save.
+         */
+        try {
+            if (typeof supabaseReady !== "undefined" &&
+                supabaseReady &&
+                typeof saveCloudDataNow === "function" &&
+                typeof loadingCloudData !== "undefined" &&
+                !loadingCloudData) {
+
+                const berhasil = await saveCloudDataNow();
+
+                if (!berhasil) {
+                    // Coba lagi melalui mekanisme sinkronisasi normal.
+                    scheduleCloudSave();
+                }
+            } else if (typeof scheduleCloudSave === "function") {
+                scheduleCloudSave();
+            }
+        } catch (err) {
+            console.error("Gagal menyimpan penghapusan pekerja ke Supabase:", err);
+            if (typeof scheduleCloudSave === "function") {
+                scheduleCloudSave();
+            }
+        }
     }
 function loadWorkerCheckboxes() {
     let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
@@ -3832,6 +3796,9 @@ function saveWorkerEdit() {
 
     // OTOMATIS SINKRON KE AKTIVITAS LAMA
     syncAllOldData(namaLama, namaBaru);
+
+    // Pastikan perubahan Master Pekerja juga tersimpan ke snapshot Supabase.
+    scheduleCloudSave();
 
     alert("Data Berhasil Diperbarui & Disinkronkan!");
     closeEditModal();
