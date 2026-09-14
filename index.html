@@ -356,6 +356,158 @@ img, canvas, video { max-width: 100%; height: auto; }
     }
 }
 
+
+/* ===== FIX MOBILE LAYOUT: APP CONTENT IS OUTSIDE #main-app ===== */
+@media (max-width: 768px) {
+    html, body {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        overflow-x: hidden !important;
+    }
+
+    body {
+        margin: 0 !important;
+        padding: 0 !important;
+        font-size: 14px !important;
+    }
+
+    #main-app {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        padding: 8px !important;
+        margin: 0 !important;
+    }
+
+    /* Header aplikasi sebenarnya adalah sibling dari #main-app */
+    .header {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        padding: 10px 8px !important;
+        box-sizing: border-box !important;
+    }
+
+    .header-top {
+        width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    .header-top h3 {
+        font-size: 16px !important;
+        line-height: 1.25 !important;
+    }
+
+    .gh-manager {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        display: flex !important;
+    }
+
+    #gh-selector {
+        width: calc(100% - 74px) !important;
+        min-width: 0 !important;
+    }
+
+    .btn-add-gh {
+        flex: 0 0 32px !important;
+        padding: 7px 8px !important;
+    }
+
+    #top-info {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+    }
+
+    .progress-container {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    .container {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        margin: 0 !important;
+        padding: 8px 8px 90px !important;
+        box-sizing: border-box !important;
+    }
+
+    .card {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        margin-left: 0 !important;
+        margin-right: 0 !important;
+        padding: 10px !important;
+        box-sizing: border-box !important;
+    }
+
+    .summary-box {
+        grid-template-columns: 1fr 1fr !important;
+        width: 100% !important;
+    }
+
+    .input-row {
+        width: 100% !important;
+        min-width: 0 !important;
+        flex-wrap: wrap !important;
+    }
+
+    .input-row > * {
+        min-width: 0 !important;
+    }
+
+    input, select, textarea {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+        font-size: 16px !important;
+    }
+
+    .btn, .btn-ph {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    /* Semua tabel tidak boleh membuat BODY melebar */
+    table {
+        width: 100% !important;
+        max-width: none !important;
+    }
+
+    .card:has(table) {
+        overflow-x: auto !important;
+    }
+
+    .nav-bar {
+        left: 0 !important;
+        right: 0 !important;
+        width: 100vw !important;
+        max-width: 100vw !important;
+    }
+
+    .nav-item {
+        min-width: 0 !important;
+        font-size: 11px !important;
+        overflow: hidden !important;
+    }
+
+    .nav-item span:last-child {
+        max-width: 100% !important;
+        overflow: hidden !important;
+        text-overflow: ellipsis !important;
+        white-space: nowrap !important;
+    }
+
+    .modal-content {
+        width: calc(100vw - 24px) !important;
+        max-width: calc(100vw - 24px) !important;
+        max-height: 90dvh !important;
+    }
+}
+
 </style>
 </head>
 <body>
@@ -4553,6 +4705,7 @@ async function handleSupabaseLogin(user) {
 
             setDisplay("none", "block");
             if (typeof applyMobileLayout === "function") applyMobileLayout();
+            if (typeof forceMelonaMobileLayout === "function") forceMelonaMobileLayout();
 
             const nameElement = document.getElementById("user-name");
             if (nameElement) {
@@ -4984,6 +5137,45 @@ refreshNoInventaris();
     document.addEventListener('DOMContentLoaded', function(){
         var app = document.getElementById('main-app');
         if (app) observer.observe(app, {attributes:true, attributeFilter:['style','class']});
+    });
+})();
+</script>
+
+
+<script>
+(function(){
+    function forceMelonaMobileLayout(){
+        var mobile = window.innerWidth <= 768;
+        document.documentElement.classList.toggle('melona-mobile', mobile);
+        document.body.classList.toggle('melona-mobile', mobile);
+
+        if (!mobile) return;
+
+        ['.header','.container','.nav-bar'].forEach(function(sel){
+            document.querySelectorAll(sel).forEach(function(el){
+                el.style.maxWidth = '100vw';
+                if (sel === '.header' || sel === '.container') {
+                    el.style.boxSizing = 'border-box';
+                }
+            });
+        });
+    }
+
+    window.forceMelonaMobileLayout = forceMelonaMobileLayout;
+
+    document.addEventListener('DOMContentLoaded', function(){
+        forceMelonaMobileLayout();
+
+        var root = document.body;
+        var observer = new MutationObserver(function(){
+            requestAnimationFrame(forceMelonaMobileLayout);
+        });
+        observer.observe(root, {childList:true, subtree:true});
+    });
+
+    window.addEventListener('resize', forceMelonaMobileLayout);
+    window.addEventListener('orientationchange', function(){
+        setTimeout(forceMelonaMobileLayout,100);
     });
 })();
 </script>
