@@ -326,6 +326,61 @@ html.melona-auth-initializing #payment-area {
     visibility: hidden !important;
 }
 
+
+/* ===== AUTH & PAYMENT: TRUE CENTER ===== */
+html, body {
+    min-height: 100%;
+}
+
+#lock-screen {
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    width: 100vw !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    margin: 0 !important;
+    padding: 24px 16px !important;
+    box-sizing: border-box !important;
+}
+
+#lock-screen > * {
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+#payment-area {
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+@media (max-width: 768px) {
+    #lock-screen {
+        min-height: 100dvh !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 20px 14px !important;
+    }
+
+    #payment-area {
+        width: min(100%, 390px) !important;
+        max-width: 390px !important;
+        margin: 16px auto 0 !important;
+    }
+}
+
+
+#payment-area {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+}
+
 </style>
 </head>
 <body>
