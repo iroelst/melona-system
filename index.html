@@ -339,7 +339,7 @@
         <label style="margin-top:10px; display:block;">💰 Saldo Awal Kas Periode</label>
         <input type="number" id="saldo-awal-periode" placeholder="Contoh: 10000000" min="0">
         <small style="color:#666; font-size:9px;">Saldo awal adalah uang kas tersedia, bukan pendapatan dan tidak dihitung sebagai laba.</small>
-        <button class="btn" style="background:#1b5e20;" onclick="mulaiPeriode()">+ MULAI PERIODE BARU</button>
+        <button type="button" class="btn" style="background:#1b5e20;" onclick="window.mulaiPeriode()">+ MULAI PERIODE BARU</button>
         <p style="font-size: 9px; color: #666; margin-top: 8px;">*Memulai periode baru akan mengarsipkan data saat ini ke Riwayat.</p>
     </div>
 </div>
@@ -1062,28 +1062,42 @@ async function downloadFullReport() {
         document.getElementById('v-list-display').innerHTML = varietasTemp.map((x, i) => `<span class="v-tag">${x.nama} (${x.pop}) <b onclick="varietasTemp.splice(${i},1);renderVarietasTemp()" style="color:red">×</b></span>`).join("");
     }
 
-function mulaiPeriode() {
-    if(varietasTemp.length === 0) return alert("Tambahkan varietas dulu!");
+window.mulaiPeriode = function() {
+    try {
+        if (!currentGH) return alert("Pilih GH terlebih dahulu.");
 
-    const tglMulaiBaru = document.getElementById('tgl-mulai-periode')?.value;
-    if(!tglMulaiBaru) return alert("Pilih tanggal mulai periode terlebih dahulu.");
+        if (!Array.isArray(varietasTemp) || varietasTemp.length === 0) {
+            return alert("Tambahkan varietas dulu!");
+        }
 
-    const tanggalMulaiBaru = parseDate(tglMulaiBaru);
-    if(!tanggalMulaiBaru || isNaN(tanggalMulaiBaru.getTime())) {
-        return alert("Tanggal mulai periode tidak valid.");
-    }
+        const inputTanggal = document.getElementById('tgl-mulai-periode');
+        const tglMulaiBaru = inputTanggal ? inputTanggal.value : "";
 
-    if(confirm("Mulai periode baru dengan tanggal " + formatIndo(tanggalMulaiBaru) + "? Data saat ini akan dipindahkan ke RIWAYAT.")) {
+        if (!tglMulaiBaru) {
+            return alert("Pilih tanggal mulai periode terlebih dahulu.");
+        }
 
-        // --- PROSES PENGARSIPAN DATA LAMA ---
-        let oldData = getActiveData();
-        let tglTanamLama = localStorage.getItem(currentGH + '_tgl_tanam');
+        // Parse YYYY-MM-DD tanpa bergantung pada fungsi parseDate.
+        const bagian = tglMulaiBaru.split('-').map(Number);
+        if (bagian.length !== 3 || bagian.some(isNaN)) {
+            return alert("Tanggal mulai periode tidak valid.");
+        }
+        const tanggalMulaiBaru = new Date(bagian[0], bagian[1] - 1, bagian[2]);
+        if (isNaN(tanggalMulaiBaru.getTime())) {
+            return alert("Tanggal mulai periode tidak valid.");
+        }
 
-        // Periode lama ditutup satu hari sebelum periode baru dimulai.
-        // Ini mencegah tanggal periode lama dan periode baru saling tumpang tindih.
-        const tglSelesaiLama = new Date(tanggalMulaiBaru.getTime() - 86400000);
+        if (!confirm("Mulai periode baru dengan tanggal " + formatIndo(tanggalMulaiBaru) +
+            "? Data saat ini akan dipindahkan ke RIWAYAT.")) return;
 
-        if (oldData.v !== "-") {
+        const oldData = getActiveData();
+        const tglTanamLama = localStorage.getItem(currentGH + '_tgl_tanam');
+
+        // Periode lama berakhir sehari sebelum periode baru dimulai.
+        const tglSelesaiLama = new Date(tanggalMulaiBaru);
+        tglSelesaiLama.setDate(tglSelesaiLama.getDate() - 1);
+
+        if (oldData && oldData.v && oldData.v !== "-") {
             let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
 
             history.unshift({
@@ -1102,44 +1116,55 @@ function mulaiPeriode() {
             localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
         }
 
-        // --- PROSES PEMBERSIHAN DATA AKTIF UNTUK PERIODE BARU ---
+        // Reset data operasional untuk periode baru.
         localStorage.removeItem(currentGH + '_daily_records');
         localStorage.removeItem(currentGH + '_tgl_tanam');
         localStorage.removeItem(currentGH + '_tgl_panen');
         localStorage.setItem(currentGH + '_logs', "[]");
         localStorage.setItem(currentGH + '_kerja', "[]");
+
+        // Nomor transaksi dimulai kembali dari 001 untuk periode baru.
         localStorage.setItem(currentGH + '_no_transaksi_counter', '1');
         localStorage.setItem(currentGH + '_no_transaksi_kasbon_counter', '1');
         localStorage.setItem(currentGH + '_no_transaksi_gaji_counter', '1');
         localStorage.setItem(currentGH + '_no_transaksi_dana_counter', '1');
         localStorage.setItem(currentGH + '_no_inventaris_counter', '1');
 
-        let newData = {
-            v_list: varietasTemp,
+        const saldoAwalEl = document.getElementById('saldo-awal-periode');
+        const saldoAwal = parseFloat(saldoAwalEl ? saldoAwalEl.value : 0) || 0;
+
+        const newData = {
+            v_list: varietasTemp.slice(),
             v: varietasTemp.map(x => x.nama).join(", "),
-            pop: varietasTemp.reduce((s, x) => s + x.pop, 0),
+            pop: varietasTemp.reduce((sum, x) => sum + (parseInt(x.pop) || 0), 0),
             biaya: [],
             jual: [],
             dana: [],
             inventaris: [],
-            saldoAwal: parseFloat(document.getElementById('saldo-awal-periode')?.value) || 0,
+            saldoAwal: saldoAwal,
             tglMulaiPeriode: tglMulaiBaru
         };
+
         saveActiveData(newData);
 
-        // Simpan tanggal awal periode secara terpisah agar dapat digunakan
-        // oleh laporan, meskipun tanggal pindah tanam berbeda.
+        // Ini adalah tanggal awal LAPORAN periode baru, bukan tanggal HST.
         localStorage.setItem(currentGH + '_tgl_mulai_periode', tglMulaiBaru);
 
         varietasTemp = [];
-        document.getElementById('v-list-display').innerHTML = "";
-        const tglInput = document.getElementById('tgl-mulai-periode');
-        if(tglInput) tglInput.value = "";
-        refreshAll();
-        alert("Periode baru dimulai! Tanggal awal laporan: " + formatIndo(tanggalMulaiBaru) + ". Data periode lama diarsipkan ke riwayat.");
-    }
-}
+        const listEl = document.getElementById('v-list-display');
+        if (listEl) listEl.innerHTML = "";
+        if (inputTanggal) inputTanggal.value = "";
 
+        if (typeof refreshAll === 'function') refreshAll();
+
+        alert("Periode baru berhasil dimulai.\nTanggal awal laporan: " +
+            formatIndo(tanggalMulaiBaru) +
+            "\nPeriode lama telah masuk ke Riwayat.");
+    } catch (err) {
+        console.error("Gagal mulai periode baru:", err);
+        alert("Gagal memulai periode baru: " + (err.message || err));
+    }
+};
     // Variabel global untuk melacak index yang sedang diedit
 let editIndexNutrisi = null;
 
@@ -4653,7 +4678,16 @@ function incrementNoInventaris(){
   const key=currentGH + '_no_inventaris_counter';
   const current=parseInt(localStorage.getItem(key)||'1',10)||1;
   localStorage.setItem(key,String(current+1));
-  refreshNoInventaris();
+  (function initTanggalMulaiPeriode(){
+    const el=document.getElementById('tgl-mulai-periode');
+    if(el && !el.value){
+        const now=new Date();
+        const mm=String(now.getMonth()+1).padStart(2,'0');
+        const dd=String(now.getDate()).padStart(2,'0');
+        el.value=now.getFullYear()+'-'+mm+'-'+dd;
+    }
+})();
+refreshNoInventaris();
 }
 function refreshNoInventaris(){
   const el=document.getElementById('inv-no-transaksi');
