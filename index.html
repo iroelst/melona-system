@@ -207,6 +207,58 @@
     display: none; /* Sembunyikan jika data <= 5 */
 }
 
+
+        /* ===== MELONA MOBILE / PWA FULL SCREEN ===== */
+        html, body {
+            width: 100%;
+            min-width: 0;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+        }
+        #main-app {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            min-height: 100vh;
+            min-height: 100dvh;
+            padding: 0 !important;
+            box-sizing: border-box;
+        }
+        #main-app .container {
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
+            box-sizing: border-box;
+        }
+        #main-app .header, #main-app .nav-bar {
+            width: 100%;
+            box-sizing: border-box;
+        }
+        @media screen and (max-width: 600px) {
+            .container {
+                width: 100%;
+                max-width: 100%;
+                padding-left: 10px;
+                padding-right: 10px;
+                box-sizing: border-box;
+            }
+            .card, .section, .form-section, .table-container {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            input, select, textarea, button {
+                max-width: 100%;
+                box-sizing: border-box;
+            }
+            table {
+                max-width: 100%;
+            }
+        }
 </style>
 </head>
 <body>
@@ -3941,6 +3993,16 @@ let cloudSyncTimer = null;
 let loadingCloudData = false;
 let cloudLastSync = null;
 
+// ============================================================
+// PAYMENT STATUS WATCHER (SUPABASE REALTIME + FALLBACK POLLING)
+// Memastikan perubahan melona_payments.is_paid dari dashboard
+// Supabase langsung memengaruhi layar user tanpa logout/refresh.
+// ============================================================
+let paymentRealtimeChannel = null;
+let paymentWatcherUserId = null;
+let paymentPollTimer = null;
+let paymentTransitionBusy = false;
+
 // Mencegah dua proses login/session memuat data bersamaan.
 let processingAuthUserId = null;
 let processingAuthPromise = null;
@@ -4368,6 +4430,122 @@ supabaseClient.auth.onAuthStateChange(
     }
 );
 
+async function stopPaymentStatusWatcher() {
+    if (paymentPollTimer) {
+        clearInterval(paymentPollTimer);
+        paymentPollTimer = null;
+    }
+
+    if (paymentRealtimeChannel) {
+        try {
+            await supabaseClient.removeChannel(paymentRealtimeChannel);
+        } catch (e) {
+            console.warn("Gagal melepas channel payment realtime:", e);
+        }
+        paymentRealtimeChannel = null;
+    }
+
+    paymentWatcherUserId = null;
+}
+
+async function startPaymentStatusWatcher(user) {
+    if (!user || !user.id) return;
+
+    // Jangan membuat channel/timer baru untuk user yang sama.
+    if (paymentWatcherUserId === user.id && (paymentRealtimeChannel || paymentPollTimer)) {
+        return;
+    }
+
+    await stopPaymentStatusWatcher();
+    paymentWatcherUserId = user.id;
+
+    // 1) Supabase Realtime: perubahan INSERT/UPDATE langsung diterima browser.
+    try {
+        const channelName = `melona-payment-status-${user.id}-${Date.now()}`;
+        paymentRealtimeChannel = supabaseClient
+            .channel(channelName)
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "melona_payments",
+                    filter: `user_id=eq.${user.id}`
+                },
+                async (payload) => {
+                    console.log("🔔 Perubahan status pembayaran diterima:", payload);
+                    await refreshPaymentGate(user, true);
+                }
+            )
+            .subscribe((status) => {
+                console.log("Supabase payment realtime:", status);
+            });
+    } catch (e) {
+        console.error("Gagal membuat Supabase Realtime payment watcher:", e);
+    }
+
+    // 2) Fallback polling: tetap bekerja walaupun Realtime belum aktif
+    // pada publication Supabase. Interval 10 detik sengaja ringan.
+    paymentPollTimer = setInterval(async () => {
+        if (!paymentWatcherUserId || paymentWatcherUserId !== user.id || paymentTransitionBusy) return;
+        await refreshPaymentGate(user, false);
+    }, 10000);
+}
+
+async function refreshPaymentGate(user, forceReloadApp = false) {
+    if (!user || !user.id || paymentTransitionBusy) return;
+
+    try {
+        const { data, error } = await supabaseClient
+            .from("melona_payments")
+            .select("is_paid")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+        if (error) {
+            console.error("Payment watcher check error:", error);
+            return;
+        }
+
+        const isPaid = data?.is_paid === true;
+        const appVisible = document.getElementById("main-app")?.style.display === "block";
+        const paymentVisible = document.getElementById("payment-area")?.style.display === "block";
+
+        // Sudah sesuai -> tidak perlu melakukan apa-apa.
+        if ((isPaid && appVisible && !forceReloadApp) || (!isPaid && paymentVisible && !forceReloadApp)) {
+            return;
+        }
+
+        paymentTransitionBusy = true;
+
+        if (isPaid) {
+            console.log("✅ Akun aktif. Membuka aplikasi karena is_paid=true.");
+            await handleSupabaseLogin(user);
+        } else {
+            console.log("🔒 Akun tidak aktif. Mengunci aplikasi karena is_paid=false.");
+            setDisplay("flex", "none");
+
+            const loginButton = document.getElementById("btn-login-google");
+            if (loginButton) loginButton.style.display = "none";
+
+            const paymentArea = document.getElementById("payment-area");
+            if (paymentArea) paymentArea.style.display = "block";
+
+            const lockStatus = document.getElementById("lock-status");
+            if (lockStatus) {
+                lockStatus.innerText =
+                    "Halo " +
+                    (user.user_metadata?.full_name || user.user_metadata?.name || user.email) +
+                    ", akun Anda belum aktif. Silakan melakukan pembayaran.";
+            }
+        }
+    } catch (e) {
+        console.error("Payment gate refresh error:", e);
+    } finally {
+        paymentTransitionBusy = false;
+    }
+}
+
 async function handleSupabaseLogin(user) {
     // Supabase Auth event dan getSession() dapat sama-sama memanggil handler.
     // Jangan biarkan dua proses login berjalan bersamaan.
@@ -4383,6 +4561,11 @@ async function handleSupabaseLogin(user) {
 
             // Periksa pembayaran terlebih dahulu.
             const paymentOK = await cekStatusSupabaseUser(user);
+
+            // Pantau perubahan is_paid setelah status awal diketahui.
+            // Ini tetap dipasang meskipun user belum membayar, sehingga
+            // false -> true dapat langsung membuka aplikasi.
+            await startPaymentStatusWatcher(user);
 
             if (!paymentOK) {
                 return false;
@@ -4623,6 +4806,8 @@ async function cekStatus(user) {
 
 // 5. FUNGSI LOGOUT
 window.logout = async function () {
+
+    await stopPaymentStatusWatcher();
 
     clearTimeout(cloudSyncTimer);
     cloudSyncTimer = null;
