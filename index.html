@@ -326,6 +326,9 @@
     </div>
 
     <div id="periode-baru-content" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+        <label style="margin-top:10px; display:block;">📅 Tanggal Mulai Periode Laporan</label>
+        <input type="date" id="tgl-mulai-periode" value="">
+        <small style="color:#666; font-size:9px;">Tanggal ini menjadi awal periode laporan. Gunakan tanggal saat pekerjaan persiapan/periode baru benar-benar dimulai.</small>
         <label>Varietas & Populasi</label>
         <div class="input-row">
             <input type="text" id="v-nama" placeholder="Varietas">
@@ -1061,34 +1064,46 @@ async function downloadFullReport() {
 
 function mulaiPeriode() {
     if(varietasTemp.length === 0) return alert("Tambahkan varietas dulu!");
-    
-    if(confirm("Mulai periode baru? Data saat ini akan dipindahkan ke RIWAYAT dan data aktif akan dibersihkan.")) {
-        
+
+    const tglMulaiBaru = document.getElementById('tgl-mulai-periode')?.value;
+    if(!tglMulaiBaru) return alert("Pilih tanggal mulai periode terlebih dahulu.");
+
+    const tanggalMulaiBaru = parseDate(tglMulaiBaru);
+    if(!tanggalMulaiBaru || isNaN(tanggalMulaiBaru.getTime())) {
+        return alert("Tanggal mulai periode tidak valid.");
+    }
+
+    if(confirm("Mulai periode baru dengan tanggal " + formatIndo(tanggalMulaiBaru) + "? Data saat ini akan dipindahkan ke RIWAYAT.")) {
+
         // --- PROSES PENGARSIPAN DATA LAMA ---
         let oldData = getActiveData();
         let tglTanamLama = localStorage.getItem(currentGH + '_tgl_tanam');
-        
-        // Jika ada data varietas (berarti periode sebelumnya memang ada)
+
+        // Periode lama ditutup satu hari sebelum periode baru dimulai.
+        // Ini mencegah tanggal periode lama dan periode baru saling tumpang tindih.
+        const tglSelesaiLama = new Date(tanggalMulaiBaru.getTime() - 86400000);
+
         if (oldData.v !== "-") {
             let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-            
-            // Masukkan data aktif ke dalam arsip riwayat
+
             history.unshift({
                 v: oldData.v,
                 pop: oldData.pop,
-                tgl_mulai: tglTanamLama || "Tidak tercatat",
-                tgl_selesai: new Date().toLocaleDateString('id-ID'),
-                biaya: oldData.biaya,
-                jual: oldData.jual,
+                tgl_mulai: oldData.tglMulaiPeriode || tglTanamLama || "Tidak tercatat",
+                tgl_selesai: formatIndo(tglSelesaiLama),
+                biaya: oldData.biaya || [],
+                jual: oldData.jual || [],
                 dana: oldData.dana || [],
-                saldoAwal: parseFloat(oldData.saldoAwal) || 0
+                inventaris: oldData.inventaris || [],
+                saldoAwal: parseFloat(oldData.saldoAwal) || 0,
+                tglMulaiPeriode: oldData.tglMulaiPeriode || tglTanamLama || null
             });
-            
+
             localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
         }
 
         // --- PROSES PEMBERSIHAN DATA AKTIF UNTUK PERIODE BARU ---
-        localStorage.removeItem(currentGH + '_daily_records'); 
+        localStorage.removeItem(currentGH + '_daily_records');
         localStorage.removeItem(currentGH + '_tgl_tanam');
         localStorage.removeItem(currentGH + '_tgl_panen');
         localStorage.setItem(currentGH + '_logs', "[]");
@@ -1099,22 +1114,29 @@ function mulaiPeriode() {
         localStorage.setItem(currentGH + '_no_transaksi_dana_counter', '1');
         localStorage.setItem(currentGH + '_no_inventaris_counter', '1');
 
-        let newData = { 
-            v_list: varietasTemp, 
-            v: varietasTemp.map(x => x.nama).join(", "), 
-            pop: varietasTemp.reduce((s, x) => s + x.pop, 0), 
-            biaya: [], 
+        let newData = {
+            v_list: varietasTemp,
+            v: varietasTemp.map(x => x.nama).join(", "),
+            pop: varietasTemp.reduce((s, x) => s + x.pop, 0),
+            biaya: [],
             jual: [],
             dana: [],
             inventaris: [],
-            saldoAwal: parseFloat(document.getElementById('saldo-awal-periode')?.value) || 0
+            saldoAwal: parseFloat(document.getElementById('saldo-awal-periode')?.value) || 0,
+            tglMulaiPeriode: tglMulaiBaru
         };
         saveActiveData(newData);
 
+        // Simpan tanggal awal periode secara terpisah agar dapat digunakan
+        // oleh laporan, meskipun tanggal pindah tanam berbeda.
+        localStorage.setItem(currentGH + '_tgl_mulai_periode', tglMulaiBaru);
+
         varietasTemp = [];
         document.getElementById('v-list-display').innerHTML = "";
-        refreshAll(); 
-        alert("Periode baru dimulai! Data lama berhasil diarsipkan ke riwayat.");
+        const tglInput = document.getElementById('tgl-mulai-periode');
+        if(tglInput) tglInput.value = "";
+        refreshAll();
+        alert("Periode baru dimulai! Tanggal awal laporan: " + formatIndo(tanggalMulaiBaru) + ". Data periode lama diarsipkan ke riwayat.");
     }
 }
 
@@ -1126,7 +1148,7 @@ function renderRekapNutrisi() {
     const container = document.getElementById('rekap-nutrisi-container');
     if (!container) return;
 
-    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    const dailyLogs = filterReportByActivePeriod(JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]"), "tgl");
     const sortedLogs = [...dailyLogs].sort((a, b) => b.hst - a.hst);
     
     let html = `
@@ -2504,16 +2526,41 @@ function lihatDetailArsip(index) {
 }
     
 // Fungsi mengekspor seluruh isi LocalStorage ke file JSON
+function getReportStartDate(){
+    const d = getActiveData();
+    return d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode') || null;
+}
+function getReportEndDate(){
+    const d = getActiveData();
+    const tglPanen = localStorage.getItem(currentGH + '_tgl_panen');
+    return tglPanen || new Date().toISOString().slice(0,10);
+}
+function filterReportByActivePeriod(items, dateField){
+    const start = getReportStartDate();
+    const end = getReportEndDate();
+    if(!start) return items;
+    const a = parseDate(start), b = parseDate(end);
+    if(!a || !b || isNaN(a.getTime()) || isNaN(b.getTime())) return items;
+    return items.filter(x => {
+        const dt = parseDate(x[dateField]);
+        return dt && dt >= a && dt <= b;
+    });
+}
+
 function exportData() {
     try {
         const activeData = getActiveData();
         const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
-        const sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
-        const kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+        const sLog = filterReportByActivePeriod(JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]"), "tgl");
+        const kLog = filterReportByActivePeriod(JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]"), "tgl");
 
         dailyLogs.sort((a, b) => a.hst - b.hst);
 
         const wb = XLSX.utils.book_new();
+        const reportBiaya = filterReportByActivePeriod(reportBiaya, "tgl");
+        const reportJual = filterReportByActivePeriod(reportJual, "tgl");
+        const reportDana = filterReportByActivePeriod(reportDana, "tgl");
+        const reportInventaris = filterReportByActivePeriod(reportInventaris, "tgl");
 
         // --- SHEET 1: RINGKASAN ---
         const terakhir = dailyLogs.length > 0 ? dailyLogs[dailyLogs.length - 1] : { hst: "-", ppm: "-", ph: "-" };
@@ -2568,7 +2615,7 @@ function exportData() {
         let totalJual = 0;
         let totalBiaya = 0;
 
-        (activeData.jual || []).forEach(x => {
+        (reportJual).forEach(x => {
             finData.push({ 
                 "TANGGAL": x.tgl, 
                 "TIPE": "MASUK (JUAL)", 
@@ -2581,7 +2628,7 @@ function exportData() {
             });
             totalJual += x.total;
         });
-        (activeData.biaya || []).forEach(x => {
+        (reportBiaya).forEach(x => {
             finData.push({ 
                 "TANGGAL": x.tgl, 
                 "TIPE": "KELUAR (BIAYA)", 
@@ -2608,7 +2655,7 @@ function exportData() {
         XLSX.utils.book_append_sheet(wb, ws_finance, "Keuangan");
 
         // --- SHEET 6: INVENTARIS ---
-        const inventarisExcel = sortReportObjectsByDateOldestFirst(activeData.inventaris || [], "tgl").map(x => ({
+        const inventarisExcel = sortReportObjectsByDateOldestFirst(reportInventaris, "tgl").map(x => ({
             "TANGGAL": x.tgl,
             "NO TRANSAKSI": x.noTransaksi || "-",
             "NAMA PERALATAN": x.nama || "-",
@@ -2622,7 +2669,7 @@ function exportData() {
         // --- SHEET 7: LAPORAN ARUS KAS ---
         const saldoAwalKas = parseFloat(activeData.saldoAwal) || 0;
         const arusKas = [
-            ...(activeData.jual || []).map(x => ({
+            ...(reportJual).map(x => ({
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": "MASUK",
                 "SUMBER/KEGIATAN": "Penjualan - " + (x.g || "-"),
@@ -2631,7 +2678,7 @@ function exportData() {
                 "MASUK": x.total || 0,
                 "KELUAR": 0
             })),
-            ...(activeData.biaya || []).map(x => ({
+            ...(reportBiaya).map(x => ({
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": "KELUAR",
                 "SUMBER/KEGIATAN": "Biaya - " + (x.k || "-"),
@@ -2640,7 +2687,7 @@ function exportData() {
                 "MASUK": 0,
                 "KELUAR": x.total || 0
             })),
-            ...(activeData.dana || []).map(x => ({
+            ...(reportDana).map(x => ({
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": x.arah === "out" ? "KELUAR" : "MASUK",
                 "SUMBER/KEGIATAN": x.jenis || "Pendanaan",
@@ -2649,7 +2696,7 @@ function exportData() {
                 "MASUK": x.arah === "in" ? (parseFloat(x.nominal) || 0) : 0,
                 "KELUAR": x.arah === "out" ? (parseFloat(x.nominal) || 0) : 0
             })),
-            ...(activeData.inventaris || []).map(x => ({
+            ...(reportInventaris).map(x => ({
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": "KELUAR",
                 "SUMBER/KEGIATAN": "Inventaris - " + (x.nama || "-"),
@@ -2984,6 +3031,11 @@ function backupDataJSON() {
 }
 
 async function exportPDF() {
+    const reportBiaya = filterReportByActivePeriod(d.biaya || [], "tgl");
+    const reportJual = filterReportByActivePeriod(d.jual || [], "tgl");
+    const reportDana = filterReportByActivePeriod(d.dana || [], "tgl");
+    const reportInventaris = filterReportByActivePeriod(d.inventaris || [], "tgl");
+
     if (!window.jspdf || !window.jspdf.jsPDF) {
         return alert("Library PDF belum berhasil dimuat. Periksa koneksi internet lalu coba lagi.");
     }
@@ -3150,8 +3202,8 @@ async function exportPDF() {
 
     // Gabungkan data agar bisa disortir bersamaan
     let finDataGabungan = [
-        ...(d.jual || []).map(x => ({...x, tipe: "MASUK", noTransaksi: "-", kat: x.g, qty: x.b, harga: x.h})),
-        ...(d.biaya || []).map(x => ({...x, tipe: "KELUAR", noTransaksi: x.noTransaksi || "-", kat: x.k, qty: x.q, harga: x.h}))
+        ...reportJual.map(x => ({...x, tipe: "MASUK", noTransaksi: "-", kat: x.g, qty: x.b, harga: x.h})),
+        ...reportBiaya.map(x => ({...x, tipe: "KELUAR", noTransaksi: x.noTransaksi || "-", kat: x.k, qty: x.q, harga: x.h}))
     ];
 
     // Sorting dari tanggal terlama ke terbaru (cocok untuk laporan kronologis)
@@ -3195,7 +3247,7 @@ async function exportPDF() {
     // --- 5. LAPORAN INVENTARIS ---
     doc.addPage();
     doc.text("5. Daftar Inventaris / Peralatan", 14, 20);
-    const inventarisPDF = [...(d.inventaris || [])].sort((a,b) => parseReportDate(a.tgl) - parseReportDate(b.tgl));
+    const inventarisPDF = [...reportInventaris].sort((a,b) => parseReportDate(a.tgl) - parseReportDate(b.tgl));
     doc.autoTable({
         startY: 25,
         head: [['Tanggal','No. Transaksi','Peralatan','Qty','Harga Satuan','Total','Keterangan']],
@@ -3243,7 +3295,7 @@ async function exportPDF() {
     };
 
     let arusKasPDF = [
-        ...(d.jual || []).map((x, idx) => ({
+        ...reportJual.map((x, idx) => ({
             tgl:x.tgl,
             jenis:"Penjualan",
             ket:x.g || "-",
@@ -3252,7 +3304,7 @@ async function exportPDF() {
             keluar:0,
             _urutan:idx
         })),
-        ...(d.biaya || []).map((x, idx) => ({
+        ...reportBiaya.map((x, idx) => ({
             tgl:x.tgl,
             jenis:"Biaya - " + (x.k || "-"),
             ket:x.ket || "-",
@@ -3261,7 +3313,7 @@ async function exportPDF() {
             keluar:parseFloat(x.total)||0,
             _urutan:idx
         })),
-        ...(d.dana || []).map((x, idx) => ({
+        ...reportDana.map((x, idx) => ({
             tgl:x.tgl,
             jenis:x.jenis || "Pendanaan",
             ket:x.ket || "-",
@@ -3270,7 +3322,7 @@ async function exportPDF() {
             keluar:x.arah === "out" ? (parseFloat(x.nominal)||0) : 0,
             _urutan:idx
         })),
-        ...(d.inventaris || []).map((x, idx) => ({
+        ...reportInventaris.map((x, idx) => ({
             tgl:x.tgl,
             jenis:"Inventaris - " + (x.nama || "-"),
             ket:x.ket || "-",
@@ -4665,6 +4717,7 @@ if(_oldGetActiveData){
     d.dana=d.dana||[];
     d.inventaris=d.inventaris||[];
     d.saldoAwal=parseFloat(d.saldoAwal)||0;
+    d.tglMulaiPeriode=d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode') || null;
     return d;
   };
 }
