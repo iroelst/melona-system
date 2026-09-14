@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <!-- Payment flow: auto-register new Supabase users as is_paid=false -->
     <title>Melona Monitoring System V1</title>
-    <meta name="melona-version" content="20260914">\n    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#2e7d32">
@@ -320,29 +319,30 @@ html, body {
     }
 }
 
+
+/* Prevent raw auth/payment content from flashing before JS initializes. */
+html.melona-auth-initializing #lock-screen,
+html.melona-auth-initializing #payment-area {
+    visibility: hidden !important;
+}
+
 </style>
 </head>
 <body>
-<script>
-(function(){
-    const MELONA_APP_VERSION = "20260914";
-    window.MELONA_APP_VERSION = MELONA_APP_VERSION;
 
-    // Make the browser ask the service worker for the newest version.
-    // If an old worker is controlling this page, update it without waiting
-    // for a manual refresh.
-    if ("serviceWorker" in navigator) {
-        window.addEventListener("load", async function(){
-            try {
-                const regs = await navigator.serviceWorker.getRegistrations();
-                for (const reg of regs) {
-                    await reg.update();
-                }
-            } catch (e) {
-                console.warn("Melona SW update:", e);
-            }
-        });
+<script>
+(function () {
+    // Set this class as early as possible, before the auth/payment UI paints.
+    document.documentElement.classList.add("melona-auth-initializing");
+
+    function finishMelonaAuthInitialRender() {
+        document.documentElement.classList.remove("melona-auth-initializing");
     }
+
+    window.finishMelonaAuthInitialRender = finishMelonaAuthInitialRender;
+
+    // Safety fallback: never leave the page invisible indefinitely.
+    window.setTimeout(finishMelonaAuthInitialRender, 12000);
 })();
 </script>
 
@@ -902,11 +902,10 @@ window.getPeriodeLaporan = function(d) {
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
         try {
-            const registration = await navigator.serviceWorker.register('./service-worker.js?v=20260914', {
+            const registration = await navigator.serviceWorker.register('./service-worker.js', {
                 scope: './'
             });
-            await registration.update();
-            console.log('Service Worker PWA terdaftar/diperbarui:', registration.scope);
+            console.log('Service Worker PWA terdaftar:', registration.scope);
         } catch (err) {
             console.error('Gagal daftar Service Worker PWA:', err);
         }
@@ -1340,9 +1339,9 @@ window.mulaiPeriode = function() {
 
         if (typeof refreshAll === 'function') refreshAll();
 
-        alert("Periode baru berhasil dimulai.\nTanggal awal laporan: " +
+        alert("Periode baru berhasil dimulai.Tanggal awal laporan: " +
             formatTanggalPeriode(tglMulaiBaru) +
-            "\nPeriode lama telah masuk ke Riwayat.");
+            "Periode lama telah masuk ke Riwayat.");
     } catch (err) {
         console.error("Gagal mulai periode baru:", err);
         alert("Gagal memulai periode baru: " + (err.message || err));
@@ -1806,7 +1805,7 @@ async function simpanLog(tipe) {
                 console.error("Upload foto gagal:", err);
 
                 alert(
-                    "Foto gagal diupload ke Supabase Storage.\n\n" +
+                    "Foto gagal diupload ke Supabase Storage." +
                     err.message
                 );
             }
@@ -1868,7 +1867,7 @@ for (let cb of selectedCheckboxes) {
     });
 
     if ((totalDurasiLama + durasiBaru) > 1.001) {
-        alert(`SIMPAN GAGAL!\n\n${namaPekerja} sudah bekerja ${totalDurasiLama} hari pada ${tglInputIndo}.\nBatas maksimal adalah 1 hari.`);
+        alert(`SIMPAN GAGAL!${namaPekerja} sudah bekerja ${totalDurasiLama} hari pada ${tglInputIndo}.Batas maksimal adalah 1 hari.`);
         return; 
     }
 }
@@ -2719,13 +2718,13 @@ function lihatDetailArsip(index) {
     let data = hist[index];
     
     // Kita susun ringkasan aktivitas dalam format teks agar mudah dibaca
-    let detailMsg = `DETAIL PERIODE: ${data.v}\n`;
-    detailMsg += `---------------------------\n`;
-    detailMsg += `Populasi: ${data.pop} pohon\n`;
-    detailMsg += `Total Biaya: Rp ${(data.biaya || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n`;
-    detailMsg += `Total Jual: Rp ${(data.jual || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n\n`;
+    let detailMsg = `DETAIL PERIODE: ${data.v}`;
+    detailMsg += `---------------------------`;
+    detailMsg += `Populasi: ${data.pop} pohon`;
+    detailMsg += `Total Biaya: Rp ${(data.biaya || []).reduce((s, i) => s + i.total, 0).toLocaleString()}`;
+    detailMsg += `Total Jual: Rp ${(data.jual || []).reduce((s, i) => s + i.total, 0).toLocaleString()}`;
     
-    detailMsg += `Ingin melihat detail lengkap aktivitas? \nSilakan gunakan fitur 'Download Laporan' saat periode ini sedang aktif.`;
+    detailMsg += `Ingin melihat detail lengkap aktivitas? Silakan gunakan fitur 'Download Laporan' saat periode ini sedang aktif.`;
 
     alert(detailMsg);
     
@@ -2994,8 +2993,8 @@ function importData() {
                 }
 
                 if (!confirm(
-                    "Restore akan mengganti data aplikasi lokal dengan isi backup ini.\n\n" +
-                    "Data cloud Supabase akun Anda akan diperbarui setelah restore.\n\n" +
+                    "Restore akan mengganti data aplikasi lokal dengan isi backup ini." +
+                    "Data cloud Supabase akun Anda akan diperbarui setelah restore." +
                     "Lanjutkan?"
                 )) {
                     return;
@@ -3165,7 +3164,7 @@ function postingGajiKeBiaya() {
         return alert("Belum ada akumulasi gaji untuk diposting.");
     }
 
-    if (confirm(`Total Gaji Kotor: Rp ${totalGajiGross.toLocaleString()}\nTotal Kasbon: Rp ${totalKasbon.toLocaleString()}\n\nPosting SISA GAJI sebesar Rp ${gajiBersih.toLocaleString()} ke pengeluaran periode ini?`)) {
+    if (confirm(`Total Gaji Kotor: Rp ${totalGajiGross.toLocaleString()}Total Kasbon: Rp ${totalKasbon.toLocaleString()}Posting SISA GAJI sebesar Rp ${gajiBersih.toLocaleString()} ke pengeluaran periode ini?`)) {
         
         // 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
         let tglManual = document.getElementById('f-tgl').value;
@@ -3392,7 +3391,7 @@ async function exportPDF() {
         body: sortedSLog.map(x => [
             x.hst, 
             formatIndo(x.tgl), 
-            `${x.ins || ''}\n${x.fun || ''}\n${x.nut || ''}`, 
+            `${x.ins || ''}${x.fun || ''}${x.nut || ''}`, 
             x.ket || "-", 
             "" // Kolom kosong untuk tempat foto
         ]),
@@ -4385,8 +4384,8 @@ async function loadCloudData() {
         updateCloudStatus("⚠️ Cloud tidak terhubung");
 
         alert(
-            "Gagal mengambil data dari Supabase.\n\n" +
-            "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia.\n\n" +
+            "Gagal mengambil data dari Supabase." +
+            "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia." +
             err.message
         );
 
@@ -4463,9 +4462,8 @@ window.loginGoogle = async function () {
     try {
 
         const redirectUrl =
-                    window.location.origin +
-                    window.location.pathname +
-                    "?melona_app=20260914";
+            window.location.origin +
+            window.location.pathname;
 
         const { data, error } =
             await supabaseClient.auth.signInWithOAuth({
@@ -4482,7 +4480,7 @@ window.loginGoogle = async function () {
             console.error(error);
 
             alert(
-                "Gagal Login Google:\n" +
+                "Gagal Login Google:" +
                 error.message
             );
         }
@@ -4492,7 +4490,7 @@ window.loginGoogle = async function () {
         console.error(error);
 
         alert(
-            "Terjadi kesalahan login:\n" +
+            "Terjadi kesalahan login:" +
             error.message
         );
 
@@ -4603,7 +4601,7 @@ async function handleSupabaseLogin(user) {
         } catch (error) {
             console.error("Login handler error:", error);
             setDisplay("flex", "none");
-            alert("Gagal memuat akun:\n" + error.message);
+            alert("Gagal memuat akun:" + error.message);
             return false;
 
         } finally {
@@ -4643,7 +4641,7 @@ async function cekStatusSupabaseUser(user) {
             if (paymentArea) paymentArea.style.display = "none";
 
             alert(
-                "Tidak dapat memeriksa status pembayaran.\\n\\n" +
+                "Tidak dapat memeriksa status pembayaran.\\" +
                 error.message
             );
             return false;
@@ -4689,7 +4687,7 @@ async function cekStatusSupabaseUser(user) {
                     if (paymentArea) paymentArea.style.display = "none";
 
                     alert(
-                        "Tidak dapat membuat data pembayaran akun.\\n\\n" +
+                        "Tidak dapat membuat data pembayaran akun.\\" +
                         (retryError?.message || insertError.message)
                     );
                     return false;
@@ -4727,7 +4725,7 @@ async function cekStatusSupabaseUser(user) {
     } catch (error) {
         console.error("Payment status error:", error);
         setDisplay("flex", "none");
-        alert("Tidak dapat memeriksa status pembayaran.\\n\\n" + error.message);
+        alert("Tidak dapat memeriksa status pembayaran.\\" + error.message);
         return false;
     }
 }
@@ -4746,6 +4744,10 @@ async function cekStatusSupabaseUser(user) {
     } catch (err) {
         console.error("Gagal memeriksa sesi Supabase:", err);
         setDisplay("flex", "none", "none");
+    } finally {
+        if (typeof finishMelonaAuthInitialRender === "function") {
+            finishMelonaAuthInitialRender();
+        }
     }
 })();
 
@@ -4843,9 +4845,9 @@ window.prosesBayar = async function() {
             "Pengguna Melona";
         const emailUser = user.email || "-";
 
-        const pesan = `Halo Admin, saya sudah transfer untuk aktivasi Melona Monitoring System.\n\n` +
-                      `Nama: ${namaUser}\n` +
-                      `Email: ${emailUser}\n` +
+        const pesan = `Halo Admin, saya sudah transfer untuk aktivasi Melona Monitoring System.` +
+                      `Nama: ${namaUser}` +
+                      `Email: ${emailUser}` +
                       `Mohon segera diproses. Terima kasih.`;
 
         const waUrl = `https://wa.me/6285779081808?text=${encodeURIComponent(pesan)}`;
