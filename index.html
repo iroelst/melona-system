@@ -641,6 +641,28 @@
               Total Modal: <span id="status-modal">Rp 0</span> · Sisa Hutang: <span id="status-hutang">Rp 0</span>
             </div>
         </div>
+        <div class="card" style="background:#eef7ff; border-left:5px solid #1976d2;">
+            <strong>🧰 Inventaris / Peralatan</strong>
+            <div style="font-size:10px;color:#555;margin:5px 0 10px;">
+                Pembelian peralatan dicatat sebagai aset/inventaris. <b>Tidak masuk Biaya Produksi</b>, tetapi tetap mengurangi kas pada Arus Kas.
+            </div>
+            <label>Tanggal Pembelian</label>
+            <input type="date" id="inv-tgl">
+            <label>No. Transaksi</label>
+            <input type="text" id="inv-no-transaksi" readonly value="INV-001"
+                   style="background:#f5f5f5;font-weight:bold;color:#1565c0;">
+            <label>Nama Peralatan</label>
+            <input type="text" id="inv-nama" placeholder="Contoh: Pompa air, gunting, timbangan">
+            <div class="input-row">
+                <input type="number" id="inv-qty" min="0.01" step="any" placeholder="Qty">
+                <input type="number" id="inv-harga" min="1" step="any" placeholder="Harga Satuan">
+            </div>
+            <label>Keterangan</label>
+            <input type="text" id="inv-ket" placeholder="Merk, ukuran, kondisi, dll.">
+            <button class="btn" style="background:#1976d2;" onclick="simpanInventaris()">SIMPAN INVENTARIS</button>
+            <div id="inventaris-list" style="margin-top:10px;"></div>
+        </div>
+
         <div class="card">
             <strong>📑 Detail Arus Kas</strong>
             <div id="transaksi-detail-list" class="riwayat-list limit-view" style="margin-top:10px;"></div>
@@ -1075,6 +1097,7 @@ function mulaiPeriode() {
         localStorage.setItem(currentGH + '_no_transaksi_kasbon_counter', '1');
         localStorage.setItem(currentGH + '_no_transaksi_gaji_counter', '1');
         localStorage.setItem(currentGH + '_no_transaksi_dana_counter', '1');
+        localStorage.setItem(currentGH + '_no_inventaris_counter', '1');
 
         let newData = { 
             v_list: varietasTemp, 
@@ -1083,6 +1106,7 @@ function mulaiPeriode() {
             biaya: [], 
             jual: [],
             dana: [],
+            inventaris: [],
             saldoAwal: parseFloat(document.getElementById('saldo-awal-periode')?.value) || 0
         };
         saveActiveData(newData);
@@ -1316,7 +1340,30 @@ function renderFinance() {
     const totalPinjam = danaList.filter(x=>x.jenis==='Hutang / Pinjaman').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
     const bayarHutang = danaList.filter(x=>x.jenis==='Pembayaran Hutang').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
     const setTxt=(id,v)=>{const el=document.getElementById(id);if(el)el.innerText='Rp '+v.toLocaleString('id-ID');};
-    setTxt('kas-saldo-awal',saldoAwal); setTxt('kas-masuk',kasMasuk); setTxt('kas-keluar',kasKeluar); setTxt('kas-saldo-akhir',saldoAkhir);
+    const inventarisList = d.inventaris || [];
+    const totalInventaris = inventarisList.reduce((a,x)=>a+(parseFloat(x.total)||0),0);
+    const inventarisEl = document.getElementById('inventaris-list');
+    if(inventarisEl){
+      const invSorted = [...inventarisList].sort((a,b)=>parseDate(b.tgl)-parseDate(a.tgl));
+      inventarisEl.innerHTML = invSorted.length ? invSorted.map(x=>{
+        const idx=inventarisList.indexOf(x);
+        return `<div style="border-bottom:1px dashed #ccc;padding:6px 0;font-size:11px;">
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <span><b>${x.noTransaksi||'-'}</b> · ${formatIndo(parseDate(x.tgl))} · ${x.nama}</span>
+            <span><b>Rp ${(parseFloat(x.total)||0).toLocaleString()}</b>
+            <b onclick="hapusInventaris(${idx})" style="color:red;cursor:pointer;margin-left:8px;">×</b></span>
+          </div>
+          <div style="color:#666;">${x.qty} × Rp ${(parseFloat(x.harga)||0).toLocaleString()} · ${x.ket||'-'}</div>
+        </div>`;
+      }).join('') + `<div style="margin-top:8px;font-weight:bold;color:#1565c0;">Total Inventaris: Rp ${totalInventaris.toLocaleString()}</div>`
+      : '<small>Belum ada pembelian inventaris.</small>';
+    }
+    const invNoEl=document.getElementById('inv-no-transaksi'); if(invNoEl) invNoEl.value=getNextNoInventaris();
+
+    // Inventaris adalah aset: tidak masuk biaya/laba-rugi, tetapi masuk uang keluar kas.
+    const kasKeluarDenganInventaris = tBiaya + danaKeluar + totalInventaris;
+    const saldoAkhirDenganInventaris = saldoAwal + kasMasuk - kasKeluarDenganInventaris;
+    setTxt('kas-saldo-awal',saldoAwal); setTxt('kas-masuk',kasMasuk); setTxt('kas-keluar',kasKeluarDenganInventaris); setTxt('kas-saldo-akhir',saldoAkhirDenganInventaris);
     setTxt('status-modal',saldoAwal+totalModal); setTxt('status-hutang',Math.max(0,totalPinjam-bayarHutang));
 
     document.getElementById('res-biaya').innerText = "Rp " + tBiaya.toLocaleString();
@@ -1355,7 +1402,8 @@ function renderFinance() {
     let gabungan = [
         ...(d.jual || []).map((x, i) => ({...x, tipe: 'in', oriIdx: i})),
         ...(d.biaya || []).map((x, i) => ({...x, tipe: 'out', oriIdx: i})),
-        ...(d.dana || []).map((x, i) => ({...x, tipe: x.arah, oriIdx: i, isDana:true}))
+        ...(d.dana || []).map((x, i) => ({...x, tipe: x.arah, oriIdx: i, isDana:true})),
+        ...(d.inventaris || []).map((x, i) => ({...x, tipe:'out', oriIdx:i, isInventaris:true}))
     ];
 
     // Sorting Descending (Terbaru di atas)
@@ -1377,6 +1425,16 @@ function renderFinance() {
                 <b onclick="editFinance('jual', ${x.oriIdx})" style="color:#f39c12; cursor:pointer; margin-left:10px;">✏️</b>
                 <b onclick="hapusFinance('jual', ${x.oriIdx})" style="color:red; cursor:pointer; margin-left:10px;">×</b>
             </span>
+            </div>`;
+        } else if (x.isInventaris) {
+            detailHtml += `
+            <div class="trans-item" style="flex-direction: column; align-items: flex-start; border-bottom: 1px solid #eee; padding: 10px 0;">
+                <div style="display:flex;justify-content:space-between;width:100%;">
+                    <span class="badge-out">[OUT - INVENTARIS] ${tglTampil} - ${x.nama}</span>
+                    <span>Rp ${(parseFloat(x.total)||0).toLocaleString()}
+                    <b onclick="hapusInventaris(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span>
+                </div>
+                <div style="font-size:11px;color:#555;margin-top:4px;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · ${x.qty} × Rp ${(parseFloat(x.harga)||0).toLocaleString()} · ${x.ket||'-'}</div>
             </div>`;
         } else {
             detailHtml += `
@@ -2549,7 +2607,19 @@ function exportData() {
         ], { origin: -1 });
         XLSX.utils.book_append_sheet(wb, ws_finance, "Keuangan");
 
-        // --- SHEET 6: LAPORAN ARUS KAS ---
+        // --- SHEET 6: INVENTARIS ---
+        const inventarisExcel = sortReportObjectsByDateOldestFirst(activeData.inventaris || [], "tgl").map(x => ({
+            "TANGGAL": x.tgl,
+            "NO TRANSAKSI": x.noTransaksi || "-",
+            "NAMA PERALATAN": x.nama || "-",
+            "QTY": x.qty ?? 0,
+            "HARGA SATUAN": x.harga ?? 0,
+            "TOTAL": x.total ?? 0,
+            "KETERANGAN": x.ket || "-"
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inventarisExcel), "Inventaris");
+
+        // --- SHEET 7: LAPORAN ARUS KAS ---
         const saldoAwalKas = parseFloat(activeData.saldoAwal) || 0;
         const arusKas = [
             ...(activeData.jual || []).map(x => ({
@@ -2578,6 +2648,15 @@ function exportData() {
                 "KETERANGAN": x.ket || "-",
                 "MASUK": x.arah === "in" ? (parseFloat(x.nominal) || 0) : 0,
                 "KELUAR": x.arah === "out" ? (parseFloat(x.nominal) || 0) : 0
+            })),
+            ...(activeData.inventaris || []).map(x => ({
+                "TANGGAL": x.tgl,
+                "JENIS ARUS": "KELUAR",
+                "SUMBER/KEGIATAN": "Inventaris - " + (x.nama || "-"),
+                "NO TRANSAKSI": x.noTransaksi || "-",
+                "KETERANGAN": x.ket || "-",
+                "MASUK": 0,
+                "KELUAR": parseFloat(x.total) || 0
             }))
         ];
 
@@ -3113,7 +3192,28 @@ async function exportPDF() {
     doc.setFontSize(13);
     doc.text(`LABA/RUGI BERSIH: Rp ${(tJual - tBiaya).toLocaleString()}`, 14, finalY + 16);
 
-    // --- 5. LAPORAN ARUS KAS ---
+    // --- 5. LAPORAN INVENTARIS ---
+    doc.addPage();
+    doc.text("5. Daftar Inventaris / Peralatan", 14, 20);
+    const inventarisPDF = [...(d.inventaris || [])].sort((a,b) => parseReportDate(a.tgl) - parseReportDate(b.tgl));
+    doc.autoTable({
+        startY: 25,
+        head: [['Tanggal','No. Transaksi','Peralatan','Qty','Harga Satuan','Total','Keterangan']],
+        body: inventarisPDF.map(x => [
+            formatIndo(x.tgl), x.noTransaksi || "-", x.nama || "-",
+            x.qty ?? 0, `Rp ${(parseFloat(x.harga)||0).toLocaleString()}`,
+            `Rp ${(parseFloat(x.total)||0).toLocaleString()}`, x.ket || "-"
+        ]),
+        headStyles: { fillColor: [25, 118, 210] },
+        styles: { fontSize: 7, overflow: 'linebreak' },
+        columnStyles: { 2:{cellWidth:32}, 6:{cellWidth:32} }
+    });
+    const invTotalPDF = inventarisPDF.reduce((a,x)=>a+(parseFloat(x.total)||0),0);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total Pembelian Inventaris: Rp ${invTotalPDF.toLocaleString()}`, 14, doc.lastAutoTable.finalY + 10);
+
+    // --- 6. LAPORAN ARUS KAS ---
     doc.addPage();
     doc.text("5. Laporan Arus Kas", 14, 20);
 
@@ -3168,6 +3268,15 @@ async function exportPDF() {
             no:x.noTransaksi || "-",
             masuk:x.arah === "in" ? (parseFloat(x.nominal)||0) : 0,
             keluar:x.arah === "out" ? (parseFloat(x.nominal)||0) : 0,
+            _urutan:idx
+        })),
+        ...(d.inventaris || []).map((x, idx) => ({
+            tgl:x.tgl,
+            jenis:"Inventaris - " + (x.nama || "-"),
+            ket:x.ket || "-",
+            no:x.noTransaksi || "-",
+            masuk:0,
+            keluar:parseFloat(x.total)||0,
             _urutan:idx
         }))
     ];
@@ -4483,6 +4592,51 @@ if (btnInstall) btnInstall.addEventListener('click', async () => {
 });
 
 // ===== EXTENSI KEUANGAN: MODAL, HUTANG, SALDO KAS =====
+function getNextNoInventaris(){
+  const key=currentGH + '_no_inventaris_counter';
+  const next=parseInt(localStorage.getItem(key)||'1',10)||1;
+  return 'INV-' + String(next).padStart(3,'0');
+}
+function incrementNoInventaris(){
+  const key=currentGH + '_no_inventaris_counter';
+  const current=parseInt(localStorage.getItem(key)||'1',10)||1;
+  localStorage.setItem(key,String(current+1));
+  refreshNoInventaris();
+}
+function refreshNoInventaris(){
+  const el=document.getElementById('inv-no-transaksi');
+  if(el) el.value=getNextNoInventaris();
+}
+function simpanInventaris(){
+  const d=getActiveData();
+  const tgl=document.getElementById('inv-tgl').value || new Date().toISOString().slice(0,10);
+  const nama=document.getElementById('inv-nama').value.trim();
+  const qty=parseFloat(document.getElementById('inv-qty').value)||0;
+  const harga=parseFloat(document.getElementById('inv-harga').value)||0;
+  const ket=document.getElementById('inv-ket').value.trim();
+  if(!nama) return alert('Isi nama peralatan terlebih dahulu.');
+  if(qty<=0) return alert('Qty harus lebih dari 0.');
+  if(harga<=0) return alert('Harga satuan harus lebih dari 0.');
+  const total=qty*harga;
+  const noTransaksi=getNextNoInventaris();
+  d.inventaris=d.inventaris||[];
+  d.inventaris.unshift({tgl,nama,qty,harga,total,ket:ket||'-',noTransaksi});
+  incrementNoInventaris();
+  saveActiveData(d);
+  document.getElementById('inv-nama').value='';
+  document.getElementById('inv-qty').value='';
+  document.getElementById('inv-harga').value='';
+  document.getElementById('inv-ket').value='';
+  renderFinance();
+  alert('Pembelian inventaris berhasil dicatat.');
+}
+function hapusInventaris(i){
+  if(!confirm('Hapus transaksi inventaris ini?')) return;
+  const d=getActiveData();
+  (d.inventaris||[]).splice(i,1);
+  saveActiveData(d);
+  renderFinance();
+}
 window.simpanDana = function(){
   const d=getActiveData();
   const jenis=document.getElementById('dana-jenis').value;
@@ -4507,9 +4661,14 @@ window.hapusDana=function(i){
 const _oldGetActiveData = typeof getActiveData==='function' ? getActiveData : null;
 if(_oldGetActiveData){
   window.getActiveData=function(){
-    const d=_oldGetActiveData(); d.dana=d.dana||[]; d.saldoAwal=parseFloat(d.saldoAwal)||0; return d;
+    const d=_oldGetActiveData();
+    d.dana=d.dana||[];
+    d.inventaris=d.inventaris||[];
+    d.saldoAwal=parseFloat(d.saldoAwal)||0;
+    return d;
   };
 }
+refreshNoInventaris();
 </script>
 </div>
 </body>
