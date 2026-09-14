@@ -208,60 +208,199 @@
 }
 
 
-        /* ===== MELONA MOBILE / PWA FULL SCREEN ===== */
-        html, body {
-            width: 100%;
-            min-width: 0;
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
-        }
-        body {
-            min-height: 100vh;
-            min-height: 100dvh;
-        }
-        #main-app {
-            width: 100%;
-            max-width: 100%;
-            min-width: 0;
-            min-height: 100vh;
-            min-height: 100dvh;
-            padding: 0 !important;
-            box-sizing: border-box;
-        }
-        #main-app .container {
-            width: 100%;
-            max-width: 100%;
-            min-width: 0;
-            box-sizing: border-box;
-        }
-        #main-app .header, #main-app .nav-bar {
-            width: 100%;
-            box-sizing: border-box;
-        }
-        @media screen and (max-width: 600px) {
-            .container {
-                width: 100%;
-                max-width: 100%;
-                padding-left: 10px;
-                padding-right: 10px;
-                box-sizing: border-box;
-            }
-            .card, .section, .form-section, .table-container {
-                max-width: 100%;
-                box-sizing: border-box;
-            }
-            input, select, textarea, button {
-                max-width: 100%;
-                box-sizing: border-box;
-            }
-            table {
-                max-width: 100%;
-            }
-        }
+/* ===== MOBILE AUTH/PAYMENT LAYOUT ===== */
+html, body {
+    width:100%;
+    max-width:100%;
+    overflow-x:hidden;
+}
+@media (max-width:768px) {
+    body { width:100vw !important; max-width:100vw !important; overflow-x:hidden !important; }
+    #payment-screen, #payment-section, #main-app, .payment-container, .payment-card {
+        max-width:100vw !important;
+        box-sizing:border-box !important;
+    }
+    #payment-screen, #payment-section {
+        width:100% !important;
+        overflow-x:hidden !important;
+    }
+}
+
+
+/* ===== FINAL MOBILE FIX FOR LOGIN + PAYMENT ===== */
+@media screen and (max-width: 768px) {
+    #lock-screen {
+        width: 100vw !important;
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        padding: 20px 14px !important;
+        overflow-x: hidden !important;
+    }
+
+    #lock-screen > img {
+        width: min(130px, 40vw) !important;
+        max-width: 40vw !important;
+        height: auto !important;
+    }
+
+    #lock-screen > h1 {
+        width: 100% !important;
+        font-size: 21px !important;
+        line-height: 1.25 !important;
+        margin: 8px 0 !important;
+    }
+
+    #lock-status {
+        width: 100% !important;
+        max-width: 360px !important;
+        font-size: 13px !important;
+        line-height: 1.45 !important;
+    }
+
+    #btn-login-google,
+    #btnInstallMelona {
+        width: min(100%, 340px) !important;
+        min-width: 0 !important;
+        max-width: 340px !important;
+        font-size: 16px !important;
+        padding: 13px 16px !important;
+        margin-left: auto !important;
+        margin-right: auto !important;
+    }
+
+    #payment-area {
+        display: none;
+        width: 100% !important;
+        max-width: 390px !important;
+        min-width: 0 !important;
+        margin: 14px auto 0 !important;
+        padding: 14px !important;
+        border-radius: 12px !important;
+        box-sizing: border-box !important;
+        overflow: hidden !important;
+        text-align: center !important;
+    }
+
+    #payment-area h3,
+    #payment-area p {
+        max-width: 100% !important;
+        overflow-wrap: anywhere !important;
+    }
+
+    #payment-area > div {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        margin: 14px 0 !important;
+        padding: 12px !important;
+    }
+
+    #payment-area span {
+        overflow-wrap: anywhere !important;
+        word-break: break-word !important;
+    }
+
+    #payment-area button {
+        width: 100% !important;
+        max-width: 100% !important;
+        box-sizing: border-box !important;
+        padding: 12px 10px !important;
+        font-size: 14px !important;
+    }
+}
+
+/* PWA/installed app: use the exact same mobile layout before auth finishes. */
+@media (display-mode: standalone) and (max-width: 768px),
+       (display-mode: fullscreen) and (max-width: 768px) {
+    #lock-screen,
+    #payment-area {
+        width: 100vw !important;
+        max-width: 100vw !important;
+    }
+}
+
+
+/* Prevent raw auth/payment content from flashing before JS initializes. */
+html.melona-auth-initializing #lock-screen,
+html.melona-auth-initializing #payment-area {
+    visibility: hidden !important;
+}
+
+
+/* ===== AUTH & PAYMENT: TRUE CENTER ===== */
+html, body {
+    min-height: 100%;
+}
+
+#lock-screen {
+    min-height: 100vh !important;
+    min-height: 100dvh !important;
+    width: 100vw !important;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    align-items: center !important;
+    text-align: center !important;
+    margin: 0 !important;
+    padding: 24px 16px !important;
+    box-sizing: border-box !important;
+}
+
+#lock-screen > * {
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+#payment-area {
+    margin-left: auto !important;
+    margin-right: auto !important;
+}
+
+@media (max-width: 768px) {
+    #lock-screen {
+        min-height: 100dvh !important;
+        justify-content: center !important;
+        align-items: center !important;
+        padding: 20px 14px !important;
+    }
+
+    #payment-area {
+        width: min(100%, 390px) !important;
+        max-width: 390px !important;
+        margin: 16px auto 0 !important;
+    }
+}
+
+
+#payment-area {
+    position: static !important;
+    left: auto !important;
+    right: auto !important;
+    top: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+}
+
 </style>
 </head>
 <body>
+
+<script>
+(function () {
+    // Set this class as early as possible, before the auth/payment UI paints.
+    document.documentElement.classList.add("melona-auth-initializing");
+
+    function finishMelonaAuthInitialRender() {
+        document.documentElement.classList.remove("melona-auth-initializing");
+    }
+
+    window.finishMelonaAuthInitialRender = finishMelonaAuthInitialRender;
+
+    // Safety fallback: never leave the page invisible indefinitely.
+    window.setTimeout(finishMelonaAuthInitialRender, 12000);
+})();
+</script>
+
     <div id="loading-initial" style="position:fixed; top:0; left:0; width:100%; height:100dvh; min-height:100vh; background:white; z-index:100000; display:flex; justify-content:center; align-items:center; font-family:sans-serif;">
         <div style="text-align:center;">
             <img src="melona_logo.png" style="width:180px; margin-bottom:5px;">
@@ -1255,9 +1394,9 @@ window.mulaiPeriode = function() {
 
         if (typeof refreshAll === 'function') refreshAll();
 
-        alert("Periode baru berhasil dimulai.\nTanggal awal laporan: " +
+        alert("Periode baru berhasil dimulai.Tanggal awal laporan: " +
             formatTanggalPeriode(tglMulaiBaru) +
-            "\nPeriode lama telah masuk ke Riwayat.");
+            "Periode lama telah masuk ke Riwayat.");
     } catch (err) {
         console.error("Gagal mulai periode baru:", err);
         alert("Gagal memulai periode baru: " + (err.message || err));
@@ -1721,7 +1860,7 @@ async function simpanLog(tipe) {
                 console.error("Upload foto gagal:", err);
 
                 alert(
-                    "Foto gagal diupload ke Supabase Storage.\n\n" +
+                    "Foto gagal diupload ke Supabase Storage." +
                     err.message
                 );
             }
@@ -1783,7 +1922,7 @@ for (let cb of selectedCheckboxes) {
     });
 
     if ((totalDurasiLama + durasiBaru) > 1.001) {
-        alert(`SIMPAN GAGAL!\n\n${namaPekerja} sudah bekerja ${totalDurasiLama} hari pada ${tglInputIndo}.\nBatas maksimal adalah 1 hari.`);
+        alert(`SIMPAN GAGAL!${namaPekerja} sudah bekerja ${totalDurasiLama} hari pada ${tglInputIndo}.Batas maksimal adalah 1 hari.`);
         return; 
     }
 }
@@ -2634,13 +2773,13 @@ function lihatDetailArsip(index) {
     let data = hist[index];
     
     // Kita susun ringkasan aktivitas dalam format teks agar mudah dibaca
-    let detailMsg = `DETAIL PERIODE: ${data.v}\n`;
-    detailMsg += `---------------------------\n`;
-    detailMsg += `Populasi: ${data.pop} pohon\n`;
-    detailMsg += `Total Biaya: Rp ${(data.biaya || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n`;
-    detailMsg += `Total Jual: Rp ${(data.jual || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n\n`;
+    let detailMsg = `DETAIL PERIODE: ${data.v}`;
+    detailMsg += `---------------------------`;
+    detailMsg += `Populasi: ${data.pop} pohon`;
+    detailMsg += `Total Biaya: Rp ${(data.biaya || []).reduce((s, i) => s + i.total, 0).toLocaleString()}`;
+    detailMsg += `Total Jual: Rp ${(data.jual || []).reduce((s, i) => s + i.total, 0).toLocaleString()}`;
     
-    detailMsg += `Ingin melihat detail lengkap aktivitas? \nSilakan gunakan fitur 'Download Laporan' saat periode ini sedang aktif.`;
+    detailMsg += `Ingin melihat detail lengkap aktivitas? Silakan gunakan fitur 'Download Laporan' saat periode ini sedang aktif.`;
 
     alert(detailMsg);
     
@@ -2909,8 +3048,8 @@ function importData() {
                 }
 
                 if (!confirm(
-                    "Restore akan mengganti data aplikasi lokal dengan isi backup ini.\n\n" +
-                    "Data cloud Supabase akun Anda akan diperbarui setelah restore.\n\n" +
+                    "Restore akan mengganti data aplikasi lokal dengan isi backup ini." +
+                    "Data cloud Supabase akun Anda akan diperbarui setelah restore." +
                     "Lanjutkan?"
                 )) {
                     return;
@@ -3018,21 +3157,52 @@ function simpanNutrisiRiil() {
     if (typeof initChart === "function") initChart();
 }
 
-function bersihkanSemuaRiwayat() {
-    if(confirm("Hapus seluruh riwayat periode sebelumnya di Greenhouse ini? Tindakan ini tidak bisa dibatalkan.")) {
-        localStorage.removeItem(currentGH + '_history_periods');
-        renderFinance();
+async function bersihkanSemuaRiwayat() {
+    if (!confirm("Hapus seluruh riwayat periode sebelumnya di Greenhouse ini? Tindakan ini tidak bisa dibatalkan.")) return;
+
+    localStorage.removeItem(currentGH + '_history_periods');
+    renderFinance();
+
+    // PENTING: hapus juga snapshot lama di Supabase.
+    // Jangan hanya mengandalkan timer 800 ms, karena user bisa refresh
+    // sebelum proses sinkronisasi selesai.
+    if (typeof saveCloudDataNow === 'function') {
+        const ok = await saveCloudDataNow();
+        if (!ok) {
+            alert("Riwayat sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
+            return;
+        }
     }
 }
- function hapusRiwayatPeriode(index) {
-    if(confirm("Apakah Anda yakin ingin menghapus riwayat periode ini secara permanen?")) {
-        let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-        history.splice(index, 1);
-        localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
-        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
-        renderFinance(); // Refresh tampilan
+
+async function hapusRiwayatPeriode(index) {
+    if (!confirm("Apakah Anda yakin ingin menghapus riwayat periode ini secara permanen?")) return;
+
+    let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+
+    if (index < 0 || index >= history.length) {
+        alert("Riwayat periode tidak ditemukan.");
+        return;
+    }
+
+    // Hapus hanya item yang dipilih.
+    history.splice(index, 1);
+    localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
+    renderFinance();
+
+    // PENTING: tunggu sampai snapshot terbaru benar-benar tersimpan.
+    // Dengan demikian refresh tidak akan mengambil kembali riwayat lama dari cloud.
+    if (typeof saveCloudDataNow === 'function') {
+        const ok = await saveCloudDataNow();
+        if (!ok) {
+            alert("Riwayat sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
+            return;
+        }
     }
 }
+window.bersihkanSemuaRiwayat = bersihkanSemuaRiwayat;
+window.hapusRiwayatPeriode = hapusRiwayatPeriode;
+
 function postingGajiKeBiaya() {
     let data = getActiveData();
     let totalGajiGross = data.akumulasiGaji || 0;
@@ -3049,7 +3219,7 @@ function postingGajiKeBiaya() {
         return alert("Belum ada akumulasi gaji untuk diposting.");
     }
 
-    if (confirm(`Total Gaji Kotor: Rp ${totalGajiGross.toLocaleString()}\nTotal Kasbon: Rp ${totalKasbon.toLocaleString()}\n\nPosting SISA GAJI sebesar Rp ${gajiBersih.toLocaleString()} ke pengeluaran periode ini?`)) {
+    if (confirm(`Total Gaji Kotor: Rp ${totalGajiGross.toLocaleString()}Total Kasbon: Rp ${totalKasbon.toLocaleString()}Posting SISA GAJI sebesar Rp ${gajiBersih.toLocaleString()} ke pengeluaran periode ini?`)) {
         
         // 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
         let tglManual = document.getElementById('f-tgl').value;
@@ -3276,7 +3446,7 @@ async function exportPDF() {
         body: sortedSLog.map(x => [
             x.hst, 
             formatIndo(x.tgl), 
-            `${x.ins || ''}\n${x.fun || ''}\n${x.nut || ''}`, 
+            `${x.ins || ''}${x.fun || ''}${x.nut || ''}`, 
             x.ket || "-", 
             "" // Kolom kosong untuk tempat foto
         ]),
@@ -3993,16 +4163,6 @@ let cloudSyncTimer = null;
 let loadingCloudData = false;
 let cloudLastSync = null;
 
-// ============================================================
-// PAYMENT STATUS WATCHER (SUPABASE REALTIME + FALLBACK POLLING)
-// Memastikan perubahan melona_payments.is_paid dari dashboard
-// Supabase langsung memengaruhi layar user tanpa logout/refresh.
-// ============================================================
-let paymentRealtimeChannel = null;
-let paymentWatcherUserId = null;
-let paymentPollTimer = null;
-let paymentTransitionBusy = false;
-
 // Mencegah dua proses login/session memuat data bersamaan.
 let processingAuthUserId = null;
 let processingAuthPromise = null;
@@ -4279,8 +4439,8 @@ async function loadCloudData() {
         updateCloudStatus("⚠️ Cloud tidak terhubung");
 
         alert(
-            "Gagal mengambil data dari Supabase.\n\n" +
-            "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia.\n\n" +
+            "Gagal mengambil data dari Supabase." +
+            "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia." +
             err.message
         );
 
@@ -4346,6 +4506,9 @@ function setDisplay(login, app, loading = 'none') {
     if (loader) {
         loader.style.display = loading;
     }
+    if (typeof applyMelonaAuthMobile === "function") {
+        applyMelonaAuthMobile();
+    }
 }
 
 // 2. FUNGSI LOGIN
@@ -4372,7 +4535,7 @@ window.loginGoogle = async function () {
             console.error(error);
 
             alert(
-                "Gagal Login Google:\n" +
+                "Gagal Login Google:" +
                 error.message
             );
         }
@@ -4382,7 +4545,7 @@ window.loginGoogle = async function () {
         console.error(error);
 
         alert(
-            "Terjadi kesalahan login:\n" +
+            "Terjadi kesalahan login:" +
             error.message
         );
 
@@ -4430,122 +4593,6 @@ supabaseClient.auth.onAuthStateChange(
     }
 );
 
-async function stopPaymentStatusWatcher() {
-    if (paymentPollTimer) {
-        clearInterval(paymentPollTimer);
-        paymentPollTimer = null;
-    }
-
-    if (paymentRealtimeChannel) {
-        try {
-            await supabaseClient.removeChannel(paymentRealtimeChannel);
-        } catch (e) {
-            console.warn("Gagal melepas channel payment realtime:", e);
-        }
-        paymentRealtimeChannel = null;
-    }
-
-    paymentWatcherUserId = null;
-}
-
-async function startPaymentStatusWatcher(user) {
-    if (!user || !user.id) return;
-
-    // Jangan membuat channel/timer baru untuk user yang sama.
-    if (paymentWatcherUserId === user.id && (paymentRealtimeChannel || paymentPollTimer)) {
-        return;
-    }
-
-    await stopPaymentStatusWatcher();
-    paymentWatcherUserId = user.id;
-
-    // 1) Supabase Realtime: perubahan INSERT/UPDATE langsung diterima browser.
-    try {
-        const channelName = `melona-payment-status-${user.id}-${Date.now()}`;
-        paymentRealtimeChannel = supabaseClient
-            .channel(channelName)
-            .on(
-                "postgres_changes",
-                {
-                    event: "*",
-                    schema: "public",
-                    table: "melona_payments",
-                    filter: `user_id=eq.${user.id}`
-                },
-                async (payload) => {
-                    console.log("🔔 Perubahan status pembayaran diterima:", payload);
-                    await refreshPaymentGate(user, true);
-                }
-            )
-            .subscribe((status) => {
-                console.log("Supabase payment realtime:", status);
-            });
-    } catch (e) {
-        console.error("Gagal membuat Supabase Realtime payment watcher:", e);
-    }
-
-    // 2) Fallback polling: tetap bekerja walaupun Realtime belum aktif
-    // pada publication Supabase. Interval 10 detik sengaja ringan.
-    paymentPollTimer = setInterval(async () => {
-        if (!paymentWatcherUserId || paymentWatcherUserId !== user.id || paymentTransitionBusy) return;
-        await refreshPaymentGate(user, false);
-    }, 10000);
-}
-
-async function refreshPaymentGate(user, forceReloadApp = false) {
-    if (!user || !user.id || paymentTransitionBusy) return;
-
-    try {
-        const { data, error } = await supabaseClient
-            .from("melona_payments")
-            .select("is_paid")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-        if (error) {
-            console.error("Payment watcher check error:", error);
-            return;
-        }
-
-        const isPaid = data?.is_paid === true;
-        const appVisible = document.getElementById("main-app")?.style.display === "block";
-        const paymentVisible = document.getElementById("payment-area")?.style.display === "block";
-
-        // Sudah sesuai -> tidak perlu melakukan apa-apa.
-        if ((isPaid && appVisible && !forceReloadApp) || (!isPaid && paymentVisible && !forceReloadApp)) {
-            return;
-        }
-
-        paymentTransitionBusy = true;
-
-        if (isPaid) {
-            console.log("✅ Akun aktif. Membuka aplikasi karena is_paid=true.");
-            await handleSupabaseLogin(user);
-        } else {
-            console.log("🔒 Akun tidak aktif. Mengunci aplikasi karena is_paid=false.");
-            setDisplay("flex", "none");
-
-            const loginButton = document.getElementById("btn-login-google");
-            if (loginButton) loginButton.style.display = "none";
-
-            const paymentArea = document.getElementById("payment-area");
-            if (paymentArea) paymentArea.style.display = "block";
-
-            const lockStatus = document.getElementById("lock-status");
-            if (lockStatus) {
-                lockStatus.innerText =
-                    "Halo " +
-                    (user.user_metadata?.full_name || user.user_metadata?.name || user.email) +
-                    ", akun Anda belum aktif. Silakan melakukan pembayaran.";
-            }
-        }
-    } catch (e) {
-        console.error("Payment gate refresh error:", e);
-    } finally {
-        paymentTransitionBusy = false;
-    }
-}
-
 async function handleSupabaseLogin(user) {
     // Supabase Auth event dan getSession() dapat sama-sama memanggil handler.
     // Jangan biarkan dua proses login berjalan bersamaan.
@@ -4561,11 +4608,6 @@ async function handleSupabaseLogin(user) {
 
             // Periksa pembayaran terlebih dahulu.
             const paymentOK = await cekStatusSupabaseUser(user);
-
-            // Pantau perubahan is_paid setelah status awal diketahui.
-            // Ini tetap dipasang meskipun user belum membayar, sehingga
-            // false -> true dapat langsung membuka aplikasi.
-            await startPaymentStatusWatcher(user);
 
             if (!paymentOK) {
                 return false;
@@ -4586,6 +4628,7 @@ async function handleSupabaseLogin(user) {
             refreshAppStateFromStorage();
 
             setDisplay("none", "block");
+            if (typeof applyAuthMobileLayout === "function") applyAuthMobileLayout();
 
             const nameElement = document.getElementById("user-name");
             if (nameElement) {
@@ -4613,7 +4656,7 @@ async function handleSupabaseLogin(user) {
         } catch (error) {
             console.error("Login handler error:", error);
             setDisplay("flex", "none");
-            alert("Gagal memuat akun:\n" + error.message);
+            alert("Gagal memuat akun:" + error.message);
             return false;
 
         } finally {
@@ -4653,7 +4696,7 @@ async function cekStatusSupabaseUser(user) {
             if (paymentArea) paymentArea.style.display = "none";
 
             alert(
-                "Tidak dapat memeriksa status pembayaran.\\n\\n" +
+                "Tidak dapat memeriksa status pembayaran.\\" +
                 error.message
             );
             return false;
@@ -4699,7 +4742,7 @@ async function cekStatusSupabaseUser(user) {
                     if (paymentArea) paymentArea.style.display = "none";
 
                     alert(
-                        "Tidak dapat membuat data pembayaran akun.\\n\\n" +
+                        "Tidak dapat membuat data pembayaran akun.\\" +
                         (retryError?.message || insertError.message)
                     );
                     return false;
@@ -4737,7 +4780,7 @@ async function cekStatusSupabaseUser(user) {
     } catch (error) {
         console.error("Payment status error:", error);
         setDisplay("flex", "none");
-        alert("Tidak dapat memeriksa status pembayaran.\\n\\n" + error.message);
+        alert("Tidak dapat memeriksa status pembayaran.\\" + error.message);
         return false;
     }
 }
@@ -4756,6 +4799,10 @@ async function cekStatusSupabaseUser(user) {
     } catch (err) {
         console.error("Gagal memeriksa sesi Supabase:", err);
         setDisplay("flex", "none", "none");
+    } finally {
+        if (typeof finishMelonaAuthInitialRender === "function") {
+            finishMelonaAuthInitialRender();
+        }
     }
 })();
 
@@ -4807,8 +4854,6 @@ async function cekStatus(user) {
 // 5. FUNGSI LOGOUT
 window.logout = async function () {
 
-    await stopPaymentStatusWatcher();
-
     clearTimeout(cloudSyncTimer);
     cloudSyncTimer = null;
     cloudSyncBusy = false;
@@ -4855,9 +4900,9 @@ window.prosesBayar = async function() {
             "Pengguna Melona";
         const emailUser = user.email || "-";
 
-        const pesan = `Halo Admin, saya sudah transfer untuk aktivasi Melona Monitoring System.\n\n` +
-                      `Nama: ${namaUser}\n` +
-                      `Email: ${emailUser}\n` +
+        const pesan = `Halo Admin, saya sudah transfer untuk aktivasi Melona Monitoring System.` +
+                      `Nama: ${namaUser}` +
+                      `Email: ${emailUser}` +
                       `Mohon segera diproses. Terima kasih.`;
 
         const waUrl = `https://wa.me/6285779081808?text=${encodeURIComponent(pesan)}`;
@@ -4989,5 +5034,83 @@ if(_oldGetActiveData){
 refreshNoInventaris();
 </script>
 </div>
+
+<script>
+(function(){
+    function applyAuthMobileLayout(){
+        const mobile = window.innerWidth <= 768;
+        document.documentElement.classList.toggle('melona-mobile', mobile);
+        document.body.classList.toggle('melona-mobile', mobile);
+        if (!mobile) return;
+
+        document.querySelectorAll('#payment-screen,#payment-section,#main-app,.payment-container,.payment-card')
+          .forEach(el => {
+              el.style.maxWidth = '100vw';
+              el.style.boxSizing = 'border-box';
+          });
+    }
+    window.applyAuthMobileLayout = applyAuthMobileLayout;
+
+    document.addEventListener('DOMContentLoaded', function(){
+        applyAuthMobileLayout();
+        const observer = new MutationObserver(function(){
+            requestAnimationFrame(applyAuthMobileLayout);
+        });
+        observer.observe(document.body, {childList:true, subtree:true});
+    });
+    window.addEventListener('resize', applyAuthMobileLayout);
+    window.addEventListener('orientationchange', function(){
+        setTimeout(applyAuthMobileLayout,100);
+    });
+})();
+</script>
+
+
+<script>
+(function(){
+    function applyMelonaAuthMobile(){
+        var mobile = window.innerWidth <= 768;
+        document.documentElement.classList.toggle('melona-mobile', mobile);
+        document.body.classList.toggle('melona-mobile', mobile);
+
+        if (!mobile) return;
+
+        var lock = document.getElementById('lock-screen');
+        var payment = document.getElementById('payment-area');
+
+        if (lock) {
+            lock.style.width = '100vw';
+            lock.style.maxWidth = '100vw';
+            lock.style.boxSizing = 'border-box';
+        }
+        if (payment) {
+            payment.style.maxWidth = '390px';
+            payment.style.boxSizing = 'border-box';
+        }
+    }
+
+    window.applyMelonaAuthMobile = applyMelonaAuthMobile;
+
+    // BEFORE authentication callback runs.
+    applyMelonaAuthMobile();
+
+    document.addEventListener('DOMContentLoaded', function(){
+        applyMelonaAuthMobile();
+        var observer = new MutationObserver(function(){
+            applyMelonaAuthMobile();
+        });
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
+
+    window.addEventListener('resize', applyMelonaAuthMobile);
+    window.addEventListener('orientationchange', function(){
+        setTimeout(applyMelonaAuthMobile, 50);
+    });
+})();
+</script>
+
 </body>
 </html>
