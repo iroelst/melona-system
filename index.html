@@ -2441,7 +2441,7 @@ function loadWorkerCheckboxes() {
 }
 
     // Fungsi Hapus untuk Log Semprot dan Log Kerja
-function hapusItem(key, index) {
+async function hapusItem(key, index) {
     if(confirm("Hapus data ini?")) {
         let data = JSON.parse(localStorage.getItem(key) || "[]");
         let itemDihapus = data[index];
@@ -2499,7 +2499,23 @@ function hapusItem(key, index) {
             });
 
             // Hapus dulu dari array agar pengecekan aktivitas tersisa akurat.
-            data.splice(index, 1);
+            // Jika yang dihapus adalah riwayat SEMPROT, hapus juga foto
+        // dari Supabase Storage agar tidak meninggalkan file yatim.
+        const itemYangDihapus = data[index];
+        if (key === currentGH + '_logs' && itemYangDihapus?.img) {
+            try {
+                await deleteSemprotPhoto(itemYangDihapus.img);
+            } catch (err) {
+                console.error("Gagal menghapus foto semprot dari Supabase:", err);
+                const lanjut = confirm(
+                    "Foto semprot gagal dihapus dari Supabase Storage.\\n\\n" +
+                    "Apakah Anda tetap ingin menghapus riwayat semprotnya?"
+                );
+                if (!lanjut) return;
+            }
+        }
+
+        data.splice(index, 1);
 
             pekerjaDihapus.forEach(namaPekerja => {
                 const namaNormal = normalisasiNama(namaPekerja);
