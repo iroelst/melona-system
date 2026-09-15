@@ -351,12 +351,12 @@
         </div>
 
         <div class="storage-info">
-            <strong>☁️ Penyimpanan Data</strong>
+            <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
             <div class="progress-container">
                 <div id="storage-bar" class="progress-bar"></div>
             </div>
-            <small style="color: #666;">*Data tersimpan secara aman berdasarkan akun login. Backup JSON tetap tersedia sebagai cadangan.</small>
+            <small style="color: #666;">*Data tersimpan di cloud berdasarkan akun login. Backup JSON tetap tersedia sebagai cadangan.</small>
         </div>
     </div>
 </div>
@@ -425,6 +425,11 @@
             <button class="btn" onclick="hitungAB()">HITUNG DOSIS PPM</button>
             <div id="hasil-calc" style="margin-top:10px; font-weight:bold; color:#1b5e20; text-align:center;"></div>
             <hr style="margin:15px 0; border:0; border-top:1px solid #eee;">
+            <label>NUTRISI TAMBAHAN</label>
+            <div class="input-row">
+                <input type="text" id="nutrisi-tambahan" placeholder="Cemplungan">
+                <input type="text" id="nutrisi-dosis" placeholder="Dosis">
+            </div>
             <label>Koreksi pH</label>
             <div class="input-row">
                 <input type="number" id="ph-now" step="0.1" placeholder="pH Kini">
@@ -932,7 +937,7 @@ function getActiveData() {
         localStorage.setItem(currentGH + '_active_period', JSON.stringify(data));
         renderFinance();
         // Semua perubahan data keuangan (biaya, penjualan, kasbon, gaji, dll.)
-        // harus ikut dikirim ke Supabase.
+        // harus ikut dikirim ke server.
         if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
     }
 
@@ -1139,7 +1144,7 @@ function refreshAll() {
         updateGHSelector();
         refreshAll();
 
-        // Sebelumnya perubahan ini tidak pernah dikirim ke Supabase.
+        // Sebelumnya perubahan ini tidak pernah dikirim ke server.
         scheduleCloudSave();
     }
 
@@ -1293,6 +1298,8 @@ function renderRekapNutrisi() {
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Liter</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">PPM</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">pH</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Nutrisi Tambahan</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Dosis</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Aksi</th>
             </tr>`;
 
@@ -1304,6 +1311,8 @@ function renderRekapNutrisi() {
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.liter}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.ppm}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.ph}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiTambahan || '-'}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiDosis || '-'}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; display: flex; gap: 10px; justify-content: center;">
             <button style="background:none; border:none; color:#f39c12; cursor:pointer;" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
             <button style="background:none; border:none; color:red; cursor:pointer;" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
@@ -1325,6 +1334,8 @@ function prepareEditNutrisi(index) {
     document.getElementById('liter').value = data.liter;
     document.getElementById('ppm-now').value = data.ppm;
     document.getElementById('ph-now').value = data.ph;
+    document.getElementById('nutrisi-tambahan').value = data.nutrisiTambahan || '';
+    document.getElementById('nutrisi-dosis').value = data.nutrisiDosis || '';
     
     // Set mode edit (Gunakan global variable yang sudah ada di file Anda)
     isEditMode = true;
@@ -1659,7 +1670,7 @@ async function simpanLog(tipe) {
 
             try {
                 // Crop 1:1 dan kompresi seperti sebelumnya, tetapi hasilnya
-                // sekarang diupload ke Supabase Storage, bukan disimpan Base64.
+                // sekarang diupload ke Penyimpanan Server, bukan disimpan Base64.
                 const compressedBase64 = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
 
@@ -1731,8 +1742,8 @@ async function simpanLog(tipe) {
                 console.error("Upload foto gagal:", err);
 
                 alert(
-                    "Foto gagal diupload ke penyimpanan server.\n\n" +
-                    String(err.message || "Terjadi kesalahan.").replace(/supabase/gi, "server")
+                    "Foto gagal diupload ke Penyimpanan Server.\n\n" +
+                    err.message
                 );
             }
 
@@ -1888,7 +1899,7 @@ if(dataKerja.jenis === 'Panen') {
 
 localStorage.setItem(currentGH + '_kerja', JSON.stringify(logK));
 
-// Sinkronkan data kerja ke Supabase setelah penyimpanan lokal berhasil.
+// Sinkronkan data kerja ke server setelah penyimpanan lokal berhasil.
 scheduleCloudSave();
 
 // Bersihkan UI dan Render Ulang
@@ -1932,7 +1943,7 @@ function hitungBiayaDariString(namaStr) {
 async function prosesSimpanSemprot(tgl, hst, imgBase64) {
     let logS = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
     
-    // Foto baru adalah path Supabase Storage.
+    // Foto baru adalah path Penyimpanan Server.
     // Jika edit tanpa foto baru, pertahankan path foto lama.
     const oldImg = isEditMode ? tempEditImg : "";
     let finalImg = imgBase64 || oldImg;
@@ -2356,9 +2367,9 @@ function renderWorkerMaster() {
          * 3. PENTING:
          * Master Pekerja ikut berada di snapshot melona_user_data.data.
          * Jika hanya LocalStorage yang diubah, saat refresh loadCloudData()
-         * dapat mengembalikan snapshot lama dari Supabase.
+         * dapat mengembalikan snapshot lama dari server.
          *
-         * Karena itu setelah HAPUS, simpan snapshot TERBARU ke Supabase
+         * Karena itu setelah HAPUS, simpan snapshot TERBARU ke server
          * segera, bukan hanya menjadwalkan save.
          */
         try {
@@ -2378,7 +2389,7 @@ function renderWorkerMaster() {
                 scheduleCloudSave();
             }
         } catch (err) {
-            console.error("Gagal menyimpan penghapusan pekerja ke Supabase:", err);
+            console.error("Gagal menyimpan penghapusan pekerja ke server:", err);
             if (typeof scheduleCloudSave === "function") {
                 scheduleCloudSave();
             }
@@ -2430,7 +2441,7 @@ function loadWorkerCheckboxes() {
 }
 
     // Fungsi Hapus untuk Log Semprot dan Log Kerja
-function hapusItem(key, index) {
+async function hapusItem(key, index) {
     if(confirm("Hapus data ini?")) {
         let data = JSON.parse(localStorage.getItem(key) || "[]");
         let itemDihapus = data[index];
@@ -2488,7 +2499,23 @@ function hapusItem(key, index) {
             });
 
             // Hapus dulu dari array agar pengecekan aktivitas tersisa akurat.
-            data.splice(index, 1);
+            // Jika yang dihapus adalah riwayat SEMPROT, hapus juga foto
+        // dari Penyimpanan Server agar tidak meninggalkan file yatim.
+        const itemYangDihapus = data[index];
+        if (key === currentGH + '_logs' && itemYangDihapus?.img) {
+            try {
+                await deleteSemprotPhoto(itemYangDihapus.img);
+            } catch (err) {
+                console.error("Gagal menghapus foto semprot dari server:", err);
+                const lanjut = confirm(
+                    "Foto semprot gagal dihapus dari Penyimpanan Server.\\n\\n" +
+                    "Apakah Anda tetap ingin menghapus riwayat semprotnya?"
+                );
+                if (!lanjut) return;
+            }
+        }
+
+        data.splice(index, 1);
 
             pekerjaDihapus.forEach(namaPekerja => {
                 const namaNormal = normalisasiNama(namaPekerja);
@@ -2761,7 +2788,9 @@ function exportData() {
             "TANGGAL": x.tgl,
             "AIR(LITER)": x.liter,
             "PPM RIIL": x.ppm,
-            "PH RIIL": x.ph
+            "PH RIIL": x.ph,
+            "NUTRISI TAMBAHAN": x.nutrisiTambahan || "",
+            "DOSIS": x.nutrisiDosis || ""
         }));
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(nutrisiExcel), "Nutrisi_Harian");
 
@@ -2959,12 +2988,12 @@ function importData() {
 
                 const user = await getCurrentSupabaseUser();
                 if (!user) {
-                    throw new Error("Sesi login Supabase tidak ditemukan. Silakan login kembali.");
+                    throw new Error("Sesi login server tidak ditemukan. Silakan login kembali.");
                 }
 
                 if (!confirm(
                     "Restore akan mengganti data aplikasi lokal dengan isi backup ini.\n\n" +
-                    "Data cloud Supabase akun Anda akan diperbarui setelah restore.\n\n" +
+                    "Data cloud akun Anda akan diperbarui setelah restore.\n\n" +
                     "Lanjutkan?"
                 )) {
                     return;
@@ -3014,6 +3043,8 @@ function simpanNutrisiRiil() {
     const inputPH = document.getElementById('ph-now');
     const inputLiters = document.getElementById('liter');
     const inputTgl = document.getElementById('tgl-nutrisi-input');
+    const inputNutrisiTambahan = document.getElementById('nutrisi-tambahan');
+    const inputNutrisiDosis = document.getElementById('nutrisi-dosis');
 
     if (!inputLiters.value || !inputPPM.value || !inputPH.value || !inputTgl.value) {
         return alert("Mohon isi semua data!");
@@ -3034,7 +3065,9 @@ function simpanNutrisiRiil() {
         tgl: new Date(inputTgl.value).toLocaleDateString('id-ID'),
         liter: parseFloat(inputLiters.value),
         ppm: parseFloat(inputPPM.value),
-        ph: parseFloat(inputPH.value)
+        ph: parseFloat(inputPH.value),
+        nutrisiTambahan: (inputNutrisiTambahan.value || '').trim(),
+        nutrisiDosis: (inputNutrisiDosis.value || '').trim()
     };
 
     // LOGIKA EDIT VS SIMPAN BARU
@@ -3056,13 +3089,15 @@ function simpanNutrisiRiil() {
 
     dailyLogs.sort((a, b) => a.hst - b.hst);
     localStorage.setItem(currentGH + '_daily_records', JSON.stringify(dailyLogs));
-    // Nutrisi disimpan di key daily_records, jadi harus dijadwalkan ke Supabase.
+    // Nutrisi disimpan di key daily_records, jadi harus dijadwalkan ke server.
     if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
 
     // Reset Form
     inputPPM.value = "";
     inputPH.value = "";
     inputLiters.value = "";
+    inputNutrisiTambahan.value = "";
+    inputNutrisiDosis.value = "";
 
     alert("Data Berhasil Diperbarui!");
     
@@ -3317,13 +3352,31 @@ async function exportPDF() {
     doc.text("1. Rekap Nutrisi Harian", 14, 60);
     doc.autoTable({
         startY: 63,
-        head: [['HST', 'Tanggal', 'Air(Liter)', 'PPM Riil', 'pH Riil']],
-        body: dailyLogs.sort((a,b) => a.hst - b.hst).map(x => [x.hst, formatIndo(x.tgl), x.liter, x.ppm, x.ph]),
-        headStyles: { fillColor: [46, 125, 50] }
+        head: [['HST', 'Tanggal', 'Air(Liter)', 'PPM Riil', 'pH Riil', 'Nutrisi Tambahan', 'Dosis']],
+        body: dailyLogs.sort((a,b) => a.hst - b.hst).map(x => [
+            x.hst,
+            formatIndo(x.tgl),
+            x.liter,
+            x.ppm,
+            x.ph,
+            x.nutrisiTambahan || '-',
+            x.nutrisiDosis || '-'
+        ]),
+        headStyles: { fillColor: [46, 125, 50] },
+        styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+        columnStyles: {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 18 },
+            3: { cellWidth: 16 },
+            4: { cellWidth: 14 },
+            5: { cellWidth: 42 },
+            6: { cellWidth: 25 }
+        }
     });
 
 // --- 2. Tabel Penyemprotan ---
-    // Ambil foto dari Supabase Storage dan ubah menjadi Data URL agar jsPDF dapat menanamkannya.
+    // Ambil foto dari Penyimpanan Server dan ubah menjadi Data URL agar jsPDF dapat menanamkannya.
     const pdfPhotoData = new Map();
     for (const item of sLog) {
         if (!item?.img) continue;
@@ -3600,7 +3653,7 @@ function updateStorageInfo() {
     const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di Supabase
     let percent = Math.min(100, (total / limit) * 100);
     const text = document.getElementById('storage-text');
-    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Server aktif` : `Cache perangkat: ${usedMB} MB`;
+    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Cloud aktif` : `Cache perangkat: ${usedMB} MB`;
     const bar = document.getElementById('storage-bar');
     if (bar) bar.style.width = percent + '%';
 }
@@ -4149,7 +4202,7 @@ function clearApplicationStorageForUserSwitch() {
         }
     });
 
-    // Kembalikan state dasar aplikasi. Data user akan diisi dari Supabase.
+    // Kembalikan state dasar aplikasi. Data user akan diisi dari server.
     _nativeSetItem.call(localStorage, "gh_list", JSON.stringify(["GH 1"]));
     _nativeSetItem.call(localStorage, "active_gh", "GH 1");
 }
@@ -4251,7 +4304,7 @@ async function saveCloudDataNow() {
 
     } catch (err) {
         console.error("Supabase save error:", err);
-        updateCloudStatus("⚠️ Gagal menyimpan ke server");
+        updateCloudStatus("⚠️ Gagal sinkron");
         return false;
 
     } finally {
@@ -4281,7 +4334,7 @@ function scheduleCloudSave() {
 
 async function loadCloudData() {
     if (!supabaseClient) {
-        updateCloudStatus("⚙️ Server belum siap");
+        updateCloudStatus("⚙️ Penyimpanan server belum diatur");
         return false;
     }
 
@@ -4354,12 +4407,12 @@ async function loadCloudData() {
         loadingCloudData = false;
         supabaseReady = false;
         console.error("Supabase load error:", err);
-        updateCloudStatus("⚠️ Server tidak terhubung");
+        updateCloudStatus("⚠️ Cloud tidak terhubung");
 
         alert(
             "Gagal mengambil data dari server.\n\n" +
             "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia.\n\n" +
-            String(err.message || "Terjadi kesalahan.").replace(/supabase/gi, "server")
+            err.message
         );
 
         return false;
@@ -4451,7 +4504,7 @@ window.loginGoogle = async function () {
 
             alert(
                 "Gagal Login Google:\n" +
-                String(error.message || "Terjadi kesalahan login.").replace(/supabase/gi, "server")
+                error.message
             );
         }
 
@@ -4461,7 +4514,7 @@ window.loginGoogle = async function () {
 
         alert(
             "Terjadi kesalahan login:\n" +
-            String(error.message || "Terjadi kesalahan login.").replace(/supabase/gi, "server")
+            error.message
         );
 
     }
@@ -4531,7 +4584,7 @@ async function handleSupabaseLogin(user) {
             /*
              * PENTING UNTUK MULTI-USER:
              * localStorage bukan penyimpanan per-user.
-             * Sebelum membaca data user ini dari Supabase, hapus SEMUA
+             * Sebelum membaca data user ini dari server, hapus SEMUA
              * data aplikasi milik user sebelumnya.
              *
              * Storage/Auth Supabase tidak disentuh karena helper hanya
@@ -4570,7 +4623,7 @@ async function handleSupabaseLogin(user) {
         } catch (error) {
             console.error("Login handler error:", error);
             setDisplay("flex", "none");
-            alert("Gagal memuat akun:\n" + String(error.message || "Terjadi kesalahan.").replace(/supabase/gi, "server"));
+            alert("Gagal memuat akun:\n" + error.message);
             return false;
 
         } finally {
@@ -4592,7 +4645,7 @@ async function cekStatusSupabaseUser(user) {
             return false;
         }
 
-        // Status pembayaran sekarang dibaca dari Supabase, bukan Firestore.
+        // Status pembayaran sekarang dibaca dari server, bukan Firestore.
         // Login aplikasi juga menggunakan Supabase Auth, sehingga tidak ada
         // ketergantungan pada Firebase Auth untuk membaca status pembayaran.
         // Cari data pembayaran milik user yang sedang login.
@@ -4657,7 +4710,7 @@ async function cekStatusSupabaseUser(user) {
 
                     alert(
                         "Tidak dapat membuat data pembayaran akun.\\n\\n" +
-                        (retryError?.message || insertError.message || "Terjadi kesalahan.").replace(/supabase/gi, "server")
+                        (retryError?.message || insertError.message)
                     );
                     return false;
                 }
@@ -4774,7 +4827,7 @@ window.logout = async function () {
     if (error) {
         alert(
             "Gagal logout: " +
-            String(error.message || "Terjadi kesalahan.").replace(/supabase/gi, "server")
+            error.message
         );
         return;
     }
