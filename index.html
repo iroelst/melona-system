@@ -14,7 +14,7 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@server/server-js@2"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
@@ -427,7 +427,7 @@
             <hr style="margin:15px 0; border:0; border-top:1px solid #eee;">
             <label>NUTRISI TAMBAHAN</label>
             <div class="input-row">
-                <input type="text" id="nutrisi-tambahan" placeholder="Cemplungan">
+                <input type="text" id="nutrisi-tambahan" placeholder="Nama nutrisi tambahan">
                 <input type="text" id="nutrisi-dosis" placeholder="Dosis">
             </div>
             <label>Koreksi pH</label>
@@ -1670,7 +1670,7 @@ async function simpanLog(tipe) {
 
             try {
                 // Crop 1:1 dan kompresi seperti sebelumnya, tetapi hasilnya
-                // sekarang diupload ke Penyimpanan Server, bukan disimpan Base64.
+                // sekarang diupload ke server Storage, bukan disimpan Base64.
                 const compressedBase64 = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
 
@@ -1742,7 +1742,7 @@ async function simpanLog(tipe) {
                 console.error("Upload foto gagal:", err);
 
                 alert(
-                    "Foto gagal diupload ke Penyimpanan Server.\n\n" +
+                    "Foto gagal disimpan ke server.\n\n" +
                     err.message
                 );
             }
@@ -1943,7 +1943,7 @@ function hitungBiayaDariString(namaStr) {
 async function prosesSimpanSemprot(tgl, hst, imgBase64) {
     let logS = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
     
-    // Foto baru adalah path Penyimpanan Server.
+    // Foto baru adalah path Supabase Storage.
     // Jika edit tanpa foto baru, pertahankan path foto lama.
     const oldImg = isEditMode ? tempEditImg : "";
     let finalImg = imgBase64 || oldImg;
@@ -2500,7 +2500,7 @@ async function hapusItem(key, index) {
 
             // Hapus dulu dari array agar pengecekan aktivitas tersisa akurat.
             // Jika yang dihapus adalah riwayat SEMPROT, hapus juga foto
-        // dari Penyimpanan Server agar tidak meninggalkan file yatim.
+        // dari server Storage agar tidak meninggalkan file yatim.
         const itemYangDihapus = data[index];
         if (key === currentGH + '_logs' && itemYangDihapus?.img) {
             try {
@@ -2508,7 +2508,7 @@ async function hapusItem(key, index) {
             } catch (err) {
                 console.error("Gagal menghapus foto semprot dari server:", err);
                 const lanjut = confirm(
-                    "Foto semprot gagal dihapus dari Penyimpanan Server.\\n\\n" +
+                    "Foto semprot gagal dihapus dari server Storage.\\n\\n" +
                     "Apakah Anda tetap ingin menghapus riwayat semprotnya?"
                 );
                 if (!lanjut) return;
@@ -3113,7 +3113,7 @@ async function bersihkanSemuaRiwayat() {
     localStorage.removeItem(currentGH + '_history_periods');
     renderFinance();
 
-    // PENTING: hapus juga snapshot lama di Supabase.
+    // PENTING: hapus juga snapshot lama di server.
     // Jangan hanya mengandalkan timer 800 ms, karena user bisa refresh
     // sebelum proses sinkronisasi selesai.
     if (typeof saveCloudDataNow === 'function') {
@@ -3376,7 +3376,7 @@ async function exportPDF() {
     });
 
 // --- 2. Tabel Penyemprotan ---
-    // Ambil foto dari Penyimpanan Server dan ubah menjadi Data URL agar jsPDF dapat menanamkannya.
+    // Ambil foto dari server Storage dan ubah menjadi Data URL agar jsPDF dapat menanamkannya.
     const pdfPhotoData = new Map();
     for (const item of sLog) {
         if (!item?.img) continue;
@@ -3650,7 +3650,7 @@ function updateStorageInfo() {
         total += ((localStorage[key].length + key.length) * 2);
     }
     const usedMB = (total / (1024 * 1024)).toFixed(2);
-    const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di Supabase
+    const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di server
     let percent = Math.min(100, (total / limit) * 100);
     const text = document.getElementById('storage-text');
     if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Cloud aktif` : `Cache perangkat: ${usedMB} MB`;
@@ -4111,7 +4111,7 @@ const firebaseConfig = {
 // Inisialisasi Firebase
 firebase.initializeApp(firebaseConfig);
 
-const SUPABASE_URL = "https://guldxfudpculqkvgdcov.supabase.co/";
+const SUPABASE_URL = "https://guldxfudpculqkvgdcov.server.co/";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lyp9oQrzzy2MGQulM9OfCg_XEGeUjLH";
 
 const supabaseClient = window.supabase.createClient(
@@ -4122,7 +4122,7 @@ const supabaseClient = window.supabase.createClient(
             persistSession: true,
             autoRefreshToken: true,
             detectSessionInUrl: true,
-            storageKey: "melona-supabase-auth"
+            storageKey: "melona-server-auth"
         }
     }
 );
@@ -4146,9 +4146,9 @@ const _nativeClear = Storage.prototype.clear;
 function isAuthStorageKey(key) {
     const k = String(key || '').toLowerCase();
     return (
-        k === 'melona-supabase-auth' ||
+        k === 'melona-server-auth' ||
         k.startsWith('sb-') ||
-        k.includes('supabase') ||
+        k.includes('server') ||
         k.includes('firebase') ||
         k.includes('google') ||
         k.includes('gsi_') ||
@@ -4173,7 +4173,7 @@ function isApplicationStorageKey(key) {
 async function getCurrentSupabaseUser() {
     const { data: { user }, error } = await supabaseClient.auth.getUser();
     if (error) {
-        console.error("Supabase getUser error:", error);
+        console.error("Gagal mengambil sesi server:", error);
         return null;
     }
     return user || null;
@@ -4212,7 +4212,7 @@ const SUPABASE_PHOTO_BUCKET = "melona_foto";
 
 async function uploadSemprotPhoto(fileOrBlob) {
     const user = await getCurrentSupabaseUser();
-    if (!user) throw new Error("Session login Supabase tidak ditemukan.");
+    if (!user) throw new Error("Session login server tidak ditemukan.");
 
     const fileName = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.jpg`;
     const filePath = `${user.id}/semprot/${fileName}`;
@@ -4268,7 +4268,7 @@ async function saveCloudDataNow() {
 
     const user = await getCurrentSupabaseUser();
     if (!user) {
-        console.warn("Tidak ada session Supabase. Data cloud tidak disimpan.");
+        console.warn("Tidak ada session server. Data cloud tidak disimpan.");
         updateCloudStatus("⚠️ Belum login");
         return false;
     }
@@ -4303,7 +4303,7 @@ async function saveCloudDataNow() {
         return true;
 
     } catch (err) {
-        console.error("Supabase save error:", err);
+        console.error("server save error:", err);
         updateCloudStatus("⚠️ Gagal sinkron");
         return false;
 
@@ -4334,7 +4334,7 @@ function scheduleCloudSave() {
 
 async function loadCloudData() {
     if (!supabaseClient) {
-        updateCloudStatus("⚙️ Penyimpanan server belum diatur");
+        updateCloudStatus("⚙️ server belum diatur");
         return false;
     }
 
@@ -4406,12 +4406,12 @@ async function loadCloudData() {
     } catch (err) {
         loadingCloudData = false;
         supabaseReady = false;
-        console.error("Supabase load error:", err);
+        console.error("server load error:", err);
         updateCloudStatus("⚠️ Cloud tidak terhubung");
 
         alert(
             "Gagal mengambil data dari server.\n\n" +
-            "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia.\n\n" +
+            "Periksa koneksi server dan data akun.\n\n" +
             err.message
         );
 
@@ -4526,7 +4526,7 @@ supabaseClient.auth.onAuthStateChange(
     async (event, session) => {
 
         console.log(
-            "Supabase Auth:",
+            "Status login:",
             event,
             session
         );
@@ -4572,7 +4572,7 @@ async function handleSupabaseLogin(user) {
 
     processingAuthPromise = (async () => {
         try {
-            console.log("User Supabase:", user.email);
+            console.log("User server:", user.email);
 
             // Periksa pembayaran terlebih dahulu.
             const paymentOK = await cekStatusSupabaseUser(user);
@@ -4656,7 +4656,7 @@ async function cekStatusSupabaseUser(user) {
             .maybeSingle();
 
         if (error) {
-            console.error("Supabase payment check error:", error);
+            console.error("server payment check error:", error);
             setDisplay("flex", "none");
 
             const paymentArea = document.getElementById("payment-area");
@@ -4702,7 +4702,7 @@ async function cekStatusSupabaseUser(user) {
                         .maybeSingle();
 
                 if (retryError || !retryData) {
-                    console.error("Supabase payment registration error:", insertError);
+                    console.error("server payment registration error:", insertError);
                     setDisplay("flex", "none");
 
                     const paymentArea = document.getElementById("payment-area");
@@ -4764,7 +4764,7 @@ async function cekStatusSupabaseUser(user) {
         }
 
     } catch (err) {
-        console.error("Gagal memeriksa sesi Supabase:", err);
+        console.error("Gagal memeriksa sesi server:", err);
         setDisplay("flex", "none", "none");
     }
 })();
@@ -4833,7 +4833,7 @@ window.logout = async function () {
     }
 
     // Hapus data aplikasi lokal saat logout.
-    // Data cloud tetap aman di Supabase.
+    // Data cloud tetap aman di server.
     clearApplicationStorageForUserSwitch();
 
     location.reload();
@@ -4851,7 +4851,7 @@ window.prosesBayar = async function() {
 
         if (error || !user) {
             if (waWindow) waWindow.close();
-            console.error("Supabase user untuk WhatsApp tidak ditemukan:", error);
+            console.error("Akun server untuk WhatsApp tidak ditemukan:", error);
             alert("Sesi login tidak ditemukan. Silakan login kembali.");
             return;
         }
