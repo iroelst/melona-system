@@ -425,6 +425,11 @@
             <button class="btn" onclick="hitungAB()">HITUNG DOSIS PPM</button>
             <div id="hasil-calc" style="margin-top:10px; font-weight:bold; color:#1b5e20; text-align:center;"></div>
             <hr style="margin:15px 0; border:0; border-top:1px solid #eee;">
+            <label>NUTRISI TAMBAHAN</label>
+            <div class="input-row">
+                <input type="text" id="nutrisi-tambahan" placeholder="Nama nutrisi tambahan">
+                <input type="text" id="nutrisi-dosis" placeholder="Dosis">
+            </div>
             <label>Koreksi pH</label>
             <div class="input-row">
                 <input type="number" id="ph-now" step="0.1" placeholder="pH Kini">
@@ -1293,6 +1298,8 @@ function renderRekapNutrisi() {
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Liter</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">PPM</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">pH</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Nutrisi Tambahan</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Dosis</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Aksi</th>
             </tr>`;
 
@@ -1304,6 +1311,8 @@ function renderRekapNutrisi() {
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.liter}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.ppm}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.ph}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiTambahan || '-'}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiDosis || '-'}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; display: flex; gap: 10px; justify-content: center;">
             <button style="background:none; border:none; color:#f39c12; cursor:pointer;" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
             <button style="background:none; border:none; color:red; cursor:pointer;" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
@@ -1325,6 +1334,8 @@ function prepareEditNutrisi(index) {
     document.getElementById('liter').value = data.liter;
     document.getElementById('ppm-now').value = data.ppm;
     document.getElementById('ph-now').value = data.ph;
+    document.getElementById('nutrisi-tambahan').value = data.nutrisiTambahan || '';
+    document.getElementById('nutrisi-dosis').value = data.nutrisiDosis || '';
     
     // Set mode edit (Gunakan global variable yang sudah ada di file Anda)
     isEditMode = true;
@@ -2761,7 +2772,9 @@ function exportData() {
             "TANGGAL": x.tgl,
             "AIR(LITER)": x.liter,
             "PPM RIIL": x.ppm,
-            "PH RIIL": x.ph
+            "PH RIIL": x.ph,
+            "NUTRISI TAMBAHAN": x.nutrisiTambahan || "",
+            "DOSIS": x.nutrisiDosis || ""
         }));
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(nutrisiExcel), "Nutrisi_Harian");
 
@@ -3014,6 +3027,8 @@ function simpanNutrisiRiil() {
     const inputPH = document.getElementById('ph-now');
     const inputLiters = document.getElementById('liter');
     const inputTgl = document.getElementById('tgl-nutrisi-input');
+    const inputNutrisiTambahan = document.getElementById('nutrisi-tambahan');
+    const inputNutrisiDosis = document.getElementById('nutrisi-dosis');
 
     if (!inputLiters.value || !inputPPM.value || !inputPH.value || !inputTgl.value) {
         return alert("Mohon isi semua data!");
@@ -3034,7 +3049,9 @@ function simpanNutrisiRiil() {
         tgl: new Date(inputTgl.value).toLocaleDateString('id-ID'),
         liter: parseFloat(inputLiters.value),
         ppm: parseFloat(inputPPM.value),
-        ph: parseFloat(inputPH.value)
+        ph: parseFloat(inputPH.value),
+        nutrisiTambahan: (inputNutrisiTambahan.value || '').trim(),
+        nutrisiDosis: (inputNutrisiDosis.value || '').trim()
     };
 
     // LOGIKA EDIT VS SIMPAN BARU
@@ -3063,6 +3080,8 @@ function simpanNutrisiRiil() {
     inputPPM.value = "";
     inputPH.value = "";
     inputLiters.value = "";
+    inputNutrisiTambahan.value = "";
+    inputNutrisiDosis.value = "";
 
     alert("Data Berhasil Diperbarui!");
     
@@ -3317,9 +3336,27 @@ async function exportPDF() {
     doc.text("1. Rekap Nutrisi Harian", 14, 60);
     doc.autoTable({
         startY: 63,
-        head: [['HST', 'Tanggal', 'Air(Liter)', 'PPM Riil', 'pH Riil']],
-        body: dailyLogs.sort((a,b) => a.hst - b.hst).map(x => [x.hst, formatIndo(x.tgl), x.liter, x.ppm, x.ph]),
-        headStyles: { fillColor: [46, 125, 50] }
+        head: [['HST', 'Tanggal', 'Air(Liter)', 'PPM Riil', 'pH Riil', 'Nutrisi Tambahan', 'Dosis']],
+        body: dailyLogs.sort((a,b) => a.hst - b.hst).map(x => [
+            x.hst,
+            formatIndo(x.tgl),
+            x.liter,
+            x.ppm,
+            x.ph,
+            x.nutrisiTambahan || '-',
+            x.nutrisiDosis || '-'
+        ]),
+        headStyles: { fillColor: [46, 125, 50] },
+        styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+        columnStyles: {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 18 },
+            3: { cellWidth: 16 },
+            4: { cellWidth: 14 },
+            5: { cellWidth: 42 },
+            6: { cellWidth: 25 }
+        }
     });
 
 // --- 2. Tabel Penyemprotan ---
