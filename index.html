@@ -1558,7 +1558,7 @@ function renderFinance() {
         .sort((a,b) => parseDate(b.tgl) - parseDate(a.tgl))
         .map(k => {
             const tglFix = formatIndo(parseDate(k.tgl));
-            return `<div style="border-bottom: 1px dashed #eee; padding: 3px 0;">• ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></div>`;
+            return `<div style="border-bottom:1px dashed #eee;padding:3px 0;display:flex;justify-content:space-between;align-items:center;"><span>• ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></span><b onclick="editKasbon(${(d.detailKasbon||[]).indexOf(k)})" style="color:#f39c12;cursor:pointer;">✏️</b></div>`;
         }).join("");
     
     const listKasbonEl = document.getElementById('list-kasbon-nama');
@@ -1581,7 +1581,7 @@ function renderFinance() {
         
         if (x.isDana) {
             const badge = x.arah === 'in' ? 'badge-in' : 'badge-out';
-            detailHtml += `<div class="trans-item"><span class="${badge}">[${x.arah==='in'?'IN':'OUT'}] ${tglTampil} - ${x.jenis}</span><span>Rp ${(parseFloat(x.nominal)||0).toLocaleString()} <b onclick="hapusDana(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span></div><div style="font-size:11px;color:#555;margin:-6px 0 8px 0;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · Ket: ${x.ket||'-'}</div>`;
+            detailHtml += `<div class="trans-item"><span class="${badge}">[${x.arah==='in'?'IN':'OUT'}] ${tglTampil} - ${x.jenis}</span><span>Rp ${(parseFloat(x.nominal)||0).toLocaleString()} <b onclick="editDana(${x.oriIdx})" style="color:#f39c12;cursor:pointer;margin-left:10px;">✏️</b><b onclick="hapusDana(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span></div><div style="font-size:11px;color:#555;margin:-6px 0 8px 0;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · Ket: ${x.ket||'-'}</div>`;
         } else if (x.tipe === 'in') {
             detailHtml += `
             <div class="trans-item">
@@ -1598,7 +1598,7 @@ function renderFinance() {
                 <div style="display:flex;justify-content:space-between;width:100%;">
                     <span class="badge-out">[OUT - INVENTARIS] ${tglTampil} - ${x.nama}</span>
                     <span>Rp ${(parseFloat(x.total)||0).toLocaleString()}
-                    <b onclick="hapusInventaris(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span>
+                    <b onclick="editInventaris(${x.oriIdx})" style="color:#f39c12;cursor:pointer;margin-left:10px;">✏️</b><b onclick="hapusInventaris(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span>
                 </div>
                 <div style="font-size:11px;color:#555;margin-top:4px;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · ${x.qty} × Rp ${(parseFloat(x.harga)||0).toLocaleString()} · ${x.ket||'-'}</div>
             </div>`;
@@ -1742,7 +1742,7 @@ async function simpanLog(tipe) {
                 console.error("Upload foto gagal:", err);
 
                 alert(
-                    "Foto gagal diupload ke Penyimpanan Server.\n\n" +
+                    "Foto gagal diupload ke Supabase Storage.\n\n" +
                     err.message
                 );
             }
@@ -2508,7 +2508,7 @@ async function hapusItem(key, index) {
             } catch (err) {
                 console.error("Gagal menghapus foto semprot dari Supabase:", err);
                 const lanjut = confirm(
-                    "Foto semprot gagal dihapus dari Penyimpanan Server.\\n\\n" +
+                    "Foto semprot gagal dihapus dari Supabase Storage.\\n\\n" +
                     "Apakah Anda tetap ingin menghapus riwayat semprotnya?"
                 );
                 if (!lanjut) return;
@@ -2913,8 +2913,25 @@ function exportData() {
             }))
         ];
 
-        // Hanya untuk laporan Excel: arus kas kronologis lama -> baru.
-        arusKas.sort((a,b) => parseReportDate(a["TANGGAL"]) - parseReportDate(b["TANGGAL"]));
+        // Laporan Arus Kas: tanggal TERLAMA -> TERBARU.
+        // Jika tanggal sama, nomor transaksi dari kecil -> besar.
+        const nomorTransaksiArusKas = (value) => {
+            const s = String(value ?? "").trim();
+            const n = parseInt(s.replace(/[^0-9]/g, ""), 10);
+            return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+        };
+        arusKas.sort((a, b) => {
+            const tanggalA = parseReportDate(a["TANGGAL"]);
+            const tanggalB = parseReportDate(b["TANGGAL"]);
+            const selisihTanggal = tanggalA - tanggalB;
+            if (selisihTanggal !== 0) return selisihTanggal;
+
+            const noA = nomorTransaksiArusKas(a["NO TRANSAKSI"]);
+            const noB = nomorTransaksiArusKas(b["NO TRANSAKSI"]);
+            if (noA !== noB) return noA - noB;
+
+            return 0;
+        });
 
         let saldoBerjalan = saldoAwalKas;
         const arusKasExcel = [
@@ -2988,12 +3005,12 @@ function importData() {
 
                 const user = await getCurrentSupabaseUser();
                 if (!user) {
-                    throw new Error("Sesi login server tidak ditemukan. Silakan login kembali.");
+                    throw new Error("Sesi login Supabase tidak ditemukan. Silakan login kembali.");
                 }
 
                 if (!confirm(
                     "Restore akan mengganti data aplikasi lokal dengan isi backup ini.\n\n" +
-                    "Data cloud akun Anda akan diperbarui setelah restore.\n\n" +
+                    "Data cloud Supabase akun Anda akan diperbarui setelah restore.\n\n" +
                     "Lanjutkan?"
                 )) {
                     return;
@@ -3017,7 +3034,7 @@ function importData() {
                     const saved = await saveCloudDataNow();
                     if (!saved) {
                         alert(
-                            "Data berhasil dipulihkan di perangkat, tetapi gagal disinkronkan ke server."
+                            "Data berhasil dipulihkan di perangkat, tetapi gagal disinkronkan ke Supabase."
                         );
                         return;
                     }
@@ -3197,6 +3214,14 @@ function postingGajiKeBiaya() {
     }
 }
 
+function editKasbon(i){
+ const d=getActiveData(), item=(d.detailKasbon||[])[i]; if(!item)return;
+ editKasbonIdx=i; const sel=document.getElementById('nama-kasbon-select'); if(sel)sel.value=item.nama||'';
+ document.getElementById('nominal-kasbon').value=item.nominal||''; document.getElementById('f-tgl').value=convertToInputDate(item.tgl)||item.tgl||'';
+ const b=document.querySelector('button[onclick="catatKasbon()"]'); if(b){b.innerText='UPDATE KASBON';b.style.background='#f39c12';}
+ document.getElementById('nominal-kasbon').scrollIntoView({behavior:'smooth',block:'center'});
+}
+
 function catatKasbon() {
     let nama = document.getElementById('nama-kasbon-select').value;
     let nominalInput = document.getElementById('nominal-kasbon').value;
@@ -3211,38 +3236,22 @@ function catatKasbon() {
         let tglManual = document.getElementById('f-tgl').value;
         let tgl = tglManual || new Date().toISOString().split('T')[0];
 
-        // 1. Simpan ke daftar biaya riil (Keuangan)
-        // PENTING: Kategori harus "KASBON PEKERJA" agar bisa dideteksi fungsi hapus
         const noTransaksiKasbon = getNoTransaksiKasbon();
-        data.biaya.unshift({
-            tgl: tgl,
-            k: "KASBON PEKERJA",
-            q: 1,
-            h: nominal,
-            total: nominal,
-            ket: "Kasbon: " + nama,
-            namaPekerja: nama,
-            noTransaksi: noTransaksiKasbon
-        });
-
-        // 2. Simpan ke database kasbon internal periode ini
-        if(!data.detailKasbon) data.detailKasbon = [];
-        
-        data.detailKasbon.push({
-            nama: nama,
-            nominal: nominal,
-            tgl: tgl,
-            noTransaksi: noTransaksiKasbon
-        });
-        incrementNoTransaksiByType('kasbon');
-        
-        // Update Total Kasbon (Dashboard)
-        data.totalKasbon = (parseFloat(data.totalKasbon) || 0) + nominal;
-
+        if(editKasbonIdx!==null && data.detailKasbon && data.detailKasbon[editKasbonIdx]){
+            const old=data.detailKasbon[editKasbonIdx], oldNom=parseFloat(old.nominal)||0, oldNo=old.noTransaksi||noTransaksiKasbon;
+            data.detailKasbon[editKasbonIdx]={...old,nama,nominal,tgl,noTransaksi:oldNo};
+            const bi=data.biaya.findIndex(x=>x.noTransaksi===oldNo && x.k==='KASBON PEKERJA');
+            if(bi!==-1)data.biaya[bi]={...data.biaya[bi],tgl,q:1,h:nominal,total:nominal,ket:'Kasbon: '+nama,namaPekerja:nama,noTransaksi:oldNo};
+            data.totalKasbon=Math.max(0,(parseFloat(data.totalKasbon)||0)-oldNom+nominal); editKasbonIdx=null;
+        }else{
+            data.biaya.unshift({tgl,k:'KASBON PEKERJA',q:1,h:nominal,total:nominal,ket:'Kasbon: '+nama,namaPekerja:nama,noTransaksi:noTransaksiKasbon});
+            if(!data.detailKasbon)data.detailKasbon=[]; data.detailKasbon.push({nama,nominal,tgl,noTransaksi:noTransaksiKasbon}); incrementNoTransaksiByType('kasbon');
+            data.totalKasbon=(parseFloat(data.totalKasbon)||0)+nominal;
+        }
         saveActiveData(data);
         
         // Bersihkan input & Update tampilan
-        document.getElementById('nominal-kasbon').value = "";
+        document.getElementById('nominal-kasbon').value = ""; const kasBtn=document.querySelector('button[onclick="catatKasbon()"]'); if(kasBtn){kasBtn.innerText='SIMPAN';kasBtn.style.background='#d81b60';}
         renderFinance();
         alert(`Kasbon ${nama} sebesar Rp ${nominal.toLocaleString()} berhasil dicatat!`);
     }
@@ -3595,10 +3604,23 @@ async function exportPDF() {
     ];
 
     // LAPORAN ARUS KAS: tanggal TERLAMA -> TERBARU.
-    // Jika tanggal sama, pertahankan urutan data yang ada.
+    // Jika tanggal sama, nomor transaksi dari kecil -> besar.
+    // Transaksi tanpa nomor ditempatkan setelah transaksi bernomor.
+    const nomorTransaksiPDF = (value) => {
+        const s = String(value ?? "").trim();
+        const n = parseInt(s.replace(/[^0-9]/g, ""), 10);
+        return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+    };
+
     arusKasPDF.sort((a, b) => {
-        const selisih = parseArusKasDate(a.tgl) - parseArusKasDate(b.tgl);
-        return selisih || (a._urutan - b._urutan);
+        const selisihTanggal = parseArusKasDate(a.tgl) - parseArusKasDate(b.tgl);
+        if (selisihTanggal !== 0) return selisihTanggal;
+
+        const noA = nomorTransaksiPDF(a.no);
+        const noB = nomorTransaksiPDF(b.no);
+        if (noA !== noB) return noA - noB;
+
+        return a._urutan - b._urutan;
     });
 
     let saldoKasBerjalan = saldoAwalKasPDF;
@@ -4410,7 +4432,7 @@ async function loadCloudData() {
         updateCloudStatus("⚠️ Cloud tidak terhubung");
 
         alert(
-            "Gagal mengambil data dari server.\n\n" +
+            "Gagal mengambil data dari Supabase.\n\n" +
             "Periksa RLS/tabel melona_user_data dan pastikan kolom user_id tersedia.\n\n" +
             err.message
         );
@@ -4945,15 +4967,29 @@ function simpanInventaris(){
   const total=qty*harga;
   const noTransaksi=getNextNoInventaris();
   d.inventaris=d.inventaris||[];
-  d.inventaris.unshift({tgl,nama,qty,harga,total,ket:ket||'-',noTransaksi});
-  incrementNoInventaris();
+  if(editInventarisIdx!==null && d.inventaris[editInventarisIdx]){
+    const oldNo=d.inventaris[editInventarisIdx].noTransaksi||noTransaksi;
+    d.inventaris[editInventarisIdx]={...d.inventaris[editInventarisIdx],tgl,nama,qty,harga,total,ket:ket||'-',noTransaksi:oldNo}; editInventarisIdx=null;
+  }else{ d.inventaris.unshift({tgl,nama,qty,harga,total,ket:ket||'-',noTransaksi}); incrementNoInventaris(); }
   saveActiveData(d);
   document.getElementById('inv-nama').value='';
   document.getElementById('inv-qty').value='';
   document.getElementById('inv-harga').value='';
   document.getElementById('inv-ket').value='';
+  const invBtn=document.querySelector('button[onclick="simpanInventaris()"]'); if(invBtn){invBtn.innerText='SIMPAN INVENTARIS';invBtn.style.background='#1976d2';}
   renderFinance();
   alert('Pembelian inventaris berhasil dicatat.');
+}
+function editInventaris(i){
+  const d=getActiveData(), item=(d.inventaris||[])[i]; if(!item)return;
+  editInventarisIdx=i;
+  document.getElementById('inv-tgl').value=convertToInputDate(item.tgl)||item.tgl||'';
+  document.getElementById('inv-nama').value=item.nama||'';
+  document.getElementById('inv-qty').value=item.qty||'';
+  document.getElementById('inv-harga').value=item.harga||'';
+  document.getElementById('inv-ket').value=item.ket||'';
+  const b=document.querySelector('button[onclick="simpanInventaris()"]'); if(b){b.innerText='UPDATE INVENTARIS';b.style.background='#f39c12';}
+  document.getElementById('inv-nama').scrollIntoView({behavior:'smooth',block:'center'});
 }
 function hapusInventaris(i){
   if(!confirm('Hapus transaksi inventaris ini?')) return;
@@ -4962,6 +4998,9 @@ function hapusInventaris(i){
   saveActiveData(d);
   renderFinance();
 }
+let editDanaIdx = null;
+let editInventarisIdx = null;
+let editKasbonIdx = null;
 window.simpanDana = function(){
   const d=getActiveData();
   const jenis=document.getElementById('dana-jenis').value;
@@ -4972,11 +5011,22 @@ window.simpanDana = function(){
   const arah=(jenis==='Tambahan Modal / Investasi'||jenis==='Hutang / Pinjaman')?'in':'out';
   const noTransaksiDana = getNoTransaksiDana();
   d.dana=d.dana||[];
-  d.dana.unshift({tgl,jenis,nominal,ket:ket||'-',arah,noTransaksi:noTransaksiDana});
-  incrementNoTransaksiByType('dana');
+  if(editDanaIdx!==null && d.dana[editDanaIdx]){ const oldNo=d.dana[editDanaIdx].noTransaksi||noTransaksiDana; d.dana[editDanaIdx]={...d.dana[editDanaIdx],tgl,jenis,nominal,ket:ket||'-',arah,noTransaksi:oldNo}; editDanaIdx=null; }
+  else { d.dana.unshift({tgl,jenis,nominal,ket:ket||'-',arah,noTransaksi:noTransaksiDana}); incrementNoTransaksiByType('dana'); }
   saveActiveData(d);
   document.getElementById('dana-nominal').value=''; document.getElementById('dana-ket').value='';
+  const danaBtn=document.querySelector('button[onclick="simpanDana()"]'); if(danaBtn){danaBtn.innerText='SIMPAN TRANSAKSI DANA';danaBtn.style.background='#1565c0';}
   renderFinance(); alert('Transaksi dana berhasil disimpan.');
+};
+window.editDana=function(i){
+  const d=getActiveData(), item=(d.dana||[])[i]; if(!item)return;
+  editDanaIdx=i;
+  document.getElementById('dana-tgl').value=convertToInputDate(item.tgl)||item.tgl||'';
+  document.getElementById('dana-jenis').value=item.jenis||'Tambahan Modal / Investasi';
+  document.getElementById('dana-ket').value=item.ket||'';
+  document.getElementById('dana-nominal').value=item.nominal||'';
+  const b=document.querySelector('button[onclick="simpanDana()"]'); if(b){b.innerText='UPDATE TRANSAKSI DANA';b.style.background='#f39c12';}
+  document.getElementById('dana-tgl').scrollIntoView({behavior:'smooth',block:'center'});
 };
 window.hapusDana=function(i){
   if(!confirm('Hapus transaksi dana ini?')) return;
