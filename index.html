@@ -1213,6 +1213,11 @@ window.mulaiPeriode = function() {
         if (oldData && oldData.v && oldData.v !== "-") {
             let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
 
+            const oldDailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+            const oldSemprotLogs = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+            const oldWorkLogs = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+            const oldPhotoPaths = oldSemprotLogs.map(x => x && x.img).filter(x => x && !String(x).startsWith('data:image/'));
+
             history.unshift({
                 v: oldData.v,
                 pop: oldData.pop,
@@ -1223,7 +1228,11 @@ window.mulaiPeriode = function() {
                 dana: oldData.dana || [],
                 inventaris: oldData.inventaris || [],
                 saldoAwal: parseFloat(oldData.saldoAwal) || 0,
-                tglMulaiPeriode: oldData.tglMulaiPeriode || tglTanamLama || null
+                tglMulaiPeriode: oldData.tglMulaiPeriode || tglTanamLama || null,
+                dailyLogs: oldDailyLogs,
+                semprotLogs: oldSemprotLogs,
+                workLog: oldWorkLogs,
+                photoPaths: oldPhotoPaths
             });
 
             localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
@@ -1631,7 +1640,7 @@ function renderFinance() {
             <div style="display:flex; justify-content:space-between;">
                 <div><b>${h.v}</b><br><small>${h.tgl_mulai} - ${h.tgl_selesai || 'Selesai'}</small></div>
                 <div style="display: flex; gap: 5px;">
-                    <button onclick="lihatDetailArsip(${index})" style="font-size:10px; padding:5px; background:#2e7d32; color:white; border:none; border-radius:4px;">DETAIL</button>
+                    <button onclick="lihatDetailArsip(${index})" style="font-size:10px; padding:5px; background:#2e7d32; color:white; border:none; border-radius:4px;">📄 PDF</button>
                     <button onclick="hapusRiwayatPeriode(${index})" style="font-size:10px; padding:5px; background:#e74c3c; color:white; border:none; border-radius:4px;">HAPUS</button>
                 </div>
             </div>
@@ -2710,25 +2719,18 @@ if (itemDihapus.k === "KASBON PEKERJA") {
         alert("Transaksi berhasil dihapus dan saldo disesuaikan.");
     }
 }
-function lihatDetailArsip(index) {
-    let hist = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-    let data = hist[index];
-    
-    // Kita susun ringkasan aktivitas dalam format teks agar mudah dibaca
-    let detailMsg = `DETAIL PERIODE: ${data.v}\n`;
-    detailMsg += `---------------------------\n`;
-    detailMsg += `Populasi: ${data.pop} pohon\n`;
-    detailMsg += `Total Biaya: Rp ${(data.biaya || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n`;
-    detailMsg += `Total Jual: Rp ${(data.jual || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n\n`;
-    
-    detailMsg += `Ingin melihat detail lengkap aktivitas? \nSilakan gunakan fitur 'Download Laporan' saat periode ini sedang aktif.`;
-
-    alert(detailMsg);
-    
-    // Alternatif: Tampilkan di Console Log untuk pengembang
-    console.log("Data Lengkap Arsip:", data);
+async function lihatDetailArsip(index) {
+    try {
+        const hist = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+        const data = hist[index];
+        if (!data) return alert("Riwayat periode tidak ditemukan.");
+        await exportPDF(data);
+    } catch (err) {
+        console.error("Gagal membuat PDF riwayat periode:", err);
+        alert("Gagal membuat PDF riwayat periode: " + (err?.message || err));
+    }
 }
-    
+
 // Fungsi mengekspor seluruh isi LocalStorage ke file JSON
 function getReportStartDate(){
     const d = getActiveData();
@@ -3143,29 +3145,43 @@ async function bersihkanSemuaRiwayat() {
 }
 
 async function hapusRiwayatPeriode(index) {
-    if (!confirm("Apakah Anda yakin ingin menghapus riwayat periode ini secara permanen?")) return;
+    if (!confirm("Hapus PERMANEN seluruh data periode ini, termasuk data nutrisi, penyemprotan, aktivitas kerja, keuangan, inventaris, dan foto dokumentasi? Tindakan ini tidak bisa dibatalkan.")) return;
 
     let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-
     if (index < 0 || index >= history.length) {
         alert("Riwayat periode tidak ditemukan.");
         return;
     }
 
-    // Hapus hanya item yang dipilih.
+    const period = history[index];
+    const photoPaths = Array.from(new Set(
+        (period.photoPaths || (period.semprotLogs || []).map(x => x && x.img) || [])
+            .filter(x => x && !String(x).startsWith('data:image/'))
+    ));
+
+    if (photoPaths.length > 0 && supabaseReady && supabaseClient) {
+        try {
+            const { error } = await supabaseClient.storage.from(SUPABASE_PHOTO_BUCKET).remove(photoPaths);
+            if (error) throw error;
+        } catch (err) {
+            console.error("Gagal menghapus foto periode dari Supabase Storage:", err);
+            alert("Foto periode gagal dihapus dari Supabase Storage. Data periode belum dihapus.\n\nPeriksa koneksi lalu coba lagi.");
+            return;
+        }
+    }
+
     history.splice(index, 1);
     localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
     renderFinance();
 
-    // PENTING: tunggu sampai snapshot terbaru benar-benar tersimpan.
-    // Dengan demikian refresh tidak akan mengambil kembali riwayat lama dari cloud.
     if (typeof saveCloudDataNow === 'function') {
         const ok = await saveCloudDataNow();
         if (!ok) {
-            alert("Riwayat sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
+            alert("Data periode sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
             return;
         }
     }
+    alert("Periode dan seluruh data terkait berhasil dihapus.");
 }
 window.bersihkanSemuaRiwayat = bersihkanSemuaRiwayat;
 window.hapusRiwayatPeriode = hapusRiwayatPeriode;
@@ -3282,21 +3298,21 @@ function backupDataJSON() {
     URL.revokeObjectURL(url);
 }
 
-async function exportPDF() {
-    const d = getActiveData();
+async function exportPDF(periodData = null) {
+    const d = periodData || getActiveData();
     if (!window.jspdf || !window.jspdf.jsPDF) {
         return alert("Library PDF belum berhasil dimuat. Periksa koneksi internet lalu coba lagi.");
     }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
 
-    const reportBiaya = filterReportByActivePeriod(d.biaya || [], "tgl");
-    const reportJual = filterReportByActivePeriod(d.jual || [], "tgl");
-    const reportDana = filterReportByActivePeriod(d.dana || [], "tgl");
-    const reportInventaris = filterReportByActivePeriod(d.inventaris || [], "tgl");
-    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
-    const sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
-    const kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+    const reportBiaya = periodData ? (d.biaya || []) : filterReportByActivePeriod(d.biaya || [], "tgl");
+    const reportJual = periodData ? (d.jual || []) : filterReportByActivePeriod(d.jual || [], "tgl");
+    const reportDana = periodData ? (d.dana || []) : filterReportByActivePeriod(d.dana || [], "tgl");
+    const reportInventaris = periodData ? (d.inventaris || []) : filterReportByActivePeriod(d.inventaris || [], "tgl");
+    const dailyLogs = periodData ? (d.dailyLogs || []) : JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    const sLog = periodData ? (d.semprotLogs || []) : JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+    const kLog = periodData ? (d.workLog || []) : JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
 
     // --- FUNGSI PEMBANTU ---
     const parseDate = (dateStr) => {
@@ -3319,20 +3335,25 @@ async function exportPDF() {
     let tglMulai = "-";
     let tglSelesai = formatIndo(new Date()); // Default sampai hari ini
 
-    // 1. Ambil tanggal awal dari log kerja (kLog)
-    if (kLog && kLog.length > 0) {
-        let sortedK = [...kLog].sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
-        tglMulai = formatIndo(sortedK[0].tgl);
-    }
+    if (periodData) {
+        tglMulai = formatIndo(d.tglMulaiPeriode || d.tgl_mulai);
+        tglSelesai = formatIndo(d.tgl_selesai);
+    } else {
+        // 1. Ambil tanggal awal dari log kerja (kLog)
+        if (kLog && kLog.length > 0) {
+            let sortedK = [...kLog].sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
+            tglMulai = formatIndo(sortedK[0].tgl);
+        }
 
-    // 2. Ambil tanggal akhir dari posting gaji terakhir di riwayat biaya
-    if (d.biaya && d.biaya.length > 0) {
-        let postingGaji = d.biaya
-            .filter(item => item.k === "PELUNASAN GAJI PERIODE")
-            .sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
-        
-        if (postingGaji.length > 0) {
-            tglSelesai = formatIndo(postingGaji[0].tgl);
+        // 2. Ambil tanggal akhir dari posting gaji terakhir di riwayat biaya
+        if (d.biaya && d.biaya.length > 0) {
+            let postingGaji = d.biaya
+                .filter(item => item.k === "PELUNASAN GAJI PERIODE")
+                .sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
+            
+            if (postingGaji.length > 0) {
+                tglSelesai = formatIndo(postingGaji[0].tgl);
+            }
         }
     }
     
@@ -3662,7 +3683,9 @@ async function exportPDF() {
     doc.setFont(undefined, 'bold');
     doc.text(`Saldo Kas Akhir: Rp ${saldoKasBerjalan.toLocaleString()}`, 14, kasY + 18);
 
-    doc.save(`LAPORAN_MELONA_${currentGH}_${new Date().toISOString().split('T')[0]}.pdf`);
+    const safePeriodName = String(periodData ? (d.v || "Periode") : new Date().toISOString().split('T')[0])
+        .replace(/[^a-zA-Z0-9_-]+/g, '_');
+    doc.save(`LAPORAN_MELONA_${currentGH}_${safePeriodName}${periodData ? '_RIWAYAT' : ''}.pdf`);
 }
 
 function updateStorageInfo() {
