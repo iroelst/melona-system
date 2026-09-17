@@ -350,6 +350,9 @@
             <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 13px;" onclick="window.exportPDF()">📄 PDF</button>
         </div>
 
+        <button class="btn" style="background:#1565c0; color:white; width:100%; margin-top:10px; font-size:13px;" onclick="window.exportLaporanTahunanPDF()">📅 LAPORAN TAHUNAN (PDF)</button>
+
+        <div style="display: flex; gap: 10px;">
         <div class="storage-info">
             <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
@@ -3297,6 +3300,226 @@ function backupDataJSON() {
     document.body.removeChild(dlAnchor);
     URL.revokeObjectURL(url);
 }
+
+
+
+// ============================================================
+// LAPORAN TAHUNAN PDF
+// Sumber data: hanya RIWAYAT PERIODE yang sudah ditutup.
+// Tahun laporan ditentukan berdasarkan tanggal selesai/tutup periode.
+// ============================================================
+async function exportLaporanTahunanPDF() {
+    try {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            return alert("Library PDF belum berhasil dimuat. Periksa koneksi internet lalu coba lagi.");
+        }
+        if (!currentGH) return alert("Pilih Greenhouse terlebih dahulu.");
+
+        const history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+        if (!Array.isArray(history) || history.length === 0) {
+            return alert("Belum ada riwayat periode yang sudah ditutup.");
+        }
+
+        const parseAnnualDate = (value) => {
+            if (!value) return new Date(0);
+            const s = String(value).trim();
+            let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+            if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+            m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+            const d = new Date(s);
+            return isNaN(d.getTime()) ? new Date(0) : d;
+        };
+
+        const formatAnnualDate = (value) => {
+            const d = value instanceof Date ? value : parseAnnualDate(value);
+            if (!d || d.getTime() <= 0) return "-";
+            return String(d.getDate()).padStart(2, '0') + '-' +
+                   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                   String(d.getFullYear());
+        };
+
+        // Tanggal selesai/tutup menjadi satu-satunya patokan tahun laporan.
+        const closedPeriods = history.map((h, index) => ({
+            h,
+            index,
+            endDate: parseAnnualDate(h.tgl_selesai)
+        })).filter(x => x.endDate.getTime() > 0);
+
+        if (!closedPeriods.length) {
+            return alert("Tidak ditemukan tanggal selesai/tutup pada riwayat periode.");
+        }
+
+        const years = [...new Set(closedPeriods.map(x => x.endDate.getFullYear()))].sort((a,b) => b-a);
+        const defaultYear = years[0];
+        const yearInput = prompt("Masukkan tahun laporan tahunan:\nTahun tersedia: " + years.join(", "), String(defaultYear));
+        if (yearInput === null) return;
+        const tahun = parseInt(String(yearInput).trim(), 10);
+        if (!years.includes(tahun)) {
+            return alert("Tahun tidak tersedia atau belum memiliki periode yang ditutup.\nTahun tersedia: " + years.join(", "));
+        }
+
+        const periods = closedPeriods
+            .filter(x => x.endDate.getFullYear() === tahun)
+            .sort((a,b) => a.endDate - b.endDate);
+
+        if (!periods.length) {
+            return alert("Tidak ada periode yang ditutup pada tahun " + tahun + ".");
+        }
+
+        const toNumber = value => {
+            const n = parseFloat(value);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const grades = ["Grade A", "Grade B", "Grade C", "Grade PL", "Ecer", "Wisata Petik"];
+        const emptySales = () => Object.fromEntries(grades.map(g => [g, 0]));
+
+        const rows = periods.map((item, no) => {
+            const h = item.h || {};
+            const jual = Array.isArray(h.jual) ? h.jual : [];
+            const biaya = Array.isArray(h.biaya) ? h.biaya : [];
+            const sales = emptySales();
+
+            jual.forEach(x => {
+                const grade = String(x.g || "").trim();
+                if (Object.prototype.hasOwnProperty.call(sales, grade)) {
+                    sales[grade] += toNumber(x.total);
+                }
+            });
+
+            const totalPenjualan = grades.reduce((sum, g) => sum + sales[g], 0);
+            const totalOperasional = biaya.reduce((sum, x) => sum + toNumber(x.total), 0);
+            const labaRugi = totalPenjualan - totalOperasional;
+
+            return {
+                no: no + 1,
+                mulai: h.tgl_mulai || h.tglMulaiPeriode || "-",
+                selesai: h.tgl_selesai || "-",
+                sales,
+                totalPenjualan,
+                totalOperasional,
+                labaRugi
+            };
+        });
+
+        const totals = {
+            sales: emptySales(),
+            totalPenjualan: 0,
+            totalOperasional: 0,
+            labaRugi: 0
+        };
+        rows.forEach(r => {
+            grades.forEach(g => totals.sales[g] += r.sales[g]);
+            totals.totalPenjualan += r.totalPenjualan;
+            totals.totalOperasional += r.totalOperasional;
+            totals.labaRugi += r.labaRugi;
+        });
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const rupiah = n => "Rp " + Math.round(toNumber(n)).toLocaleString('id-ID');
+
+        doc.setFontSize(18);
+        doc.setTextColor(27, 94, 32);
+        doc.text("LAPORAN TAHUNAN PRODUKSI MELON", 14, 16);
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`Greenhouse: ${currentGH}`, 14, 23);
+        doc.setFontSize(10);
+        doc.text(`Tahun Laporan: ${tahun}`, 14, 29);
+        doc.text("Dasar laporan: seluruh periode yang TUTUP pada tahun tersebut.", 14, 35);
+
+        const body = rows.map(r => [
+            r.no,
+            `${formatAnnualDate(r.mulai)} s/d\n${formatAnnualDate(r.selesai)}`,
+            rupiah(r.sales["Grade A"]),
+            rupiah(r.sales["Grade B"]),
+            rupiah(r.sales["Grade C"]),
+            rupiah(r.sales["Grade PL"]),
+            rupiah(r.sales["Ecer"]),
+            rupiah(r.sales["Wisata Petik"]),
+            rupiah(r.totalPenjualan),
+            rupiah(r.totalOperasional),
+            rupiah(r.labaRugi)
+        ]);
+
+        body.push([
+            '', 'TOTAL TAHUNAN',
+            rupiah(totals.sales["Grade A"]),
+            rupiah(totals.sales["Grade B"]),
+            rupiah(totals.sales["Grade C"]),
+            rupiah(totals.sales["Grade PL"]),
+            rupiah(totals.sales["Ecer"]),
+            rupiah(totals.sales["Wisata Petik"]),
+            rupiah(totals.totalPenjualan),
+            rupiah(totals.totalOperasional),
+            rupiah(totals.labaRugi)
+        ]);
+
+        doc.autoTable({
+            startY: 40,
+            head: [[
+                'No', 'Tanggal Periode', 'Grade A', 'Grade B', 'Grade C', 'Grade PL',
+                'Ecer', 'Wisata Petik', 'Total Penjualan', 'Operasional', 'Laba/Rugi'
+            ]],
+            body,
+            theme: 'grid',
+            headStyles: { fillColor: [46, 125, 50], textColor: 255, fontSize: 7, halign: 'center' },
+            bodyStyles: { fontSize: 6.5, cellPadding: 2, valign: 'middle' },
+            columnStyles: {
+                0: { cellWidth: 8, halign: 'center' },
+                1: { cellWidth: 28, halign: 'center' },
+                2: { cellWidth: 26, halign: 'right' },
+                3: { cellWidth: 26, halign: 'right' },
+                4: { cellWidth: 26, halign: 'right' },
+                5: { cellWidth: 26, halign: 'right' },
+                6: { cellWidth: 26, halign: 'right' },
+                7: { cellWidth: 28, halign: 'right' },
+                8: { cellWidth: 30, halign: 'right' },
+                9: { cellWidth: 30, halign: 'right' },
+                10: { cellWidth: 30, halign: 'right' }
+            },
+            didParseCell: function(data) {
+                if (data.row.index === body.length - 1) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.fillColor = [232, 245, 233];
+                }
+            }
+        });
+
+        let y = doc.lastAutoTable.finalY + 12;
+        if (y > 175) {
+            doc.addPage();
+            y = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text("RINGKASAN TAHUNAN", 14, y);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(9);
+        doc.text(`Jumlah periode ditutup: ${rows.length} periode`, 14, y + 8);
+        doc.text(`Total Penjualan Tahunan: ${rupiah(totals.totalPenjualan)}`, 14, y + 15);
+        doc.text(`Total Operasional Tahunan: ${rupiah(totals.totalOperasional)}`, 14, y + 22);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(12);
+        doc.text(`LABA/RUGI TAHUNAN: ${rupiah(totals.labaRugi)}`, 14, y + 31);
+
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8);
+        doc.text("Catatan: Periode yang melewati pergantian tahun tetap masuk berdasarkan tanggal selesai/tutup periode.", 14, y + 41);
+
+        const fileName = `LAPORAN_TAHUNAN_MELON_${currentGH}_${tahun}.pdf`;
+        doc.save(fileName);
+        alert(`Laporan Tahunan ${tahun} berhasil dibuat.\n${rows.length} periode yang ditutup pada tahun tersebut dimasukkan.`);
+    } catch (err) {
+        console.error("Gagal membuat Laporan Tahunan PDF:", err);
+        alert("Gagal membuat Laporan Tahunan PDF: " + (err?.message || err));
+    }
+}
+window.exportLaporanTahunanPDF = exportLaporanTahunanPDF;
 
 async function exportPDF(periodData = null) {
     const d = periodData || getActiveData();
