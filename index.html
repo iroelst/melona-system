@@ -1494,17 +1494,28 @@ function renderFinance() {
     let d = getActiveData();
     document.getElementById('f-active-v').innerText = d.v;
     
-    // 1. FUNGSI PEMBANTU TANGGAL (Bisa baca format - atau /)
-    const parseDate = (dateStr) => {
-        if(!dateStr) return new Date(0);
-        const sep = dateStr.includes('-') ? '-' : '/';
-        const p = dateStr.split(sep);
-        // Jika format YYYY-MM-DD (dari input date) vs DD/MM/YYYY (manual)
-        return sep === '-' ? new Date(p[0], p[1]-1, p[2]) : new Date(p[2], p[1]-1, p[0]);
+    // 1. FUNGSI PEMBANTU TANGGAL
+    // Harus bisa menerima Date maupun string tanggal dari localStorage/Supabase.
+    const parseDate = (dateValue) => {
+        if (!dateValue) return new Date(0);
+        if (dateValue instanceof Date) return new Date(dateValue.getTime());
+        const str = String(dateValue).trim();
+        if (!str) return new Date(0);
+
+        let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+
+        m = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+        if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? new Date(0) : d;
     };
 
-    // Fungsi untuk mengubah objek tanggal menjadi string dd-mm-yyyy
-    const formatIndo = (dateObj) => {
+    // Fungsi untuk mengubah tanggal menjadi string dd-mm-yyyy.
+    const formatIndo = (dateValue) => {
+        const dateObj = dateValue instanceof Date ? dateValue : parseDate(dateValue);
+        if (!dateObj || isNaN(dateObj.getTime()) || dateObj.getTime() === 0) return '-';
         const dd = String(dateObj.getDate()).padStart(2, '0');
         const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
         const yyyy = dateObj.getFullYear();
