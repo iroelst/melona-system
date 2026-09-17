@@ -805,30 +805,10 @@
 
 <script>
 window.getPeriodeLaporan = function(d) {
-    let tglMulai = "-";
-    let tglSelesai = "-";
-
-    // 1. Cari tanggal paling awal dari log kerja (Awal Aktivitas)
-    if (d.workLog && d.workLog.length > 0) {
-        // Sortir untuk mendapatkan tanggal terkecil
-        let logs = [...d.workLog].sort((a, b) => new Date(a.tgl) - new Date(b.tgl));
-        tglMulai = formatIndo(parseDate(logs[0].tgl));
-    }
-
-    // 2. Cari tanggal terakhir dari Posting Gaji di riwayat biaya
-    if (d.biaya && d.biaya.length > 0) {
-        let postingGaji = d.biaya
-            .filter(item => item.k === "PELUNASAN GAJI PERIODE")
-            .sort((a, b) => new Date(b.tgl) - new Date(a.tgl)); // Sortir terbaru di atas
-        
-        if (postingGaji.length > 0) {
-            tglSelesai = formatIndo(parseDate(postingGaji[0].tgl));
-        } else {
-            // Jika belum ada posting gaji, gunakan tanggal hari ini sebagai batas berjalan
-            tglSelesai = formatIndo(new Date());
-        }
-    }
-
+    // Periode aktif selalu mengikuti tanggal resmi yang dibuat pada
+    // menu "Periode Tanam Baru", bukan tanggal aktivitas, gaji, atau panen.
+    const tglMulai = formatIndo(d && (d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode')));
+    const tglSelesai = formatIndo(new Date());
     return `${tglMulai} s/d ${tglSelesai}`;
 };
     
@@ -1202,11 +1182,43 @@ window.mulaiPeriode = function() {
             return alert("Tanggal mulai periode tidak valid.");
         }
 
-        if (!confirm("Mulai periode baru dengan tanggal " + formatTanggalPeriode(tglMulaiBaru) +
-            "? Data saat ini akan dipindahkan ke RIWAYAT.")) return;
-
         const oldData = getActiveData();
         const tglTanamLama = localStorage.getItem(currentGH + '_tgl_tanam');
+
+        // Tanggal awal periode baru tidak boleh memiliki transaksi/data pada
+        // periode aktif. Jika ada, pengguna wajib memilih tanggal berikutnya.
+        const tanggalCek = tglMulaiBaru;
+        const pad2 = n => String(n).padStart(2, '0');
+        const tanggalCekISO = `${tanggalCek.getFullYear()}-${pad2(tanggalCek.getMonth()+1)}-${pad2(tanggalCek.getDate())}`;
+        const tanggalSama = value => {
+            if (!value) return false;
+            const raw = String(value);
+            const m = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+            if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}` === tanggalCekISO;
+            const m2 = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+            if (m2) return `${m2[3]}-${pad2(m2[2])}-${pad2(m2[1])}` === tanggalCekISO;
+            return false;
+        };
+        const adaTransaksiTanggal = arr => Array.isArray(arr) && arr.some(item => item && tanggalSama(item.tgl));
+        const adaTransaksi = [
+            oldData && oldData.biaya,
+            oldData && oldData.jual,
+            oldData && oldData.dana,
+            oldData && oldData.inventaris,
+            oldData && oldData.detailKasbon,
+            JSON.parse(localStorage.getItem(currentGH + '_daily_records') || '[]'),
+            JSON.parse(localStorage.getItem(currentGH + '_logs') || '[]'),
+            JSON.parse(localStorage.getItem(currentGH + '_kerja') || '[]')
+        ].some(adaTransaksiTanggal);
+
+        if (adaTransaksi) {
+            return alert(
+                `⚠️ PERINGATAN\n\nMasih terdapat transaksi pada periode aktif dengan tanggal **${formatTanggalPeriode(tglMulaiBaru)}**.\n\nBuat periode tanam baru besuk tanggal **${formatTanggalPeriode(new Date(tanggalMulaiBaru.getFullYear(), tanggalMulaiBaru.getMonth(), tanggalMulaiBaru.getDate() + 1))}**.`
+            );
+        }
+
+        if (!confirm("Mulai periode baru dengan tanggal " + formatTanggalPeriode(tglMulaiBaru) +
+            "? Data saat ini akan dipindahkan ke RIWAYAT.")) return;
 
         // Periode lama berakhir sehari sebelum periode baru dimulai.
         const tglSelesaiLama = new Date(tanggalMulaiBaru);
@@ -1223,7 +1235,7 @@ window.mulaiPeriode = function() {
             history.unshift({
                 v: oldData.v,
                 pop: oldData.pop,
-                tgl_mulai: oldData.tglMulaiPeriode || tglTanamLama || "Tidak tercatat",
+                tgl_mulai: formatTanggalPeriode(oldData.tglMulaiPeriode || tglTanamLama) || "Tidak tercatat",
                 tgl_selesai: formatTanggalPeriode(tglSelesaiLama.toISOString().slice(0,10)),
                 biaya: oldData.biaya || [],
                 jual: oldData.jual || [],
@@ -1640,7 +1652,7 @@ function renderFinance() {
         return `
         <div class="history-card" style="border-left-color:#666;">
             <div style="display:flex; justify-content:space-between;">
-                <div><b>${h.v}</b><br><small>${h.tgl_mulai} - ${h.tgl_selesai || 'Selesai'}</small></div>
+                <div><b>${h.v}</b><br><small>${formatIndo(h.tgl_mulai || h.tglMulaiPeriode) } - ${formatIndo(h.tgl_selesai)}</small></div>
                 <div style="display: flex; gap: 5px;">
                     <button onclick="lihatDetailArsip(${index})" style="font-size:10px; padding:5px; background:#2e7d32; color:white; border:none; border-radius:4px;">📄 DOWNLOAD PDF</button>
                     <button onclick="hapusRiwayatPeriode(${index})" style="font-size:10px; padding:5px; background:#e74c3c; color:white; border:none; border-radius:4px;">HAPUS</button>
@@ -2739,9 +2751,10 @@ function getReportStartDate(){
     return d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode') || null;
 }
 function getReportEndDate(){
-    const d = getActiveData();
-    const tglPanen = localStorage.getItem(currentGH + '_tgl_panen');
-    return tglPanen || new Date().toISOString().slice(0,10);
+    // Periode aktif berjalan sampai hari ini.
+    // Tanggal panen TIDAK digunakan sebagai batas periode karena setelah panen
+    // masih dapat terdapat transaksi pada periode yang sama.
+    return new Date().toISOString().slice(0,10);
 }
 function filterReportByActivePeriod(items, dateField){
     const start = getReportStartDate();
@@ -3575,30 +3588,22 @@ async function exportPDF(periodData = null) {
         return `${dd}-${mm}-${yyyy}`;
     };
 
-    // --- LOGIKA PERIODE OTOMATIS ---
+    // --- LOGIKA PERIODE LAPORAN ---
+    // Periode aktif: tanggal mulai resmi -> hari ini.
+    // Setelah panen masih boleh ada transaksi, sehingga tanggal panen
+    // tidak digunakan sebagai batas akhir laporan aktif.
     let tglMulai = "-";
-    let tglSelesai = formatIndo(new Date()); // Default sampai hari ini
+    let tglSelesai = formatIndo(new Date());
 
     if (periodData) {
+        // Riwayat periode yang sudah ditutup memakai batas resmi arsip.
         tglMulai = formatIndo(d.tglMulaiPeriode || d.tgl_mulai);
         tglSelesai = formatIndo(d.tgl_selesai);
     } else {
-        // 1. Ambil tanggal awal dari log kerja (kLog)
-        if (kLog && kLog.length > 0) {
-            let sortedK = [...kLog].sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
-            tglMulai = formatIndo(sortedK[0].tgl);
-        }
-
-        // 2. Ambil tanggal akhir dari posting gaji terakhir di riwayat biaya
-        if (d.biaya && d.biaya.length > 0) {
-            let postingGaji = d.biaya
-                .filter(item => item.k === "PELUNASAN GAJI PERIODE")
-                .sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
-            
-            if (postingGaji.length > 0) {
-                tglSelesai = formatIndo(postingGaji[0].tgl);
-            }
-        }
+        // Periode aktif selalu dimulai dari tanggal yang ditetapkan
+        // pada menu "Periode Tanam Baru".
+        tglMulai = formatIndo(d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode'));
+        tglSelesai = formatIndo(new Date());
     }
     
     const periodeDisplay = `${tglMulai} s/d ${tglSelesai}`;
