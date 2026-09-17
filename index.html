@@ -350,9 +350,8 @@
             <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 13px;" onclick="window.exportPDF()">📄 PDF</button>
         </div>
 
-        <button class="btn" style="background:#1565c0; color:white; width:100%; margin-top:10px; font-size:13px;" onclick="window.exportLaporanTahunanPDF()">📅 LAPORAN TAHUNAN (PDF)</button>
+        <button class="btn" style="background:#1565c0; color:white; margin-top:10px; font-size:13px;" onclick="window.exportLaporanTahunanPDF()">📅 LAPORAN TAHUNAN (PDF)</button>
 
-        <div style="display: flex; gap: 10px;">
         <div class="storage-info">
             <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
@@ -3301,12 +3300,11 @@ function backupDataJSON() {
     URL.revokeObjectURL(url);
 }
 
-
-
 // ============================================================
 // LAPORAN TAHUNAN PDF
 // Sumber data: hanya RIWAYAT PERIODE yang sudah ditutup.
-// Tahun laporan ditentukan berdasarkan tanggal selesai/tutup periode.
+// Tahun laporan ditentukan berdasarkan tanggal selesai/tutup.
+// Urutan tabel: tanggal mulai periode paling lama -> terbaru.
 // ============================================================
 async function exportLaporanTahunanPDF() {
     try {
@@ -3320,7 +3318,7 @@ async function exportLaporanTahunanPDF() {
             return alert("Belum ada riwayat periode yang sudah ditutup.");
         }
 
-        const parseAnnualDate = (value) => {
+        const parseDateAnnual = (value) => {
             if (!value) return new Date(0);
             const s = String(value).trim();
             let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
@@ -3333,57 +3331,55 @@ async function exportLaporanTahunanPDF() {
             return isNaN(d.getTime()) ? new Date(0) : d;
         };
 
-        const formatAnnualDate = (value) => {
-            const d = value instanceof Date ? value : parseAnnualDate(value);
+        const formatDateAnnual = (value) => {
+            const d = value instanceof Date ? value : parseDateAnnual(value);
             if (!d || d.getTime() <= 0) return "-";
             return String(d.getDate()).padStart(2, '0') + '-' +
                    String(d.getMonth() + 1).padStart(2, '0') + '-' +
                    String(d.getFullYear());
         };
 
-        // Tanggal selesai/tutup menjadi satu-satunya patokan tahun laporan.
+        // Tanggal selesai/tutup adalah satu-satunya patokan tahun laporan.
         const closedPeriods = history.map((h, index) => ({
-            h,
+            h: h || {},
             index,
-            endDate: parseAnnualDate(h.tgl_selesai)
-        })).filter(x => x.endDate.getTime() > 0)
-            .map(x => ({
-                ...x,
-                startDate: parseAnnualDate(x.h.tgl_mulai || x.h.tglMulaiPeriode)
-            }));
+            endDate: parseDateAnnual(h && h.tgl_selesai)
+        })).filter(x => x.endDate.getTime() > 0);
 
         if (!closedPeriods.length) {
             return alert("Tidak ditemukan tanggal selesai/tutup pada riwayat periode.");
         }
 
-        const years = [...new Set(closedPeriods.map(x => x.endDate.getFullYear()))].sort((a,b) => b-a);
-        const defaultYear = years[0];
-        const yearInput = prompt("Masukkan tahun laporan tahunan:\nTahun tersedia: " + years.join(", "), String(defaultYear));
+        const years = [...new Set(closedPeriods.map(x => x.endDate.getFullYear()))].sort((a, b) => b - a);
+        const yearInput = prompt(
+            "Masukkan tahun laporan tahunan:\nTahun tersedia: " + years.join(", "),
+            String(years[0])
+        );
         if (yearInput === null) return;
+
         const tahun = parseInt(String(yearInput).trim(), 10);
         if (!years.includes(tahun)) {
             return alert("Tahun tidak tersedia atau belum memiliki periode yang ditutup.\nTahun tersedia: " + years.join(", "));
         }
 
+        // Filter berdasarkan tanggal TUTUP, lalu urutkan berdasarkan tanggal MULAI.
         const periods = closedPeriods
             .filter(x => x.endDate.getFullYear() === tahun)
-            // Urutan laporan: periode paling lama -> paling baru,
-            // berdasarkan tanggal mulai periode.
-            .sort((a,b) => {
-                const sa = a.startDate.getTime() > 0 ? a.startDate.getTime() : a.endDate.getTime();
-                const sb = b.startDate.getTime() > 0 ? b.startDate.getTime() : b.endDate.getTime();
-                return sa - sb || a.endDate - b.endDate;
+            .sort((a, b) => {
+                const da = parseDateAnnual(a.h.tgl_mulai || a.h.tglMulaiPeriode);
+                const db = parseDateAnnual(b.h.tgl_mulai || b.h.tglMulaiPeriode);
+                return da - db;
             });
 
         if (!periods.length) {
             return alert("Tidak ada periode yang ditutup pada tahun " + tahun + ".");
         }
 
+        const grades = ["Grade A", "Grade B", "Grade C", "Grade PL", "Ecer", "Wisata Petik"];
         const toNumber = value => {
             const n = parseFloat(value);
             return Number.isFinite(n) ? n : 0;
         };
-        const grades = ["Grade A", "Grade B", "Grade C", "Grade PL", "Ecer", "Wisata Petik"];
         const emptySales = () => Object.fromEntries(grades.map(g => [g, 0]));
 
         const rows = periods.map((item, no) => {
@@ -3393,14 +3389,14 @@ async function exportLaporanTahunanPDF() {
             const sales = emptySales();
 
             jual.forEach(x => {
-                const grade = String(x.g || "").trim();
+                const grade = String(x && x.g || "").trim();
                 if (Object.prototype.hasOwnProperty.call(sales, grade)) {
                     sales[grade] += toNumber(x.total);
                 }
             });
 
             const totalPenjualan = grades.reduce((sum, g) => sum + sales[g], 0);
-            const totalOperasional = biaya.reduce((sum, x) => sum + toNumber(x.total), 0);
+            const totalOperasional = biaya.reduce((sum, x) => sum + toNumber(x && x.total), 0);
             const labaRugi = totalPenjualan - totalOperasional;
 
             return {
@@ -3429,22 +3425,22 @@ async function exportLaporanTahunanPDF() {
 
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
         const rupiah = n => "Rp " + Math.round(toNumber(n)).toLocaleString('id-ID');
 
-        const pageCenterX = doc.internal.pageSize.getWidth() / 2;
-        doc.setFontSize(18);
+        // Judul dibuat terpusat.
+        doc.setFontSize(17);
         doc.setTextColor(27, 94, 32);
-        doc.text("LAPORAN TAHUNAN PRODUKSI MELON", pageCenterX, 16, { align: 'center' });
-        doc.setFontSize(11);
+        doc.text("LAPORAN TAHUNAN PRODUKSI MELON", pageWidth / 2, 15, { align: 'center' });
         doc.setTextColor(0, 0, 0);
-        doc.text(`Greenhouse: ${currentGH}`, pageCenterX, 23, { align: 'center' });
         doc.setFontSize(10);
-        doc.text(`Tahun Laporan: ${tahun}`, pageCenterX, 29, { align: 'center' });
-        doc.text("Dasar laporan: seluruh periode yang TUTUP pada tahun tersebut.", pageCenterX, 35, { align: 'center' });
+        doc.text(`Greenhouse: ${currentGH}   |   Tahun Laporan: ${tahun}`, pageWidth / 2, 22, { align: 'center' });
+        doc.setFontSize(8.5);
+        doc.text("Dasar laporan: seluruh periode yang TUTUP pada tahun tersebut.", pageWidth / 2, 28, { align: 'center' });
 
         const body = rows.map(r => [
             r.no,
-            `${formatAnnualDate(r.mulai)} s/d\n${formatAnnualDate(r.selesai)}`,
+            `${formatDateAnnual(r.mulai)} s/d\n${formatDateAnnual(r.selesai)}`,
             rupiah(r.sales["Grade A"]),
             rupiah(r.sales["Grade B"]),
             rupiah(r.sales["Grade C"]),
@@ -3469,39 +3465,41 @@ async function exportLaporanTahunanPDF() {
             rupiah(totals.labaRugi)
         ]);
 
+        // Lebar total = 267 mm, ditempatkan simetris pada A4 landscape (297 mm).
+        const tableWidth = 267;
+        const marginX = (pageWidth - tableWidth) / 2;
         doc.autoTable({
-            startY: 40,
-            margin: { left: 11, right: 11 },
-            tableWidth: 275,
+            startY: 33,
+            margin: { left: marginX, right: marginX },
+            tableWidth: tableWidth,
             head: [[
                 'No', 'Tanggal Periode', 'Grade A', 'Grade B', 'Grade C', 'Grade PL',
                 'Ecer', 'Wisata Petik', 'Total Penjualan', 'Operasional', 'Laba/Rugi'
             ]],
             body,
             theme: 'grid',
-            styles: {
-                fontSize: 5.8,
-                cellPadding: 1.6,
-                valign: 'middle',
-                overflow: 'linebreak'
-            },
             headStyles: {
                 fillColor: [46, 125, 50],
                 textColor: 255,
-                fontSize: 6,
+                fontSize: 6.5,
                 halign: 'center',
+                valign: 'middle'
+            },
+            bodyStyles: {
+                fontSize: 6,
+                cellPadding: 1.5,
                 valign: 'middle'
             },
             columnStyles: {
                 0: { cellWidth: 8, halign: 'center' },
-                1: { cellWidth: 27, halign: 'center' },
-                2: { cellWidth: 22, halign: 'right' },
-                3: { cellWidth: 22, halign: 'right' },
-                4: { cellWidth: 22, halign: 'right' },
-                5: { cellWidth: 22, halign: 'right' },
-                6: { cellWidth: 22, halign: 'right' },
+                1: { cellWidth: 31, halign: 'center' },
+                2: { cellWidth: 24, halign: 'right' },
+                3: { cellWidth: 24, halign: 'right' },
+                4: { cellWidth: 24, halign: 'right' },
+                5: { cellWidth: 24, halign: 'right' },
+                6: { cellWidth: 23, halign: 'right' },
                 7: { cellWidth: 27, halign: 'right' },
-                8: { cellWidth: 27, halign: 'right' },
+                8: { cellWidth: 28, halign: 'right' },
                 9: { cellWidth: 27, halign: 'right' },
                 10: { cellWidth: 27, halign: 'right' }
             },
@@ -3513,7 +3511,7 @@ async function exportLaporanTahunanPDF() {
             }
         });
 
-        let y = doc.lastAutoTable.finalY + 12;
+        let y = doc.lastAutoTable.finalY + 10;
         if (y > 175) {
             doc.addPage();
             y = 20;
@@ -3521,19 +3519,18 @@ async function exportLaporanTahunanPDF() {
 
         doc.setFontSize(11);
         doc.setFont(undefined, 'bold');
-        doc.text("RINGKASAN TAHUNAN", 14, y);
+        doc.text("RINGKASAN TAHUNAN", marginX, y);
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(9);
-        doc.text(`Jumlah periode ditutup: ${rows.length} periode`, 14, y + 8);
-        doc.text(`Total Penjualan Tahunan: ${rupiah(totals.totalPenjualan)}`, 14, y + 15);
-        doc.text(`Total Operasional Tahunan: ${rupiah(totals.totalOperasional)}`, 14, y + 22);
+        doc.setFontSize(8.5);
+        doc.text(`Jumlah periode ditutup: ${rows.length} periode`, marginX, y + 7);
+        doc.text(`Total Penjualan Tahunan: ${rupiah(totals.totalPenjualan)}`, marginX, y + 14);
+        doc.text(`Total Operasional Tahunan: ${rupiah(totals.totalOperasional)}`, marginX, y + 21);
         doc.setFont(undefined, 'bold');
-        doc.setFontSize(12);
-        doc.text(`LABA/RUGI TAHUNAN: ${rupiah(totals.labaRugi)}`, 14, y + 31);
-
+        doc.setFontSize(11);
+        doc.text(`LABA/RUGI TAHUNAN: ${rupiah(totals.labaRugi)}`, marginX, y + 29);
         doc.setFont(undefined, 'normal');
-        doc.setFontSize(8);
-        doc.text("Catatan: Periode yang melewati pergantian tahun tetap masuk berdasarkan tanggal selesai/tutup periode.", 14, y + 41);
+        doc.setFontSize(7.5);
+        doc.text("Catatan: Periode lintas tahun tetap masuk berdasarkan tanggal selesai/tutup periode.", marginX, y + 39);
 
         const fileName = `LAPORAN_TAHUNAN_MELON_${currentGH}_${tahun}.pdf`;
         doc.save(fileName);
