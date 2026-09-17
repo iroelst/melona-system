@@ -331,13 +331,13 @@
         <div id="notif-banner" class="notif-banner">
             <strong>📢 Info:</strong> <span id="notif-text"></span>
         </div>
-<div class="card" style="background:#fffde7; border: 1px dashed #fbc02d; padding: 10px;">
+<div class="card" style="border: 1px solid #1b5e20; padding: 10px;">
     <div onclick="toggleBackup()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-        <strong style="font-size: 13px;">💾 Backup Data & Laporan</strong>
+        <strong>💾 Backup Data & Laporan</strong>
         <span id="arrow-icon" style="transition: transform 0.3s;">▼</span>
     </div>
 
-    <div id="backup-content" style="display: none; margin-top: 15px; border-top: 1px solid #fbc02d; padding-top: 10px;">
+    <div id="backup-content" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
         <p style="font-size: 10px; margin-top: 10px;">Simpan cadangan (.json) untuk restore, atau unduh laporan (.xlsx / .pdf).</p>
         
         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
@@ -352,7 +352,6 @@
 
         <button class="btn" style="background:#1565c0; color:white; width:100%; margin-top:10px; font-size:13px;" onclick="window.exportLaporanTahunanPDF()">📅 LAPORAN TAHUNAN (PDF)</button>
 
-        <div style="display: flex; gap: 10px;">
         <div class="storage-info">
             <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
