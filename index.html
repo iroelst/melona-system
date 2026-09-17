@@ -331,13 +331,13 @@
         <div id="notif-banner" class="notif-banner">
             <strong>📢 Info:</strong> <span id="notif-text"></span>
         </div>
-<div class="card" style="border: 1px solid #1b5e20; padding: 10px;">
+<div class="card" style="background:#fffde7; border: 1px dashed #fbc02d; padding: 10px;">
     <div onclick="toggleBackup()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-        <strong>💾 Backup Data & Laporan</strong>
+        <strong style="font-size: 13px;">💾 Backup Data & Laporan</strong>
         <span id="arrow-icon" style="transition: transform 0.3s;">▼</span>
     </div>
 
-    <div id="backup-content" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+    <div id="backup-content" style="display: none; margin-top: 15px; border-top: 1px solid #fbc02d; padding-top: 10px;">
         <p style="font-size: 10px; margin-top: 10px;">Simpan cadangan (.json) untuk restore, atau unduh laporan (.xlsx / .pdf).</p>
         
         <div style="display: flex; gap: 10px; margin-bottom: 10px;">
@@ -352,6 +352,7 @@
 
         <button class="btn" style="background:#1565c0; color:white; width:100%; margin-top:10px; font-size:13px;" onclick="window.exportLaporanTahunanPDF()">📅 LAPORAN TAHUNAN (PDF)</button>
 
+        <div style="display: flex; gap: 10px;">
         <div class="storage-info">
             <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
@@ -3345,7 +3346,11 @@ async function exportLaporanTahunanPDF() {
             h,
             index,
             endDate: parseAnnualDate(h.tgl_selesai)
-        })).filter(x => x.endDate.getTime() > 0);
+        })).filter(x => x.endDate.getTime() > 0)
+            .map(x => ({
+                ...x,
+                startDate: parseAnnualDate(x.h.tgl_mulai || x.h.tglMulaiPeriode)
+            }));
 
         if (!closedPeriods.length) {
             return alert("Tidak ditemukan tanggal selesai/tutup pada riwayat periode.");
@@ -3362,7 +3367,13 @@ async function exportLaporanTahunanPDF() {
 
         const periods = closedPeriods
             .filter(x => x.endDate.getFullYear() === tahun)
-            .sort((a,b) => a.endDate - b.endDate);
+            // Urutan laporan: periode paling lama -> paling baru,
+            // berdasarkan tanggal mulai periode.
+            .sort((a,b) => {
+                const sa = a.startDate.getTime() > 0 ? a.startDate.getTime() : a.endDate.getTime();
+                const sb = b.startDate.getTime() > 0 ? b.startDate.getTime() : b.endDate.getTime();
+                return sa - sb || a.endDate - b.endDate;
+            });
 
         if (!periods.length) {
             return alert("Tidak ada periode yang ditutup pada tahun " + tahun + ".");
@@ -3420,15 +3431,16 @@ async function exportLaporanTahunanPDF() {
         const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
         const rupiah = n => "Rp " + Math.round(toNumber(n)).toLocaleString('id-ID');
 
+        const pageCenterX = doc.internal.pageSize.getWidth() / 2;
         doc.setFontSize(18);
         doc.setTextColor(27, 94, 32);
-        doc.text("LAPORAN TAHUNAN PRODUKSI MELON", 14, 16);
+        doc.text("LAPORAN TAHUNAN PRODUKSI MELON", pageCenterX, 16, { align: 'center' });
         doc.setFontSize(11);
         doc.setTextColor(0, 0, 0);
-        doc.text(`Greenhouse: ${currentGH}`, 14, 23);
+        doc.text(`Greenhouse: ${currentGH}`, pageCenterX, 23, { align: 'center' });
         doc.setFontSize(10);
-        doc.text(`Tahun Laporan: ${tahun}`, 14, 29);
-        doc.text("Dasar laporan: seluruh periode yang TUTUP pada tahun tersebut.", 14, 35);
+        doc.text(`Tahun Laporan: ${tahun}`, pageCenterX, 29, { align: 'center' });
+        doc.text("Dasar laporan: seluruh periode yang TUTUP pada tahun tersebut.", pageCenterX, 35, { align: 'center' });
 
         const body = rows.map(r => [
             r.no,
@@ -3459,26 +3471,39 @@ async function exportLaporanTahunanPDF() {
 
         doc.autoTable({
             startY: 40,
+            margin: { left: 11, right: 11 },
+            tableWidth: 275,
             head: [[
                 'No', 'Tanggal Periode', 'Grade A', 'Grade B', 'Grade C', 'Grade PL',
                 'Ecer', 'Wisata Petik', 'Total Penjualan', 'Operasional', 'Laba/Rugi'
             ]],
             body,
             theme: 'grid',
-            headStyles: { fillColor: [46, 125, 50], textColor: 255, fontSize: 7, halign: 'center' },
-            bodyStyles: { fontSize: 6.5, cellPadding: 2, valign: 'middle' },
+            styles: {
+                fontSize: 5.8,
+                cellPadding: 1.6,
+                valign: 'middle',
+                overflow: 'linebreak'
+            },
+            headStyles: {
+                fillColor: [46, 125, 50],
+                textColor: 255,
+                fontSize: 6,
+                halign: 'center',
+                valign: 'middle'
+            },
             columnStyles: {
                 0: { cellWidth: 8, halign: 'center' },
-                1: { cellWidth: 28, halign: 'center' },
-                2: { cellWidth: 26, halign: 'right' },
-                3: { cellWidth: 26, halign: 'right' },
-                4: { cellWidth: 26, halign: 'right' },
-                5: { cellWidth: 26, halign: 'right' },
-                6: { cellWidth: 26, halign: 'right' },
-                7: { cellWidth: 28, halign: 'right' },
-                8: { cellWidth: 30, halign: 'right' },
-                9: { cellWidth: 30, halign: 'right' },
-                10: { cellWidth: 30, halign: 'right' }
+                1: { cellWidth: 27, halign: 'center' },
+                2: { cellWidth: 22, halign: 'right' },
+                3: { cellWidth: 22, halign: 'right' },
+                4: { cellWidth: 22, halign: 'right' },
+                5: { cellWidth: 22, halign: 'right' },
+                6: { cellWidth: 22, halign: 'right' },
+                7: { cellWidth: 27, halign: 'right' },
+                8: { cellWidth: 27, halign: 'right' },
+                9: { cellWidth: 27, halign: 'right' },
+                10: { cellWidth: 27, halign: 'right' }
             },
             didParseCell: function(data) {
                 if (data.row.index === body.length - 1) {
