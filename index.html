@@ -3882,6 +3882,31 @@ function setDisplay(login, app, loading = 'none') {
     if (lock) lock.style.display = login;
     if (main) main.style.display = app;
 
+    // Pada sebagian perangkat Android, viewport dapat terbaca terlalu lebar
+    // saat halaman kembali dari proses login OAuth. Terapkan ulang viewport
+    // dan minta komponen responsif (termasuk grafik) menghitung ulang ukurannya.
+    if (app !== "none" && main) {
+        const normalizeAppViewport = () => {
+            const viewport = document.querySelector('meta[name="viewport"]');
+            if (viewport) {
+                viewport.setAttribute(
+                    "content",
+                    "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+                );
+            }
+            document.documentElement.style.width = "100%";
+            document.body.style.width = "100%";
+            window.dispatchEvent(new Event("resize"));
+        };
+
+        requestAnimationFrame(() => {
+            normalizeAppViewport();
+            requestAnimationFrame(normalizeAppViewport);
+        });
+        // Reflow kedua untuk perangkat yang baru menyelesaikan animasi login.
+        setTimeout(normalizeAppViewport, 350);
+    }
+
     // Loader hanya tampil selama sesi awal belum diketahui.
     // Begitu status login diputuskan, loader wajib ditutup.
     if (loader) {
