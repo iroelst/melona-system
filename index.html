@@ -3655,17 +3655,7 @@ async function exportPDF(periodData = null) {
             x.nutrisiTambahan || '-',
             x.nutrisiDosis || '-'
         ]),
-        headStyles: { fillColor: [46, 125, 50] },
-        styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
-        columnStyles: {
-            0: { cellWidth: 12 },
-            1: { cellWidth: 20 },
-            2: { cellWidth: 18 },
-            3: { cellWidth: 16 },
-            4: { cellWidth: 14 },
-            5: { cellWidth: 42 },
-            6: { cellWidth: 25 }
-        }
+        headStyles: { fillColor: [46, 125, 50] }
     });
 
 // --- 2. Tabel Penyemprotan ---
