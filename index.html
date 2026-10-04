@@ -7,9 +7,13 @@
     <title>Melona Monitoring System V1</title>
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#2e7d32">
     <link rel="manifest" href="manifest.json">
     <link rel="icon" type="image/png" href="melona_logo.png">
     <link rel="apple-touch-icon" href="melona_logo.png">
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -203,6 +207,48 @@
     display: none; /* Sembunyikan jika data <= 5 */
 }
 
+
+/* ===== KALENDER TANAM ===== */
+.kalender-tanam-card {
+    background: #fff;
+    border: 1px solid #1b5e20;
+    border-radius: 12px;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+.kalender-tanam-header {
+    display:flex; justify-content:space-between; align-items:center;
+    cursor:pointer;
+}
+.kalender-tanam-content {
+    display:none; margin-top:15px; border-top:1px solid #eee; padding-top:10px;
+}
+.kt-calendar {
+    width:100%; background:#fff; padding:8px; border-radius:12px;
+}
+.kt-calendar-header {
+    display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;
+}
+.kt-calendar-header button {
+    background:#2e7d32; color:white; border:none; padding:7px 10px;
+    border-radius:7px; font-weight:bold; cursor:pointer;
+}
+.kt-month-year { font-size:14px; font-weight:700; margin:0; text-transform:capitalize; }
+.kt-grid {
+    display:grid; grid-template-columns:repeat(7,1fr); gap:3px;
+}
+.kt-day-name { font-weight:700; font-size:11px; text-align:center; color:#666; padding:3px 0; }
+.kt-cell {
+    aspect-ratio:1/1; padding:3px 1px; border-radius:7px; background:#fff;
+    text-align:center; border:1px solid #e8f5e9; display:flex; flex-direction:column;
+    justify-content:center; cursor:pointer; position:relative; overflow:visible;
+}
+.kt-cell:hover { background:#f1f8e9; }
+.kt-date { font-weight:700; font-size:12px; display:block; line-height:1; }
+.kt-pasaran { font-size:10px; color:#f57c00; font-weight:600; display:block; line-height:1.2; }
+.kt-kategori { font-size:10px; font-weight:700; color:#2e7d32; display:block; line-height:1.2; }
+.kt-today { background:#c8e6c9 !important; border:2px solid #2e7d32 !important; }
+
 </style>
 </head>
 <body>
@@ -234,7 +280,7 @@
         <small>Bank BRI</small><br>
         <span style="font-size: 1.2em; letter-spacing: 1px;"><strong>000901128357503</strong></span><br>
         <small>A/N: HIRUL SETIAWAN</small><br><br>
-        <strong>Nominal: Rp 350.000</strong>
+        <strong>Nominal: Rp 499.000</strong>
     </div>
 
     <p style="font-size: 0.9em; color: #666;">Setelah transfer, klik tombol di bawah untuk konfirmasi ke Admin via WhatsApp.</p>
@@ -287,7 +333,7 @@
         </div>
 <div class="card" style="background:#fffde7; border: 1px dashed #fbc02d; padding: 10px;">
     <div onclick="toggleBackup()" style="display: flex; justify-content: space-between; align-items: center; cursor: pointer;">
-        <strong style="font-size: 13px;">💾 Backup & Keamanan Data</strong>
+        <strong style="font-size: 13px;">💾 Backup Data & Laporan</strong>
         <span id="arrow-icon" style="transition: transform 0.3s;">▼</span>
     </div>
 
@@ -300,12 +346,14 @@
         </div>
 
         <div style="display: flex; gap: 10px;">
-            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 11px;" onclick="exportData()">📊 EXCEL</button>
-            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 11px;" onclick="exportPDF()">📄 PDF</button>
+            <button class="btn" style="background:#fbc02d; color:#333; flex:1; margin-top:0; font-size: 13px;" onclick="window.exportData()">📊 EXCEL</button>
+            <button class="btn" style="background:#e53935; color:white; flex:1; margin-top:0; font-size: 13px;" onclick="window.exportPDF()">📄 PDF</button>
         </div>
 
+        <button class="btn" style="background:#1565c0; color:white; margin-top:10px; font-size:13px;" onclick="window.exportLaporanTahunanPDF()">📅 LAPORAN TAHUNAN (PDF)</button>
+
         <div class="storage-info">
-            <strong>☁️ Penyimpanan Cloud Supabase</strong>
+            <strong>☁️ Penyimpanan Cloud</strong>
             <div id="storage-text">Digunakan: 0 KB</div>
             <div class="progress-container">
                 <div id="storage-bar" class="progress-bar"></div>
@@ -322,6 +370,9 @@
     </div>
 
     <div id="periode-baru-content" style="display: none; margin-top: 15px; border-top: 1px solid #eee; padding-top: 10px;">
+        <label style="margin-top:10px; display:block;">📅 Tanggal Mulai Periode Laporan</label>
+        <input type="date" id="tgl-mulai-periode" value="">
+        <small style="color:#666; font-size:9px;">Tanggal ini menjadi awal periode laporan. Gunakan tanggal saat pekerjaan persiapan/periode baru benar-benar dimulai.</small>
         <label>Varietas & Populasi</label>
         <div class="input-row">
             <input type="text" id="v-nama" placeholder="Varietas">
@@ -332,10 +383,30 @@
         <label style="margin-top:10px; display:block;">💰 Saldo Awal Kas Periode</label>
         <input type="number" id="saldo-awal-periode" placeholder="Contoh: 10000000" min="0">
         <small style="color:#666; font-size:9px;">Saldo awal adalah uang kas tersedia, bukan pendapatan dan tidak dihitung sebagai laba.</small>
-        <button class="btn" style="background:#1b5e20;" onclick="mulaiPeriode()">+ MULAI PERIODE BARU</button>
+        <button type="button" class="btn" style="background:#1b5e20;" onclick="window.mulaiPeriode()">+ MULAI PERIODE BARU</button>
         <p style="font-size: 9px; color: #666; margin-top: 8px;">*Memulai periode baru akan mengarsipkan data saat ini ke Riwayat.</p>
     </div>
 </div>
+
+<!-- ===== KALENDER TANAM ===== -->
+<div class="kalender-tanam-card">
+    <div class="kalender-tanam-header" onclick="toggleKalenderTanam()">
+        <strong>📅 Kalender Tanaman</strong>
+        <span id="arrow-kalender-tanam" style="transition:transform .3s;">▼</span>
+    </div>
+
+    <div id="kalender-tanam-content" class="kalender-tanam-content">
+        <div class="kt-calendar">
+            <div class="kt-calendar-header">
+                <button type="button" onclick="changeKalenderMonth(-1)">‹</button>
+                <h3 id="kt-month-year" class="kt-month-year"></h3>
+                <button type="button" onclick="changeKalenderMonth(1)">›</button>
+            </div>
+            <div class="kt-grid" id="kt-calendar-grid"></div>
+        </div>
+    </div>
+</div>
+
 
         <div class="card" style="padding: 5px;">
     <div style="height: 250px; width: 100%;">
@@ -356,6 +427,11 @@
             <button class="btn" onclick="hitungAB()">HITUNG DOSIS PPM</button>
             <div id="hasil-calc" style="margin-top:10px; font-weight:bold; color:#1b5e20; text-align:center;"></div>
             <hr style="margin:15px 0; border:0; border-top:1px solid #eee;">
+            <label>NUTRISI TAMBAHAN</label>
+            <div class="input-row">
+                <input type="text" id="nutrisi-tambahan" placeholder="Cemplungan">
+                <input type="text" id="nutrisi-dosis" placeholder="Dosis">
+            </div>
             <label>Koreksi pH</label>
             <div class="input-row">
                 <input type="number" id="ph-now" step="0.1" placeholder="pH Kini">
@@ -420,7 +496,7 @@
     <label>Keterangan</label>
     <textarea id="semprot-ket" rows="2" placeholder="Keterangan"></textarea>
     
-<label>Foto Dokumentasi (otomatis dikompres maks. 200 KB)</label>
+<label>Foto Dokumentasi (Maks 2MB)</label>
 <input type="file" id="semprot-img" accept="image/*">
 <div id="preview-semprot-edit"></div>
     
@@ -610,7 +686,7 @@
             <strong>🛒 Penjualan Hasil Panen</strong>
             <label>Grade Buah</label>
             <select id="s-grade">
-                <option>Grade A</option><option>Grade B</option><option>Grade C</option><option>Grade BS</option><option>Ecer</option><option>Wisata Petik</option>
+                <option>Grade A</option><option>Grade B</option><option>Grade C</option><option>Grade PL</option><option>Ecer</option><option>Wisata Petik</option>
             </select>
             <div class="input-row">
                 <input type="number" id="s-berat" placeholder="Berat (kg)">
@@ -637,6 +713,28 @@
               Total Modal: <span id="status-modal">Rp 0</span> · Sisa Hutang: <span id="status-hutang">Rp 0</span>
             </div>
         </div>
+        <div class="card" style="background:#eef7ff; border-left:5px solid #1976d2;">
+            <strong>🧰 Inventaris / Peralatan</strong>
+            <div style="font-size:10px;color:#555;margin:5px 0 10px;">
+                Pembelian peralatan dicatat sebagai aset/inventaris. <b>Tidak masuk Biaya Produksi</b>, tetapi tetap mengurangi kas pada Arus Kas.
+            </div>
+            <label>Tanggal Pembelian</label>
+            <input type="date" id="inv-tgl">
+            <label>No. Transaksi</label>
+            <input type="text" id="inv-no-transaksi" readonly value="INV-001"
+                   style="background:#f5f5f5;font-weight:bold;color:#1565c0;">
+            <label>Nama Peralatan</label>
+            <input type="text" id="inv-nama" placeholder="Contoh: Pompa air, gunting, timbangan">
+            <div class="input-row">
+                <input type="number" id="inv-qty" min="0.01" step="any" placeholder="Qty">
+                <input type="number" id="inv-harga" min="1" step="any" placeholder="Harga Satuan">
+            </div>
+            <label>Keterangan</label>
+            <input type="text" id="inv-ket" placeholder="Merk, ukuran, kondisi, dll.">
+            <button class="btn" style="background:#1976d2;" onclick="simpanInventaris()">SIMPAN INVENTARIS</button>
+            <div id="inventaris-list" style="margin-top:10px;"></div>
+        </div>
+
         <div class="card">
             <strong>📑 Detail Arus Kas</strong>
             <div id="transaksi-detail-list" class="riwayat-list limit-view" style="margin-top:10px;"></div>
@@ -707,38 +805,23 @@
 
 <script>
 window.getPeriodeLaporan = function(d) {
-    let tglMulai = "-";
-    let tglSelesai = "-";
-
-    // 1. Cari tanggal paling awal dari log kerja (Awal Aktivitas)
-    if (d.workLog && d.workLog.length > 0) {
-        // Sortir untuk mendapatkan tanggal terkecil
-        let logs = [...d.workLog].sort((a, b) => new Date(a.tgl) - new Date(b.tgl));
-        tglMulai = formatIndo(parseDate(logs[0].tgl));
-    }
-
-    // 2. Cari tanggal terakhir dari Posting Gaji di riwayat biaya
-    if (d.biaya && d.biaya.length > 0) {
-        let postingGaji = d.biaya
-            .filter(item => item.k === "PELUNASAN GAJI PERIODE")
-            .sort((a, b) => new Date(b.tgl) - new Date(a.tgl)); // Sortir terbaru di atas
-        
-        if (postingGaji.length > 0) {
-            tglSelesai = formatIndo(parseDate(postingGaji[0].tgl));
-        } else {
-            // Jika belum ada posting gaji, gunakan tanggal hari ini sebagai batas berjalan
-            tglSelesai = formatIndo(new Date());
-        }
-    }
-
+    // Periode aktif selalu mengikuti tanggal resmi yang dibuat pada
+    // menu "Periode Tanam Baru", bukan tanggal aktivitas, gaji, atau panen.
+    const tglMulai = formatIndo(d && (d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode')));
+    const tglSelesai = formatIndo(new Date());
     return `${tglMulai} s/d ${tglSelesai}`;
 };
     
 if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js')
-            .then(reg => console.log('Service Worker terdaftar!', reg))
-            .catch(err => console.log('Gagal daftar SW', err));
+    window.addEventListener('load', async () => {
+        try {
+            const registration = await navigator.serviceWorker.register('./service-worker.js', {
+                scope: './'
+            });
+            console.log('Service Worker PWA terdaftar:', registration.scope);
+        } catch (err) {
+            console.error('Gagal daftar Service Worker PWA:', err);
+        }
     });
 }
   
@@ -794,9 +877,42 @@ function sortReportObjectsByDateOldestFirst(rows, dateKey = "tgl") {
 }
 
 
+// --- HELPER TANGGAL GLOBAL ---
+// Didefinisikan di scope global agar semua menu (termasuk laporan/periode)
+// dapat menggunakannya tanpa bergantung pada fungsi render tertentu.
+function parseDate(dateStr) {
+    if (!dateStr) return new Date(0);
+    if (dateStr instanceof Date) return new Date(dateStr.getTime());
+    const str = String(dateStr).trim();
+    if (!str) return new Date(0);
+
+    // YYYY-MM-DD
+    let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+    if (m) return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+
+    // DD-MM-YYYY
+    m = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+
+    // DD/MM/YYYY
+    m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m) return new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+}
+
+function formatIndo(dateValue) {
+    const d = dateValue instanceof Date ? dateValue : parseDate(dateValue);
+    if (!d || isNaN(d.getTime()) || d.getTime() === 0) return "-";
+    return String(d.getDate()).padStart(2,'0') + '-' +
+           String(d.getMonth()+1).padStart(2,'0') + '-' +
+           String(d.getFullYear());
+}
+
 function getActiveData() {
         let d = localStorage.getItem(currentGH + '_active_period');
-        return d ? JSON.parse(d) : { v: "-", pop: 0, v_list: [], biaya: [], jual: [] };
+        return d ? JSON.parse(d) : { v: "-", pop: 0, v_list: [], biaya: [], jual: [], dana: [], inventaris: [], tglMulaiPeriode: null };
     }
 
     function saveActiveData(data) {
@@ -909,7 +1025,10 @@ async function downloadFullReport() {
     }
 }
 
-    function refreshAll() {
+    window.exportData = exportData;
+window.exportPDF = exportPDF;
+
+function refreshAll() {
         updateUI(); renderLogs(); renderFinance();
         if(myChart) myChart.destroy(); initChart();
     }
@@ -960,35 +1079,55 @@ async function downloadFullReport() {
     }
 
     function switchGH() {
-        currentGH = document.getElementById('gh-selector').value;
+        const selected = document.getElementById('gh-selector').value;
+        if (!selected || !ghList.includes(selected)) return;
+
+        currentGH = selected;
         localStorage.setItem('active_gh', currentGH);
-        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
+
+        // Pergantian GH tidak menghapus data GH lain.
         refreshAll();
+        scheduleCloudSave();
     }
 
     function promptAddGH() {
-        const name = prompt("Nama GH Baru:");
-        if (name && !ghList.includes(name)) {
-            ghList.push(name);
-            localStorage.setItem('gh_list', JSON.stringify(ghList));
-            if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
-            currentGH = name;
-            localStorage.setItem('active_gh', currentGH);
-            updateGHSelector();
-            refreshAll();
+        const rawName = prompt("Nama GH Baru:");
+        const name = String(rawName || '').trim();
+
+        if (!name) return;
+        if (name.length > 40) return alert("Nama GH maksimal 40 karakter.");
+        if (ghList.some(g => String(g).toLowerCase() === name.toLowerCase())) {
+            return alert("Nama GH tersebut sudah ada.");
         }
+
+        ghList.push(name);
+        currentGH = name;
+
+        localStorage.setItem('gh_list', JSON.stringify(ghList));
+        localStorage.setItem('active_gh', currentGH);
+
+        updateGHSelector();
+        refreshAll();
+        scheduleCloudSave();
     }
 
     function promptRemoveGH() {
         if (ghList.length <= 1) return alert("Minimal 1 GH.");
-        if (confirm(`Hapus ${currentGH}?`)) {
-            ghList = ghList.filter(g => g !== currentGH);
-            localStorage.setItem('gh_list', JSON.stringify(ghList));
-            currentGH = ghList[0];
-            localStorage.setItem('active_gh', currentGH);
-            updateGHSelector();
-            refreshAll();
-        }
+
+        const removedGH = currentGH;
+        if (!confirm(`Hapus ${removedGH} dari daftar GH?`)) return;
+
+        ghList = ghList.filter(g => g !== removedGH);
+        currentGH = ghList[0] || "GH 1";
+
+        localStorage.setItem('gh_list', JSON.stringify(ghList));
+        localStorage.setItem('active_gh', currentGH);
+
+        updateGHSelector();
+        refreshAll();
+
+        // Sebelumnya perubahan ini tidak pernah dikirim ke Supabase.
+        scheduleCloudSave();
     }
 
     function updateGHSelector() {
@@ -1008,60 +1147,160 @@ async function downloadFullReport() {
         document.getElementById('v-list-display').innerHTML = varietasTemp.map((x, i) => `<span class="v-tag">${x.nama} (${x.pop}) <b onclick="varietasTemp.splice(${i},1);renderVarietasTemp()" style="color:red">×</b></span>`).join("");
     }
 
-function mulaiPeriode() {
-    if(varietasTemp.length === 0) return alert("Tambahkan varietas dulu!");
-    
-    if(confirm("Mulai periode baru? Data saat ini akan dipindahkan ke RIWAYAT dan data aktif akan dibersihkan.")) {
-        
-        // --- PROSES PENGARSIPAN DATA LAMA ---
-        let oldData = getActiveData();
-        let tglTanamLama = localStorage.getItem(currentGH + '_tgl_tanam');
-        
-        // Jika ada data varietas (berarti periode sebelumnya memang ada)
-        if (oldData.v !== "-") {
+window.mulaiPeriode = function() {
+    try {
+        const formatTanggalPeriode = (value) => {
+            const p = String(value || '').split('-').map(Number);
+            if (p.length === 3 && p.every(n => !isNaN(n))) {
+                return String(p[2]).padStart(2,'0') + '-' +
+                       String(p[1]).padStart(2,'0') + '-' +
+                       String(p[0]);
+            }
+            return String(value || '-');
+        };
+
+        if (!currentGH) return alert("Pilih GH terlebih dahulu.");
+
+        if (!Array.isArray(varietasTemp) || varietasTemp.length === 0) {
+            return alert("Tambahkan varietas dulu!");
+        }
+
+        const inputTanggal = document.getElementById('tgl-mulai-periode');
+        const tglMulaiBaru = inputTanggal ? inputTanggal.value : "";
+
+        if (!tglMulaiBaru) {
+            return alert("Pilih tanggal mulai periode terlebih dahulu.");
+        }
+
+        // Parse YYYY-MM-DD tanpa bergantung pada fungsi parseDate.
+        const bagian = tglMulaiBaru.split('-').map(Number);
+        if (bagian.length !== 3 || bagian.some(isNaN)) {
+            return alert("Tanggal mulai periode tidak valid.");
+        }
+        const tanggalMulaiBaru = new Date(bagian[0], bagian[1] - 1, bagian[2]);
+        if (isNaN(tanggalMulaiBaru.getTime())) {
+            return alert("Tanggal mulai periode tidak valid.");
+        }
+
+        const oldData = getActiveData();
+        const tglTanamLama = localStorage.getItem(currentGH + '_tgl_tanam');
+
+        // Tanggal awal periode baru tidak boleh memiliki transaksi/data pada
+        // periode aktif. Jika ada, pengguna wajib memilih tanggal berikutnya.
+        const tanggalCek = tglMulaiBaru;
+        const pad2 = n => String(n).padStart(2, '0');
+        const tanggalCekISO = `${tanggalCek.getFullYear()}-${pad2(tanggalCek.getMonth()+1)}-${pad2(tanggalCek.getDate())}`;
+        const tanggalSama = value => {
+            if (!value) return false;
+            const raw = String(value);
+            const m = raw.match(/^(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})$/);
+            if (m) return `${m[1]}-${pad2(m[2])}-${pad2(m[3])}` === tanggalCekISO;
+            const m2 = raw.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+            if (m2) return `${m2[3]}-${pad2(m2[2])}-${pad2(m2[1])}` === tanggalCekISO;
+            return false;
+        };
+        const adaTransaksiTanggal = arr => Array.isArray(arr) && arr.some(item => item && tanggalSama(item.tgl));
+        const adaTransaksi = [
+            oldData && oldData.biaya,
+            oldData && oldData.jual,
+            oldData && oldData.dana,
+            oldData && oldData.inventaris,
+            oldData && oldData.detailKasbon,
+            JSON.parse(localStorage.getItem(currentGH + '_daily_records') || '[]'),
+            JSON.parse(localStorage.getItem(currentGH + '_logs') || '[]'),
+            JSON.parse(localStorage.getItem(currentGH + '_kerja') || '[]')
+        ].some(adaTransaksiTanggal);
+
+        if (adaTransaksi) {
+            return alert(
+                `⚠️ PERINGATAN\n\nMasih terdapat transaksi pada periode aktif dengan tanggal **${formatTanggalPeriode(tglMulaiBaru)}**.\n\nBuat periode tanam baru besuk tanggal **${formatTanggalPeriode(new Date(tanggalMulaiBaru.getFullYear(), tanggalMulaiBaru.getMonth(), tanggalMulaiBaru.getDate() + 1))}**.`
+            );
+        }
+
+        if (!confirm("Mulai periode baru dengan tanggal " + formatTanggalPeriode(tglMulaiBaru) +
+            "? Data saat ini akan dipindahkan ke RIWAYAT.")) return;
+
+        // Periode lama berakhir sehari sebelum periode baru dimulai.
+        const tglSelesaiLama = new Date(tanggalMulaiBaru);
+        tglSelesaiLama.setDate(tglSelesaiLama.getDate() - 1);
+
+        if (oldData && oldData.v && oldData.v !== "-") {
             let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-            
-            // Masukkan data aktif ke dalam arsip riwayat
+
+            const oldDailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+            const oldSemprotLogs = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+            const oldWorkLogs = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+            const oldPhotoPaths = oldSemprotLogs.map(x => x && x.img).filter(x => x && !String(x).startsWith('data:image/'));
+
             history.unshift({
                 v: oldData.v,
                 pop: oldData.pop,
-                tgl_mulai: tglTanamLama || "Tidak tercatat",
-                tgl_selesai: new Date().toLocaleDateString('id-ID'),
-                biaya: oldData.biaya,
-                jual: oldData.jual,
+                tgl_mulai: formatTanggalPeriode(oldData.tglMulaiPeriode || tglTanamLama) || "Tidak tercatat",
+                tgl_selesai: formatTanggalPeriode(tglSelesaiLama.toISOString().slice(0,10)),
+                biaya: oldData.biaya || [],
+                jual: oldData.jual || [],
                 dana: oldData.dana || [],
-                saldoAwal: parseFloat(oldData.saldoAwal) || 0
+                inventaris: oldData.inventaris || [],
+                saldoAwal: parseFloat(oldData.saldoAwal) || 0,
+                tglMulaiPeriode: oldData.tglMulaiPeriode || tglTanamLama || null,
+                dailyLogs: oldDailyLogs,
+                semprotLogs: oldSemprotLogs,
+                workLog: oldWorkLogs,
+                photoPaths: oldPhotoPaths
             });
-            
+
             localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
         }
 
-        // --- PROSES PEMBERSIHAN DATA AKTIF UNTUK PERIODE BARU ---
-        localStorage.removeItem(currentGH + '_daily_records'); 
+        // Reset data operasional untuk periode baru.
+        localStorage.removeItem(currentGH + '_daily_records');
         localStorage.removeItem(currentGH + '_tgl_tanam');
         localStorage.removeItem(currentGH + '_tgl_panen');
         localStorage.setItem(currentGH + '_logs', "[]");
         localStorage.setItem(currentGH + '_kerja', "[]");
-        localStorage.setItem(currentGH + '_no_transaksi_counter', '1');
 
-        let newData = { 
-            v_list: varietasTemp, 
-            v: varietasTemp.map(x => x.nama).join(", "), 
-            pop: varietasTemp.reduce((s, x) => s + x.pop, 0), 
-            biaya: [], 
+        // Nomor transaksi dimulai kembali dari 001 untuk periode baru.
+        localStorage.setItem(currentGH + '_no_transaksi_counter', '1');
+        localStorage.setItem(currentGH + '_no_transaksi_kasbon_counter', '1');
+        localStorage.setItem(currentGH + '_no_transaksi_gaji_counter', '1');
+        localStorage.setItem(currentGH + '_no_transaksi_dana_counter', '1');
+        localStorage.setItem(currentGH + '_no_inventaris_counter', '1');
+
+        const saldoAwalEl = document.getElementById('saldo-awal-periode');
+        const saldoAwal = parseFloat(saldoAwalEl ? saldoAwalEl.value : 0) || 0;
+
+        const newData = {
+            v_list: varietasTemp.slice(),
+            v: varietasTemp.map(x => x.nama).join(", "),
+            pop: varietasTemp.reduce((sum, x) => sum + (parseInt(x.pop) || 0), 0),
+            biaya: [],
             jual: [],
             dana: [],
-            saldoAwal: parseFloat(document.getElementById('saldo-awal-periode')?.value) || 0
+            inventaris: [],
+            saldoAwal: saldoAwal,
+            tglMulaiPeriode: tglMulaiBaru
         };
+
         saveActiveData(newData);
 
-        varietasTemp = [];
-        document.getElementById('v-list-display').innerHTML = "";
-        refreshAll(); 
-        alert("Periode baru dimulai! Data lama berhasil diarsipkan ke riwayat.");
-    }
-}
+        // Ini adalah tanggal awal LAPORAN periode baru, bukan tanggal HST.
+        localStorage.setItem(currentGH + '_tgl_mulai_periode', tglMulaiBaru);
 
+        varietasTemp = [];
+        const listEl = document.getElementById('v-list-display');
+        if (listEl) listEl.innerHTML = "";
+        if (inputTanggal) inputTanggal.value = "";
+
+        if (typeof refreshAll === 'function') refreshAll();
+
+        alert("Periode baru berhasil dimulai.\nTanggal awal laporan: " +
+            formatTanggalPeriode(tglMulaiBaru) +
+            "\nPeriode lama telah masuk ke Riwayat.");
+    } catch (err) {
+        console.error("Gagal mulai periode baru:", err);
+        alert("Gagal memulai periode baru: " + (err.message || err));
+    }
+};
     // Variabel global untuk melacak index yang sedang diedit
 let editIndexNutrisi = null;
 
@@ -1070,7 +1309,7 @@ function renderRekapNutrisi() {
     const container = document.getElementById('rekap-nutrisi-container');
     if (!container) return;
 
-    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    const dailyLogs = filterReportByActivePeriod(JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]"), "tgl");
     const sortedLogs = [...dailyLogs].sort((a, b) => b.hst - a.hst);
     
     let html = `
@@ -1082,6 +1321,8 @@ function renderRekapNutrisi() {
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Liter</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">PPM</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">pH</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Nutrisi Tambahan</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Dosis</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Aksi</th>
             </tr>`;
 
@@ -1093,6 +1334,8 @@ function renderRekapNutrisi() {
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.liter}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.ppm}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.ph}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiTambahan || '-'}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiDosis || '-'}</td>
         <td style="padding:8px; border-bottom:1px solid #eee; display: flex; gap: 10px; justify-content: center;">
             <button style="background:none; border:none; color:#f39c12; cursor:pointer;" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
             <button style="background:none; border:none; color:red; cursor:pointer;" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
@@ -1114,6 +1357,8 @@ function prepareEditNutrisi(index) {
     document.getElementById('liter').value = data.liter;
     document.getElementById('ppm-now').value = data.ppm;
     document.getElementById('ph-now').value = data.ph;
+    document.getElementById('nutrisi-tambahan').value = data.nutrisiTambahan || '';
+    document.getElementById('nutrisi-dosis').value = data.nutrisiDosis || '';
     
     // Set mode edit (Gunakan global variable yang sudah ada di file Anda)
     isEditMode = true;
@@ -1187,6 +1432,20 @@ function resetBarisBiaya(){
 }
 updateTombolBarisBiaya();
 
+function getNextNoTransaksiByType(type){
+    const key = currentGH + '_no_transaksi_' + type + '_counter';
+    const next = parseInt(localStorage.getItem(key) || '1', 10) || 1;
+    return String(next).padStart(3, '0');
+}
+function incrementNoTransaksiByType(type){
+    const key = currentGH + '_no_transaksi_' + type + '_counter';
+    const current = parseInt(localStorage.getItem(key) || '1', 10) || 1;
+    localStorage.setItem(key, String(current + 1));
+}
+function getNoTransaksiKasbon(){ return 'KSB-' + getNextNoTransaksiByType('kasbon'); }
+function getNoTransaksiGaji(){ return 'GJI-' + getNextNoTransaksiByType('gaji'); }
+function getNoTransaksiDana(){ return 'DANA-' + getNextNoTransaksiByType('dana'); }
+
 function getNextNoTransaksi(){
     const key=currentGH + '_no_transaksi_counter';
     const next=parseInt(localStorage.getItem(key)||'1',10)||1;
@@ -1235,17 +1494,28 @@ function renderFinance() {
     let d = getActiveData();
     document.getElementById('f-active-v').innerText = d.v;
     
-    // 1. FUNGSI PEMBANTU TANGGAL (Bisa baca format - atau /)
-    const parseDate = (dateStr) => {
-        if(!dateStr) return new Date(0);
-        const sep = dateStr.includes('-') ? '-' : '/';
-        const p = dateStr.split(sep);
-        // Jika format YYYY-MM-DD (dari input date) vs DD/MM/YYYY (manual)
-        return sep === '-' ? new Date(p[0], p[1]-1, p[2]) : new Date(p[2], p[1]-1, p[0]);
+    // 1. FUNGSI PEMBANTU TANGGAL
+    // Harus bisa menerima Date maupun string tanggal dari localStorage/Supabase.
+    const parseDate = (dateValue) => {
+        if (!dateValue) return new Date(0);
+        if (dateValue instanceof Date) return new Date(dateValue.getTime());
+        const str = String(dateValue).trim();
+        if (!str) return new Date(0);
+
+        let m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+        if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+
+        m = str.match(/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/);
+        if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+
+        const d = new Date(str);
+        return isNaN(d.getTime()) ? new Date(0) : d;
     };
 
-    // Fungsi untuk mengubah objek tanggal menjadi string dd-mm-yyyy
-    const formatIndo = (dateObj) => {
+    // Fungsi untuk mengubah tanggal menjadi string dd-mm-yyyy.
+    const formatIndo = (dateValue) => {
+        const dateObj = dateValue instanceof Date ? dateValue : parseDate(dateValue);
+        if (!dateObj || isNaN(dateObj.getTime()) || dateObj.getTime() === 0) return '-';
         const dd = String(dateObj.getDate()).padStart(2, '0');
         const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
         const yyyy = dateObj.getFullYear();
@@ -1270,7 +1540,30 @@ function renderFinance() {
     const totalPinjam = danaList.filter(x=>x.jenis==='Hutang / Pinjaman').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
     const bayarHutang = danaList.filter(x=>x.jenis==='Pembayaran Hutang').reduce((a,x)=>a+(parseFloat(x.nominal)||0),0);
     const setTxt=(id,v)=>{const el=document.getElementById(id);if(el)el.innerText='Rp '+v.toLocaleString('id-ID');};
-    setTxt('kas-saldo-awal',saldoAwal); setTxt('kas-masuk',kasMasuk); setTxt('kas-keluar',kasKeluar); setTxt('kas-saldo-akhir',saldoAkhir);
+    const inventarisList = d.inventaris || [];
+    const totalInventaris = inventarisList.reduce((a,x)=>a+(parseFloat(x.total)||0),0);
+    const inventarisEl = document.getElementById('inventaris-list');
+    if(inventarisEl){
+      const invSorted = [...inventarisList].sort((a,b)=>parseDate(b.tgl)-parseDate(a.tgl));
+      inventarisEl.innerHTML = invSorted.length ? invSorted.map(x=>{
+        const idx=inventarisList.indexOf(x);
+        return `<div style="border-bottom:1px dashed #ccc;padding:6px 0;font-size:11px;">
+          <div style="display:flex;justify-content:space-between;gap:8px;">
+            <span><b>${x.noTransaksi||'-'}</b> · ${formatIndo(parseDate(x.tgl))} · ${x.nama}</span>
+            <span><b>Rp ${(parseFloat(x.total)||0).toLocaleString()}</b>
+            <b onclick="hapusInventaris(${idx})" style="color:red;cursor:pointer;margin-left:8px;">×</b></span>
+          </div>
+          <div style="color:#666;">${x.qty} × Rp ${(parseFloat(x.harga)||0).toLocaleString()} · ${x.ket||'-'}</div>
+        </div>`;
+      }).join('') + `<div style="margin-top:8px;font-weight:bold;color:#1565c0;">Total Inventaris: Rp ${totalInventaris.toLocaleString()}</div>`
+      : '<small>Belum ada pembelian inventaris.</small>';
+    }
+    const invNoEl=document.getElementById('inv-no-transaksi'); if(invNoEl) invNoEl.value=getNextNoInventaris();
+
+    // Inventaris adalah aset: tidak masuk biaya/laba-rugi, tetapi masuk uang keluar kas.
+    const kasKeluarDenganInventaris = tBiaya + danaKeluar + totalInventaris;
+    const saldoAkhirDenganInventaris = saldoAwal + kasMasuk - kasKeluarDenganInventaris;
+    setTxt('kas-saldo-awal',saldoAwal); setTxt('kas-masuk',kasMasuk); setTxt('kas-keluar',kasKeluarDenganInventaris); setTxt('kas-saldo-akhir',saldoAkhirDenganInventaris);
     setTxt('status-modal',saldoAwal+totalModal); setTxt('status-hutang',Math.max(0,totalPinjam-bayarHutang));
 
     document.getElementById('res-biaya').innerText = "Rp " + tBiaya.toLocaleString();
@@ -1299,7 +1592,7 @@ function renderFinance() {
         .sort((a,b) => parseDate(b.tgl) - parseDate(a.tgl))
         .map(k => {
             const tglFix = formatIndo(parseDate(k.tgl));
-            return `<div style="border-bottom: 1px dashed #eee; padding: 3px 0;">• ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></div>`;
+            return `<div style="border-bottom:1px dashed #eee;padding:3px 0;display:flex;justify-content:space-between;align-items:center;"><span>• ${k.nama}: Rp ${k.nominal.toLocaleString()} <small>(${tglFix})</small></span><b onclick="editKasbon(${(d.detailKasbon||[]).indexOf(k)})" style="color:#f39c12;cursor:pointer;">✏️</b></div>`;
         }).join("");
     
     const listKasbonEl = document.getElementById('list-kasbon-nama');
@@ -1309,7 +1602,8 @@ function renderFinance() {
     let gabungan = [
         ...(d.jual || []).map((x, i) => ({...x, tipe: 'in', oriIdx: i})),
         ...(d.biaya || []).map((x, i) => ({...x, tipe: 'out', oriIdx: i})),
-        ...(d.dana || []).map((x, i) => ({...x, tipe: x.arah, oriIdx: i, isDana:true}))
+        ...(d.dana || []).map((x, i) => ({...x, tipe: x.arah, oriIdx: i, isDana:true})),
+        ...(d.inventaris || []).map((x, i) => ({...x, tipe:'out', oriIdx:i, isInventaris:true}))
     ];
 
     // Sorting Descending (Terbaru di atas)
@@ -1321,7 +1615,7 @@ function renderFinance() {
         
         if (x.isDana) {
             const badge = x.arah === 'in' ? 'badge-in' : 'badge-out';
-            detailHtml += `<div class="trans-item"><span class="${badge}">[${x.arah==='in'?'IN':'OUT'}] ${tglTampil} - ${x.jenis}</span><span>Rp ${(parseFloat(x.nominal)||0).toLocaleString()} <b onclick="hapusDana(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span></div><div style="font-size:11px;color:#555;margin:-6px 0 8px 0;">Ket: ${x.ket||'-'}</div>`;
+            detailHtml += `<div class="trans-item"><span class="${badge}">[${x.arah==='in'?'IN':'OUT'}] ${tglTampil} - ${x.jenis}</span><span>Rp ${(parseFloat(x.nominal)||0).toLocaleString()} <b onclick="editDana(${x.oriIdx})" style="color:#f39c12;cursor:pointer;margin-left:10px;">✏️</b><b onclick="hapusDana(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span></div><div style="font-size:11px;color:#555;margin:-6px 0 8px 0;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · Ket: ${x.ket||'-'}</div>`;
         } else if (x.tipe === 'in') {
             detailHtml += `
             <div class="trans-item">
@@ -1331,6 +1625,16 @@ function renderFinance() {
                 <b onclick="editFinance('jual', ${x.oriIdx})" style="color:#f39c12; cursor:pointer; margin-left:10px;">✏️</b>
                 <b onclick="hapusFinance('jual', ${x.oriIdx})" style="color:red; cursor:pointer; margin-left:10px;">×</b>
             </span>
+            </div>`;
+        } else if (x.isInventaris) {
+            detailHtml += `
+            <div class="trans-item" style="flex-direction: column; align-items: flex-start; border-bottom: 1px solid #eee; padding: 10px 0;">
+                <div style="display:flex;justify-content:space-between;width:100%;">
+                    <span class="badge-out">[OUT - INVENTARIS] ${tglTampil} - ${x.nama}</span>
+                    <span>Rp ${(parseFloat(x.total)||0).toLocaleString()}
+                    <b onclick="editInventaris(${x.oriIdx})" style="color:#f39c12;cursor:pointer;margin-left:10px;">✏️</b><b onclick="hapusInventaris(${x.oriIdx})" style="color:red;cursor:pointer;margin-left:10px;">×</b></span>
+                </div>
+                <div style="font-size:11px;color:#555;margin-top:4px;">No. Transaksi: <b>${x.noTransaksi||'-'}</b> · ${x.qty} × Rp ${(parseFloat(x.harga)||0).toLocaleString()} · ${x.ket||'-'}</div>
             </div>`;
         } else {
             detailHtml += `
@@ -1359,9 +1663,9 @@ function renderFinance() {
         return `
         <div class="history-card" style="border-left-color:#666;">
             <div style="display:flex; justify-content:space-between;">
-                <div><b>${h.v}</b><br><small>${h.tgl_mulai} - ${h.tgl_selesai || 'Selesai'}</small></div>
+                <div><b>${h.v}</b><br><small>${formatIndo(h.tgl_mulai || h.tglMulaiPeriode) } - ${formatIndo(h.tgl_selesai)}</small></div>
                 <div style="display: flex; gap: 5px;">
-                    <button onclick="lihatDetailArsip(${index})" style="font-size:10px; padding:5px; background:#2e7d32; color:white; border:none; border-radius:4px;">DETAIL</button>
+                    <button onclick="lihatDetailArsip(${index})" style="font-size:10px; padding:5px; background:#2e7d32; color:white; border:none; border-radius:4px;">📄 DOWNLOAD PDF</button>
                     <button onclick="hapusRiwayatPeriode(${index})" style="font-size:10px; padding:5px; background:#e74c3c; color:white; border:none; border-radius:4px;">HAPUS</button>
                 </div>
             </div>
@@ -1394,13 +1698,73 @@ async function simpanLog(tipe) {
         const file = imgInput.files[0];
 
         if (file) {
+            if (file.size > 2 * 1024 * 1024) {
+                return alert("File terlalu besar! Maksimal 2MB");
+            }
+
             try {
-                // Semua foto dikompres otomatis dan dipotong persegi seperti format laporan.
-                // Target ukuran maksimal 200 KB agar hemat penyimpanan.
-                const photoBlob = await compressImageToTarget(file, 200 * 1024);
+                // Crop 1:1 dan kompresi seperti sebelumnya, tetapi hasilnya
+                // sekarang diupload ke Supabase Storage, bukan disimpan Base64.
+                const compressedBase64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+
+                    reader.onload = function(event) {
+                        const img = new Image();
+
+                        img.onload = function() {
+                            const canvas = document.createElement('canvas');
+                            const SIZE = 600;
+                            canvas.width = SIZE;
+                            canvas.height = SIZE;
+
+                            const ctx = canvas.getContext('2d');
+
+                            let sourceX, sourceY, sourceSize;
+
+                            if (img.width > img.height) {
+                                sourceSize = img.height;
+                                sourceX = (img.width - img.height) / 2;
+                                sourceY = 0;
+                            } else {
+                                sourceSize = img.width;
+                                sourceX = 0;
+                                sourceY = (img.height - img.width) / 2;
+                            }
+
+                            ctx.drawImage(
+                                img,
+                                sourceX,
+                                sourceY,
+                                sourceSize,
+                                sourceSize,
+                                0,
+                                0,
+                                SIZE,
+                                SIZE
+                            );
+
+                            resolve(canvas.toDataURL('image/jpeg', 0.7));
+                        };
+
+                        img.onerror = () => reject(
+                            new Error("Foto tidak dapat diproses.")
+                        );
+
+                        img.src = event.target.result;
+                    };
+
+                    reader.onerror = () => reject(
+                        new Error("Gagal membaca foto.")
+                    );
+
+                    reader.readAsDataURL(file);
+                });
+
+                const compressedBlob =
+                    await blobFromDataUrl(compressedBase64);
 
                 const photoPath =
-                    await uploadSemprotPhoto(photoBlob);
+                    await uploadSemprotPhoto(compressedBlob);
 
                 await prosesSimpanSemprot(
                     valTgl,
@@ -1653,7 +2017,6 @@ async function prosesSimpanSemprot(tgl, hst, imgBase64) {
     }
 
     localStorage.setItem(currentGH + '_logs', JSON.stringify(logS));
-    scheduleCloudSave();
     scheduleCloudSave();
     
     // Reset Preview & Form
@@ -2018,9 +2381,53 @@ function renderWorkerMaster() {
         </div>`).join("");
 }
 
-    function removeWorker(i) {
-        let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]"); w.splice(i, 1);
-        localStorage.setItem('master_pekerja_v2', JSON.stringify(w)); renderMasterPekerja(); loadWorkerCheckboxes();
+    async function removeWorker(i) {
+        let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
+
+        if (!w[i]) return;
+
+        const namaPekerja = w[i].nama || "";
+        if (!confirm(`Hapus pekerja "${namaPekerja}" dari Master Pekerja?`)) return;
+
+        // 1. Hapus dari LocalStorage terlebih dahulu.
+        w.splice(i, 1);
+        localStorage.setItem('master_pekerja_v2', JSON.stringify(w));
+
+        // 2. Render langsung agar UI berubah tanpa menunggu cloud.
+        renderMasterPekerja();
+        loadWorkerCheckboxes();
+
+        /*
+         * 3. PENTING:
+         * Master Pekerja ikut berada di snapshot melona_user_data.data.
+         * Jika hanya LocalStorage yang diubah, saat refresh loadCloudData()
+         * dapat mengembalikan snapshot lama dari Supabase.
+         *
+         * Karena itu setelah HAPUS, simpan snapshot TERBARU ke Supabase
+         * segera, bukan hanya menjadwalkan save.
+         */
+        try {
+            if (typeof supabaseReady !== "undefined" &&
+                supabaseReady &&
+                typeof saveCloudDataNow === "function" &&
+                typeof loadingCloudData !== "undefined" &&
+                !loadingCloudData) {
+
+                const berhasil = await saveCloudDataNow();
+
+                if (!berhasil) {
+                    // Coba lagi melalui mekanisme sinkronisasi normal.
+                    scheduleCloudSave();
+                }
+            } else if (typeof scheduleCloudSave === "function") {
+                scheduleCloudSave();
+            }
+        } catch (err) {
+            console.error("Gagal menyimpan penghapusan pekerja ke Supabase:", err);
+            if (typeof scheduleCloudSave === "function") {
+                scheduleCloudSave();
+            }
+        }
     }
 function loadWorkerCheckboxes() {
     let w = JSON.parse(localStorage.getItem('master_pekerja_v2') || "[]");
@@ -2068,7 +2475,7 @@ function loadWorkerCheckboxes() {
 }
 
     // Fungsi Hapus untuk Log Semprot dan Log Kerja
-function hapusItem(key, index) {
+async function hapusItem(key, index) {
     if(confirm("Hapus data ini?")) {
         let data = JSON.parse(localStorage.getItem(key) || "[]");
         let itemDihapus = data[index];
@@ -2126,7 +2533,23 @@ function hapusItem(key, index) {
             });
 
             // Hapus dulu dari array agar pengecekan aktivitas tersisa akurat.
-            data.splice(index, 1);
+            // Jika yang dihapus adalah riwayat SEMPROT, hapus juga foto
+        // dari Supabase Storage agar tidak meninggalkan file yatim.
+        const itemYangDihapus = data[index];
+        if (key === currentGH + '_logs' && itemYangDihapus?.img) {
+            try {
+                await deleteSemprotPhoto(itemYangDihapus.img);
+            } catch (err) {
+                console.error("Gagal menghapus foto semprot dari Supabase:", err);
+                const lanjut = confirm(
+                    "Foto semprot gagal dihapus dari Supabase Storage.\\n\\n" +
+                    "Apakah Anda tetap ingin menghapus riwayat semprotnya?"
+                );
+                if (!lanjut) return;
+            }
+        }
+
+        data.splice(index, 1);
 
             pekerjaDihapus.forEach(namaPekerja => {
                 const namaNormal = normalisasiNama(namaPekerja);
@@ -2171,7 +2594,12 @@ function hapusItem(key, index) {
         
         // Refresh semua tampilan
         renderLogs();
-        updateUI(); 
+        updateUI();
+
+        // PENTING: hapusItem sebelumnya hanya mengubah localStorage.
+        // Supabase masih menyimpan snapshot lama, sehingga data kembali
+        // setelah refresh/login.
+        scheduleCloudSave();
     }
 }
 
@@ -2316,36 +2744,55 @@ if (itemDihapus.k === "KASBON PEKERJA") {
         alert("Transaksi berhasil dihapus dan saldo disesuaikan.");
     }
 }
-function lihatDetailArsip(index) {
-    let hist = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-    let data = hist[index];
-    
-    // Kita susun ringkasan aktivitas dalam format teks agar mudah dibaca
-    let detailMsg = `DETAIL PERIODE: ${data.v}\n`;
-    detailMsg += `---------------------------\n`;
-    detailMsg += `Populasi: ${data.pop} pohon\n`;
-    detailMsg += `Total Biaya: Rp ${(data.biaya || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n`;
-    detailMsg += `Total Jual: Rp ${(data.jual || []).reduce((s, i) => s + i.total, 0).toLocaleString()}\n\n`;
-    
-    detailMsg += `Ingin melihat detail lengkap aktivitas? \nSilakan gunakan fitur 'Download Laporan' saat periode ini sedang aktif.`;
-
-    alert(detailMsg);
-    
-    // Alternatif: Tampilkan di Console Log untuk pengembang
-    console.log("Data Lengkap Arsip:", data);
+async function lihatDetailArsip(index) {
+    try {
+        const hist = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+        const data = hist[index];
+        if (!data) return alert("Riwayat periode tidak ditemukan.");
+        await exportPDF(data);
+    } catch (err) {
+        console.error("Gagal membuat PDF riwayat periode:", err);
+        alert("Gagal membuat PDF riwayat periode: " + (err?.message || err));
+    }
 }
-    
+
 // Fungsi mengekspor seluruh isi LocalStorage ke file JSON
+function getReportStartDate(){
+    const d = getActiveData();
+    return d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode') || null;
+}
+function getReportEndDate(){
+    // Periode aktif berjalan sampai hari ini.
+    // Tanggal panen TIDAK digunakan sebagai batas periode karena setelah panen
+    // masih dapat terdapat transaksi pada periode yang sama.
+    return new Date().toISOString().slice(0,10);
+}
+function filterReportByActivePeriod(items, dateField){
+    const start = getReportStartDate();
+    const end = getReportEndDate();
+    if(!start) return items;
+    const a = parseDate(start), b = parseDate(end);
+    if(!a || !b || isNaN(a.getTime()) || isNaN(b.getTime())) return items;
+    return items.filter(x => {
+        const dt = parseDate(x[dateField]);
+        return dt && dt >= a && dt <= b;
+    });
+}
+
 function exportData() {
     try {
         const activeData = getActiveData();
         const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
-        const sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
-        const kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+        const sLog = filterReportByActivePeriod(JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]"), "tgl");
+        const kLog = filterReportByActivePeriod(JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]"), "tgl");
 
         dailyLogs.sort((a, b) => a.hst - b.hst);
 
         const wb = XLSX.utils.book_new();
+        const reportBiaya = filterReportByActivePeriod(activeData.biaya || [], "tgl");
+        const reportJual = filterReportByActivePeriod(activeData.jual || [], "tgl");
+        const reportDana = filterReportByActivePeriod(activeData.dana || [], "tgl");
+        const reportInventaris = filterReportByActivePeriod(activeData.inventaris || [], "tgl");
 
         // --- SHEET 1: RINGKASAN ---
         const terakhir = dailyLogs.length > 0 ? dailyLogs[dailyLogs.length - 1] : { hst: "-", ppm: "-", ph: "-" };
@@ -2369,7 +2816,9 @@ function exportData() {
             "TANGGAL": x.tgl,
             "AIR(LITER)": x.liter,
             "PPM RIIL": x.ppm,
-            "PH RIIL": x.ph
+            "PH RIIL": x.ph,
+            "NUTRISI TAMBAHAN": x.nutrisiTambahan || "",
+            "DOSIS": x.nutrisiDosis || ""
         }));
         XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(nutrisiExcel), "Nutrisi_Harian");
 
@@ -2400,7 +2849,7 @@ function exportData() {
         let totalJual = 0;
         let totalBiaya = 0;
 
-        (activeData.jual || []).forEach(x => {
+        (reportJual).forEach(x => {
             finData.push({ 
                 "TANGGAL": x.tgl, 
                 "TIPE": "MASUK (JUAL)", 
@@ -2413,7 +2862,7 @@ function exportData() {
             });
             totalJual += x.total;
         });
-        (activeData.biaya || []).forEach(x => {
+        (reportBiaya).forEach(x => {
             finData.push({ 
                 "TANGGAL": x.tgl, 
                 "TIPE": "KELUAR (BIAYA)", 
@@ -2439,10 +2888,22 @@ function exportData() {
         ], { origin: -1 });
         XLSX.utils.book_append_sheet(wb, ws_finance, "Keuangan");
 
-        // --- SHEET 6: LAPORAN ARUS KAS ---
+        // --- SHEET 6: INVENTARIS ---
+        const inventarisExcel = sortReportObjectsByDateOldestFirst(reportInventaris, "tgl").map(x => ({
+            "TANGGAL": x.tgl,
+            "NO TRANSAKSI": x.noTransaksi || "-",
+            "NAMA PERALATAN": x.nama || "-",
+            "QTY": x.qty ?? 0,
+            "HARGA SATUAN": x.harga ?? 0,
+            "TOTAL": x.total ?? 0,
+            "KETERANGAN": x.ket || "-"
+        }));
+        XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(inventarisExcel), "Inventaris");
+
+        // --- SHEET 7: LAPORAN ARUS KAS ---
         const saldoAwalKas = parseFloat(activeData.saldoAwal) || 0;
         const arusKas = [
-            ...(activeData.jual || []).map(x => ({
+            ...(reportJual).map(x => ({
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": "MASUK",
                 "SUMBER/KEGIATAN": "Penjualan - " + (x.g || "-"),
@@ -2451,7 +2912,7 @@ function exportData() {
                 "MASUK": x.total || 0,
                 "KELUAR": 0
             })),
-            ...(activeData.biaya || []).map(x => ({
+            ...(reportBiaya).map(x => ({
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": "KELUAR",
                 "SUMBER/KEGIATAN": "Biaya - " + (x.k || "-"),
@@ -2460,19 +2921,45 @@ function exportData() {
                 "MASUK": 0,
                 "KELUAR": x.total || 0
             })),
-            ...(activeData.dana || []).map(x => ({
+            ...(reportDana).map(x => ({
                 "TANGGAL": x.tgl,
                 "JENIS ARUS": x.arah === "out" ? "KELUAR" : "MASUK",
                 "SUMBER/KEGIATAN": x.jenis || "Pendanaan",
-                "NO TRANSAKSI": "-",
+                "NO TRANSAKSI": x.noTransaksi || "-",
                 "KETERANGAN": x.ket || "-",
                 "MASUK": x.arah === "in" ? (parseFloat(x.nominal) || 0) : 0,
                 "KELUAR": x.arah === "out" ? (parseFloat(x.nominal) || 0) : 0
+            })),
+            ...(reportInventaris).map(x => ({
+                "TANGGAL": x.tgl,
+                "JENIS ARUS": "KELUAR",
+                "SUMBER/KEGIATAN": "Inventaris - " + (x.nama || "-"),
+                "NO TRANSAKSI": x.noTransaksi || "-",
+                "KETERANGAN": x.ket || "-",
+                "MASUK": 0,
+                "KELUAR": parseFloat(x.total) || 0
             }))
         ];
 
-        // Hanya untuk laporan Excel: arus kas kronologis lama -> baru.
-        arusKas.sort((a,b) => parseReportDate(a["TANGGAL"]) - parseReportDate(b["TANGGAL"]));
+        // Laporan Arus Kas: tanggal TERLAMA -> TERBARU.
+        // Jika tanggal sama, nomor transaksi dari kecil -> besar.
+        const nomorTransaksiArusKas = (value) => {
+            const s = String(value ?? "").trim();
+            const n = parseInt(s.replace(/[^0-9]/g, ""), 10);
+            return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+        };
+        arusKas.sort((a, b) => {
+            const tanggalA = parseReportDate(a["TANGGAL"]);
+            const tanggalB = parseReportDate(b["TANGGAL"]);
+            const selisihTanggal = tanggalA - tanggalB;
+            if (selisihTanggal !== 0) return selisihTanggal;
+
+            const noA = nomorTransaksiArusKas(a["NO TRANSAKSI"]);
+            const noB = nomorTransaksiArusKas(b["NO TRANSAKSI"]);
+            if (noA !== noB) return noA - noB;
+
+            return 0;
+        });
 
         let saldoBerjalan = saldoAwalKas;
         const arusKasExcel = [
@@ -2519,29 +3006,80 @@ function importData() {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.json';
+
     input.onchange = e => {
         const file = e.target.files[0];
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = function(event) {
+
+        reader.onload = async function(event) {
             try {
                 const content = JSON.parse(event.target.result);
-                if (confirm("Timpa semua data dengan file backup ini?")) {
-                    // Masukkan data ke LocalStorage
-                    Object.keys(content).forEach(key => {
-                        localStorage.setItem(key, content[key]);
-                    });
-                    alert("✅ Restore Berhasil! Aplikasi akan memuat ulang.");
-                    window.location.reload();
+
+                if (!content || typeof content !== "object" || Array.isArray(content)) {
+                    throw new Error("Format backup tidak valid.");
                 }
+
+                // Hanya key data aplikasi yang boleh dipulihkan.
+                const appKeys = Object.keys(content).filter(key =>
+                    isApplicationStorageKey(key) &&
+                    !key.startsWith("__melona_")
+                );
+
+                if (appKeys.length === 0) {
+                    throw new Error("Tidak ditemukan data aplikasi dalam file backup.");
+                }
+
+                const user = await getCurrentSupabaseUser();
+                if (!user) {
+                    throw new Error("Sesi login Supabase tidak ditemukan. Silakan login kembali.");
+                }
+
+                if (!confirm(
+                    "Restore akan mengganti data aplikasi lokal dengan isi backup ini.\n\n" +
+                    "Data cloud Supabase akun Anda akan diperbarui setelah restore.\n\n" +
+                    "Lanjutkan?"
+                )) {
+                    return;
+                }
+
+                // Hapus hanya data aplikasi lokal. Session login tetap aman.
+                Object.keys(localStorage).forEach(key => {
+                    if (isApplicationStorageKey(key)) {
+                        _nativeRemoveItem.call(localStorage, key);
+                    }
+                });
+
+                appKeys.forEach(key => {
+                    _nativeSetItem.call(localStorage, key, String(content[key]));
+                });
+
+                refreshAppStateFromStorage();
+
+                // Sinkronkan hasil restore hanya ke akun Supabase yang sedang login.
+                if (typeof saveCloudDataNow === "function") {
+                    const saved = await saveCloudDataNow();
+                    if (!saved) {
+                        alert(
+                            "Data berhasil dipulihkan di perangkat, tetapi gagal disinkronkan ke Supabase."
+                        );
+                        return;
+                    }
+                }
+
+                alert("✅ Restore berhasil dan data akun ini sudah disinkronkan.");
+                window.location.reload();
+
             } catch (err) {
-                alert("❌ File rusak atau bukan format JSON yang benar!");
+                console.error("Restore error:", err);
+                alert("❌ Restore gagal: " + err.message);
             }
         };
-        // Baris ini harus ada agar file dibaca sebagai teks
+
         reader.readAsText(file);
     };
+
     input.click();
 }
 
@@ -2550,6 +3088,8 @@ function simpanNutrisiRiil() {
     const inputPH = document.getElementById('ph-now');
     const inputLiters = document.getElementById('liter');
     const inputTgl = document.getElementById('tgl-nutrisi-input');
+    const inputNutrisiTambahan = document.getElementById('nutrisi-tambahan');
+    const inputNutrisiDosis = document.getElementById('nutrisi-dosis');
 
     if (!inputLiters.value || !inputPPM.value || !inputPH.value || !inputTgl.value) {
         return alert("Mohon isi semua data!");
@@ -2570,7 +3110,9 @@ function simpanNutrisiRiil() {
         tgl: new Date(inputTgl.value).toLocaleDateString('id-ID'),
         liter: parseFloat(inputLiters.value),
         ppm: parseFloat(inputPPM.value),
-        ph: parseFloat(inputPH.value)
+        ph: parseFloat(inputPH.value),
+        nutrisiTambahan: (inputNutrisiTambahan.value || '').trim(),
+        nutrisiDosis: (inputNutrisiDosis.value || '').trim()
     };
 
     // LOGIKA EDIT VS SIMPAN BARU
@@ -2599,6 +3141,8 @@ function simpanNutrisiRiil() {
     inputPPM.value = "";
     inputPH.value = "";
     inputLiters.value = "";
+    inputNutrisiTambahan.value = "";
+    inputNutrisiDosis.value = "";
 
     alert("Data Berhasil Diperbarui!");
     
@@ -2608,21 +3152,66 @@ function simpanNutrisiRiil() {
     if (typeof initChart === "function") initChart();
 }
 
-function bersihkanSemuaRiwayat() {
-    if(confirm("Hapus seluruh riwayat periode sebelumnya di Greenhouse ini? Tindakan ini tidak bisa dibatalkan.")) {
-        localStorage.removeItem(currentGH + '_history_periods');
-        renderFinance();
+async function bersihkanSemuaRiwayat() {
+    if (!confirm("Hapus seluruh riwayat periode sebelumnya di Greenhouse ini? Tindakan ini tidak bisa dibatalkan.")) return;
+
+    localStorage.removeItem(currentGH + '_history_periods');
+    renderFinance();
+
+    // PENTING: hapus juga snapshot lama di Supabase.
+    // Jangan hanya mengandalkan timer 800 ms, karena user bisa refresh
+    // sebelum proses sinkronisasi selesai.
+    if (typeof saveCloudDataNow === 'function') {
+        const ok = await saveCloudDataNow();
+        if (!ok) {
+            alert("Riwayat sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
+            return;
+        }
     }
 }
- function hapusRiwayatPeriode(index) {
-    if(confirm("Apakah Anda yakin ingin menghapus riwayat periode ini secara permanen?")) {
-        let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
-        history.splice(index, 1);
-        localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
-        if (typeof scheduleCloudSave === 'function') scheduleCloudSave();
-        renderFinance(); // Refresh tampilan
+
+async function hapusRiwayatPeriode(index) {
+    if (!confirm("Hapus PERMANEN seluruh data periode ini, termasuk data nutrisi, penyemprotan, aktivitas kerja, keuangan, inventaris, dan foto dokumentasi? Tindakan ini tidak bisa dibatalkan.")) return;
+
+    let history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+    if (index < 0 || index >= history.length) {
+        alert("Riwayat periode tidak ditemukan.");
+        return;
     }
+
+    const period = history[index];
+    const photoPaths = Array.from(new Set(
+        (period.photoPaths || (period.semprotLogs || []).map(x => x && x.img) || [])
+            .filter(x => x && !String(x).startsWith('data:image/'))
+    ));
+
+    if (photoPaths.length > 0 && supabaseReady && supabaseClient) {
+        try {
+            const { error } = await supabaseClient.storage.from(SUPABASE_PHOTO_BUCKET).remove(photoPaths);
+            if (error) throw error;
+        } catch (err) {
+            console.error("Gagal menghapus foto periode dari Supabase Storage:", err);
+            alert("Foto periode gagal dihapus dari Supabase Storage. Data periode belum dihapus.\n\nPeriksa koneksi lalu coba lagi.");
+            return;
+        }
+    }
+
+    history.splice(index, 1);
+    localStorage.setItem(currentGH + '_history_periods', JSON.stringify(history));
+    renderFinance();
+
+    if (typeof saveCloudDataNow === 'function') {
+        const ok = await saveCloudDataNow();
+        if (!ok) {
+            alert("Data periode sudah dihapus dari perangkat, tetapi gagal menyimpan penghapusan ke Supabase. Jangan refresh dulu; periksa koneksi internet.");
+            return;
+        }
+    }
+    alert("Periode dan seluruh data terkait berhasil dihapus.");
 }
+window.bersihkanSemuaRiwayat = bersihkanSemuaRiwayat;
+window.hapusRiwayatPeriode = hapusRiwayatPeriode;
+
 function postingGajiKeBiaya() {
     let data = getActiveData();
     let totalGajiGross = data.akumulasiGaji || 0;
@@ -2644,14 +3233,17 @@ function postingGajiKeBiaya() {
         // 1. Masukkan ke daftar biaya riil (Hanya sisa gaji/gaji bersih)
         let tglManual = document.getElementById('f-tgl').value;
         let tgl = tglManual || new Date().toISOString().split('T')[0];
+        const noTransaksiGaji = getNoTransaksiGaji();
         data.biaya.unshift({
             tgl: tgl,
             k: "PELUNASAN GAJI PERIODE",
             q: 1,
             h: gajiBersih,
             total: gajiBersih,
-            ket: "Gaji bersih setelah potong kasbon"
+            ket: "Gaji bersih setelah potong kasbon",
+            noTransaksi: noTransaksiGaji
         });
+        incrementNoTransaksiByType('gaji');
 
         // 2. Reset kantung akumulasi gaji dan kasbon karena sudah dianggap lunas/selesai
         data.akumulasiGaji = 0;
@@ -2662,6 +3254,14 @@ function postingGajiKeBiaya() {
         renderFinance();
         alert("Sisa gaji berhasil diposting ke laporan keuangan!");
     }
+}
+
+function editKasbon(i){
+ const d=getActiveData(), item=(d.detailKasbon||[])[i]; if(!item)return;
+ editKasbonIdx=i; const sel=document.getElementById('nama-kasbon-select'); if(sel)sel.value=item.nama||'';
+ document.getElementById('nominal-kasbon').value=item.nominal||''; document.getElementById('f-tgl').value=convertToInputDate(item.tgl)||item.tgl||'';
+ const b=document.querySelector('button[onclick="catatKasbon()"]'); if(b){b.innerText='UPDATE KASBON';b.style.background='#f39c12';}
+ document.getElementById('nominal-kasbon').scrollIntoView({behavior:'smooth',block:'center'});
 }
 
 function catatKasbon() {
@@ -2678,70 +3278,309 @@ function catatKasbon() {
         let tglManual = document.getElementById('f-tgl').value;
         let tgl = tglManual || new Date().toISOString().split('T')[0];
 
-        // 1. Simpan ke daftar biaya riil (Keuangan)
-        // PENTING: Kategori harus "KASBON PEKERJA" agar bisa dideteksi fungsi hapus
-        data.biaya.unshift({
-            tgl: tgl,
-            k: "KASBON PEKERJA", 
-            q: 1,
-            h: nominal,
-            total: nominal,
-            ket: "Kasbon: " + nama,
-            namaPekerja: nama
-        });
-
-        // 2. Simpan ke database kasbon internal periode ini
-        if(!data.detailKasbon) data.detailKasbon = [];
-        
-        data.detailKasbon.push({ 
-            nama: nama, 
-            nominal: nominal, 
-            tgl: tgl 
-        });
-        
-        // Update Total Kasbon (Dashboard)
-        data.totalKasbon = (parseFloat(data.totalKasbon) || 0) + nominal;
-
+        const noTransaksiKasbon = getNoTransaksiKasbon();
+        if(editKasbonIdx!==null && data.detailKasbon && data.detailKasbon[editKasbonIdx]){
+            const old=data.detailKasbon[editKasbonIdx], oldNom=parseFloat(old.nominal)||0, oldNo=old.noTransaksi||noTransaksiKasbon;
+            data.detailKasbon[editKasbonIdx]={...old,nama,nominal,tgl,noTransaksi:oldNo};
+            const bi=data.biaya.findIndex(x=>x.noTransaksi===oldNo && x.k==='KASBON PEKERJA');
+            if(bi!==-1)data.biaya[bi]={...data.biaya[bi],tgl,q:1,h:nominal,total:nominal,ket:'Kasbon: '+nama,namaPekerja:nama,noTransaksi:oldNo};
+            data.totalKasbon=Math.max(0,(parseFloat(data.totalKasbon)||0)-oldNom+nominal); editKasbonIdx=null;
+        }else{
+            data.biaya.unshift({tgl,k:'KASBON PEKERJA',q:1,h:nominal,total:nominal,ket:'Kasbon: '+nama,namaPekerja:nama,noTransaksi:noTransaksiKasbon});
+            if(!data.detailKasbon)data.detailKasbon=[]; data.detailKasbon.push({nama,nominal,tgl,noTransaksi:noTransaksiKasbon}); incrementNoTransaksiByType('kasbon');
+            data.totalKasbon=(parseFloat(data.totalKasbon)||0)+nominal;
+        }
         saveActiveData(data);
         
         // Bersihkan input & Update tampilan
-        document.getElementById('nominal-kasbon').value = "";
+        document.getElementById('nominal-kasbon').value = ""; const kasBtn=document.querySelector('button[onclick="catatKasbon()"]'); if(kasBtn){kasBtn.innerText='SIMPAN';kasBtn.style.background='#d81b60';}
         renderFinance();
         alert(`Kasbon ${nama} sebesar Rp ${nominal.toLocaleString()} berhasil dicatat!`);
     }
 }
 function backupDataJSON() {
-    const allData = {};
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        allData[key] = localStorage.getItem(key);
-    }
-    
-    // Gunakan Blob agar file tidak rusak
-    const blob = new Blob([JSON.stringify(allData, null, 2)], { type: "application/json" });
+    // Backup HANYA data aplikasi.
+    // Token/session Supabase, Firebase, Google, dan storage autentikasi
+    // tidak pernah dimasukkan ke file backup.
+    const allData = collectLocalStorageData();
+
+    allData.__melona_backup_version = "2";
+    allData.__melona_backup_created_at = new Date().toISOString();
+
+    const blob = new Blob(
+        [JSON.stringify(allData, null, 2)],
+        { type: "application/json" }
+    );
     const url = URL.createObjectURL(blob);
-    
+
     const tgl = new Date().toISOString().split('T')[0];
     const dlAnchor = document.createElement('a');
     dlAnchor.href = url;
     dlAnchor.download = `BACKUP_MELON_ALL_DATA_${tgl}.json`;
-    
+
     document.body.appendChild(dlAnchor);
     dlAnchor.click();
     document.body.removeChild(dlAnchor);
     URL.revokeObjectURL(url);
 }
 
-async function exportPDF() {
+// ============================================================
+// LAPORAN TAHUNAN PDF
+// Sumber data: hanya RIWAYAT PERIODE yang sudah ditutup.
+// Tahun laporan ditentukan berdasarkan tanggal selesai/tutup.
+// Urutan tabel: tanggal mulai periode paling lama -> terbaru.
+// ============================================================
+async function exportLaporanTahunanPDF() {
+    try {
+        if (!window.jspdf || !window.jspdf.jsPDF) {
+            return alert("Library PDF belum berhasil dimuat. Periksa koneksi internet lalu coba lagi.");
+        }
+        if (!currentGH) return alert("Pilih Greenhouse terlebih dahulu.");
+
+        const history = JSON.parse(localStorage.getItem(currentGH + '_history_periods') || "[]");
+        if (!Array.isArray(history) || history.length === 0) {
+            return alert("Belum ada riwayat periode yang sudah ditutup.");
+        }
+
+        const parseDateAnnual = (value) => {
+            if (!value) return new Date(0);
+            const s = String(value).trim();
+            let m = s.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+            if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+            m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+            if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+            m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+            const d = new Date(s);
+            return isNaN(d.getTime()) ? new Date(0) : d;
+        };
+
+        const formatDateAnnual = (value) => {
+            const d = value instanceof Date ? value : parseDateAnnual(value);
+            if (!d || d.getTime() <= 0) return "-";
+            return String(d.getDate()).padStart(2, '0') + '-' +
+                   String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                   String(d.getFullYear());
+        };
+
+        // Tanggal selesai/tutup adalah satu-satunya patokan tahun laporan.
+        const closedPeriods = history.map((h, index) => ({
+            h: h || {},
+            index,
+            endDate: parseDateAnnual(h && h.tgl_selesai)
+        })).filter(x => x.endDate.getTime() > 0);
+
+        if (!closedPeriods.length) {
+            return alert("Tidak ditemukan tanggal selesai/tutup pada riwayat periode.");
+        }
+
+        const years = [...new Set(closedPeriods.map(x => x.endDate.getFullYear()))].sort((a, b) => b - a);
+        const yearInput = prompt(
+            "Masukkan tahun laporan tahunan:\nTahun tersedia: " + years.join(", "),
+            String(years[0])
+        );
+        if (yearInput === null) return;
+
+        const tahun = parseInt(String(yearInput).trim(), 10);
+        if (!years.includes(tahun)) {
+            return alert("Tahun tidak tersedia atau belum memiliki periode yang ditutup.\nTahun tersedia: " + years.join(", "));
+        }
+
+        // Filter berdasarkan tanggal TUTUP, lalu urutkan berdasarkan tanggal MULAI.
+        const periods = closedPeriods
+            .filter(x => x.endDate.getFullYear() === tahun)
+            .sort((a, b) => {
+                const da = parseDateAnnual(a.h.tgl_mulai || a.h.tglMulaiPeriode);
+                const db = parseDateAnnual(b.h.tgl_mulai || b.h.tglMulaiPeriode);
+                return da - db;
+            });
+
+        if (!periods.length) {
+            return alert("Tidak ada periode yang ditutup pada tahun " + tahun + ".");
+        }
+
+        const grades = ["Grade A", "Grade B", "Grade C", "Grade PL", "Ecer", "Wisata Petik"];
+        const toNumber = value => {
+            const n = parseFloat(value);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const emptySales = () => Object.fromEntries(grades.map(g => [g, 0]));
+
+        const rows = periods.map((item, no) => {
+            const h = item.h || {};
+            const jual = Array.isArray(h.jual) ? h.jual : [];
+            const biaya = Array.isArray(h.biaya) ? h.biaya : [];
+            const sales = emptySales();
+
+            jual.forEach(x => {
+                const grade = String(x && x.g || "").trim();
+                if (Object.prototype.hasOwnProperty.call(sales, grade)) {
+                    sales[grade] += toNumber(x.total);
+                }
+            });
+
+            const totalPenjualan = grades.reduce((sum, g) => sum + sales[g], 0);
+            const totalOperasional = biaya.reduce((sum, x) => sum + toNumber(x && x.total), 0);
+            const labaRugi = totalPenjualan - totalOperasional;
+
+            return {
+                no: no + 1,
+                mulai: h.tgl_mulai || h.tglMulaiPeriode || "-",
+                selesai: h.tgl_selesai || "-",
+                sales,
+                totalPenjualan,
+                totalOperasional,
+                labaRugi
+            };
+        });
+
+        const totals = {
+            sales: emptySales(),
+            totalPenjualan: 0,
+            totalOperasional: 0,
+            labaRugi: 0
+        };
+        rows.forEach(r => {
+            grades.forEach(g => totals.sales[g] += r.sales[g]);
+            totals.totalPenjualan += r.totalPenjualan;
+            totals.totalOperasional += r.totalOperasional;
+            totals.labaRugi += r.labaRugi;
+        });
+
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const rupiah = n => "Rp " + Math.round(toNumber(n)).toLocaleString('id-ID');
+
+        // Judul dibuat terpusat.
+        doc.setFontSize(17);
+        doc.setTextColor(27, 94, 32);
+        doc.text("LAPORAN TAHUNAN PRODUKSI MELON", pageWidth / 2, 15, { align: 'center' });
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(10);
+        doc.text(`Greenhouse: ${currentGH}   |   Tahun Laporan: ${tahun}`, pageWidth / 2, 22, { align: 'center' });
+        doc.setFontSize(8.5);
+        doc.text("Dasar laporan: seluruh periode yang TUTUP pada tahun tersebut.", pageWidth / 2, 28, { align: 'center' });
+
+        const body = rows.map(r => [
+            r.no,
+            `${formatDateAnnual(r.mulai)} s/d\n${formatDateAnnual(r.selesai)}`,
+            rupiah(r.sales["Grade A"]),
+            rupiah(r.sales["Grade B"]),
+            rupiah(r.sales["Grade C"]),
+            rupiah(r.sales["Grade PL"]),
+            rupiah(r.sales["Ecer"]),
+            rupiah(r.sales["Wisata Petik"]),
+            rupiah(r.totalPenjualan),
+            rupiah(r.totalOperasional),
+            rupiah(r.labaRugi)
+        ]);
+
+        body.push([
+            '', 'TOTAL TAHUNAN',
+            rupiah(totals.sales["Grade A"]),
+            rupiah(totals.sales["Grade B"]),
+            rupiah(totals.sales["Grade C"]),
+            rupiah(totals.sales["Grade PL"]),
+            rupiah(totals.sales["Ecer"]),
+            rupiah(totals.sales["Wisata Petik"]),
+            rupiah(totals.totalPenjualan),
+            rupiah(totals.totalOperasional),
+            rupiah(totals.labaRugi)
+        ]);
+
+        // Lebar total = 267 mm, ditempatkan simetris pada A4 landscape (297 mm).
+        const tableWidth = 267;
+        const marginX = (pageWidth - tableWidth) / 2;
+        doc.autoTable({
+            startY: 33,
+            margin: { left: marginX, right: marginX },
+            tableWidth: tableWidth,
+            head: [[
+                'No', 'Tanggal Periode', 'Grade A', 'Grade B', 'Grade C', 'Grade PL',
+                'Ecer', 'Wisata Petik', 'Total Penjualan', 'Operasional', 'Laba/Rugi'
+            ]],
+            body,
+            theme: 'grid',
+            headStyles: {
+                fillColor: [46, 125, 50],
+                textColor: 255,
+                fontSize: 6.5,
+                halign: 'center',
+                valign: 'middle'
+            },
+            bodyStyles: {
+                fontSize: 6,
+                cellPadding: 1.5,
+                valign: 'middle'
+            },
+            columnStyles: {
+                0: { cellWidth: 8, halign: 'center' },
+                1: { cellWidth: 31, halign: 'center' },
+                2: { cellWidth: 24, halign: 'right' },
+                3: { cellWidth: 24, halign: 'right' },
+                4: { cellWidth: 24, halign: 'right' },
+                5: { cellWidth: 24, halign: 'right' },
+                6: { cellWidth: 23, halign: 'right' },
+                7: { cellWidth: 27, halign: 'right' },
+                8: { cellWidth: 28, halign: 'right' },
+                9: { cellWidth: 27, halign: 'right' },
+                10: { cellWidth: 27, halign: 'right' }
+            },
+            didParseCell: function(data) {
+                if (data.row.index === body.length - 1) {
+                    data.cell.styles.fontStyle = 'bold';
+                    data.cell.styles.fillColor = [232, 245, 233];
+                }
+            }
+        });
+
+        let y = doc.lastAutoTable.finalY + 10;
+        if (y > 175) {
+            doc.addPage();
+            y = 20;
+        }
+
+        doc.setFontSize(11);
+        doc.setFont(undefined, 'bold');
+        doc.text("RINGKASAN TAHUNAN", marginX, y);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(8.5);
+        doc.text(`Jumlah periode ditutup: ${rows.length} periode`, marginX, y + 7);
+        doc.text(`Total Penjualan Tahunan: ${rupiah(totals.totalPenjualan)}`, marginX, y + 14);
+        doc.text(`Total Operasional Tahunan: ${rupiah(totals.totalOperasional)}`, marginX, y + 21);
+        doc.setFont(undefined, 'bold');
+        doc.setFontSize(11);
+        doc.text(`LABA/RUGI TAHUNAN: ${rupiah(totals.labaRugi)}`, marginX, y + 29);
+        doc.setFont(undefined, 'normal');
+        doc.setFontSize(7.5);
+        doc.text("Catatan: Periode lintas tahun tetap masuk berdasarkan tanggal selesai/tutup periode.", marginX, y + 39);
+
+        const fileName = `LAPORAN_TAHUNAN_MELON_${currentGH}_${tahun}.pdf`;
+        doc.save(fileName);
+        alert(`Laporan Tahunan ${tahun} berhasil dibuat.\n${rows.length} periode yang ditutup pada tahun tersebut dimasukkan.`);
+    } catch (err) {
+        console.error("Gagal membuat Laporan Tahunan PDF:", err);
+        alert("Gagal membuat Laporan Tahunan PDF: " + (err?.message || err));
+    }
+}
+window.exportLaporanTahunanPDF = exportLaporanTahunanPDF;
+
+async function exportPDF(periodData = null) {
+    const d = periodData || getActiveData();
     if (!window.jspdf || !window.jspdf.jsPDF) {
         return alert("Library PDF belum berhasil dimuat. Periksa koneksi internet lalu coba lagi.");
     }
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const d = getActiveData();
-    const dailyLogs = JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
-    const sLog = JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
-    const kLog = JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
+
+    const reportBiaya = periodData ? (d.biaya || []) : filterReportByActivePeriod(d.biaya || [], "tgl");
+    const reportJual = periodData ? (d.jual || []) : filterReportByActivePeriod(d.jual || [], "tgl");
+    const reportDana = periodData ? (d.dana || []) : filterReportByActivePeriod(d.dana || [], "tgl");
+    const reportInventaris = periodData ? (d.inventaris || []) : filterReportByActivePeriod(d.inventaris || [], "tgl");
+    const dailyLogs = periodData ? (d.dailyLogs || []) : JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]");
+    const sLog = periodData ? (d.semprotLogs || []) : JSON.parse(localStorage.getItem(currentGH + '_logs') || "[]");
+    const kLog = periodData ? (d.workLog || []) : JSON.parse(localStorage.getItem(currentGH + '_kerja') || "[]");
 
     // --- FUNGSI PEMBANTU ---
     const parseDate = (dateStr) => {
@@ -2760,25 +3599,22 @@ async function exportPDF() {
         return `${dd}-${mm}-${yyyy}`;
     };
 
-    // --- LOGIKA PERIODE OTOMATIS ---
+    // --- LOGIKA PERIODE LAPORAN ---
+    // Periode aktif: tanggal mulai resmi -> hari ini.
+    // Setelah panen masih boleh ada transaksi, sehingga tanggal panen
+    // tidak digunakan sebagai batas akhir laporan aktif.
     let tglMulai = "-";
-    let tglSelesai = formatIndo(new Date()); // Default sampai hari ini
+    let tglSelesai = formatIndo(new Date());
 
-    // 1. Ambil tanggal awal dari log kerja (kLog)
-    if (kLog && kLog.length > 0) {
-        let sortedK = [...kLog].sort((a, b) => parseDate(a.tgl) - parseDate(b.tgl));
-        tglMulai = formatIndo(sortedK[0].tgl);
-    }
-
-    // 2. Ambil tanggal akhir dari posting gaji terakhir di riwayat biaya
-    if (d.biaya && d.biaya.length > 0) {
-        let postingGaji = d.biaya
-            .filter(item => item.k === "PELUNASAN GAJI PERIODE")
-            .sort((a, b) => parseDate(b.tgl) - parseDate(a.tgl));
-        
-        if (postingGaji.length > 0) {
-            tglSelesai = formatIndo(postingGaji[0].tgl);
-        }
+    if (periodData) {
+        // Riwayat periode yang sudah ditutup memakai batas resmi arsip.
+        tglMulai = formatIndo(d.tglMulaiPeriode || d.tgl_mulai);
+        tglSelesai = formatIndo(d.tgl_selesai);
+    } else {
+        // Periode aktif selalu dimulai dari tanggal yang ditetapkan
+        // pada menu "Periode Tanam Baru".
+        tglMulai = formatIndo(d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode'));
+        tglSelesai = formatIndo(new Date());
     }
     
     const periodeDisplay = `${tglMulai} s/d ${tglSelesai}`;
@@ -2806,9 +3642,27 @@ async function exportPDF() {
     doc.text("1. Rekap Nutrisi Harian", 14, 60);
     doc.autoTable({
         startY: 63,
-        head: [['HST', 'Tanggal', 'Air(Liter)', 'PPM Riil', 'pH Riil']],
-        body: dailyLogs.sort((a,b) => a.hst - b.hst).map(x => [x.hst, formatIndo(x.tgl), x.liter, x.ppm, x.ph]),
-        headStyles: { fillColor: [46, 125, 50] }
+        head: [['HST', 'Tanggal', 'Air(Liter)', 'PPM Riil', 'pH Riil', 'Nutrisi Tambahan', 'Dosis']],
+        body: dailyLogs.sort((a,b) => a.hst - b.hst).map(x => [
+            x.hst,
+            formatIndo(x.tgl),
+            x.liter,
+            x.ppm,
+            x.ph,
+            x.nutrisiTambahan || '-',
+            x.nutrisiDosis || '-'
+        ]),
+        headStyles: { fillColor: [46, 125, 50] },
+        styles: { fontSize: 7, cellPadding: 2, overflow: 'linebreak' },
+        columnStyles: {
+            0: { cellWidth: 12 },
+            1: { cellWidth: 20 },
+            2: { cellWidth: 18 },
+            3: { cellWidth: 16 },
+            4: { cellWidth: 14 },
+            5: { cellWidth: 42 },
+            6: { cellWidth: 25 }
+        }
     });
 
 // --- 2. Tabel Penyemprotan ---
@@ -2899,8 +3753,8 @@ async function exportPDF() {
 
     // Gabungkan data agar bisa disortir bersamaan
     let finDataGabungan = [
-        ...(d.jual || []).map(x => ({...x, tipe: "MASUK", noTransaksi: "-", kat: x.g, qty: x.b, harga: x.h})),
-        ...(d.biaya || []).map(x => ({...x, tipe: "KELUAR", noTransaksi: x.noTransaksi || "-", kat: x.k, qty: x.q, harga: x.h}))
+        ...reportJual.map(x => ({...x, tipe: "MASUK", noTransaksi: "-", kat: x.g, qty: x.b, harga: x.h})),
+        ...reportBiaya.map(x => ({...x, tipe: "KELUAR", noTransaksi: x.noTransaksi || "-", kat: x.k, qty: x.q, harga: x.h}))
     ];
 
     // Sorting dari tanggal terlama ke terbaru (cocok untuk laporan kronologis)
@@ -2941,7 +3795,28 @@ async function exportPDF() {
     doc.setFontSize(13);
     doc.text(`LABA/RUGI BERSIH: Rp ${(tJual - tBiaya).toLocaleString()}`, 14, finalY + 16);
 
-    // --- 5. LAPORAN ARUS KAS ---
+    // --- 5. LAPORAN INVENTARIS ---
+    doc.addPage();
+    doc.text("5. Daftar Inventaris / Peralatan", 14, 20);
+    const inventarisPDF = [...reportInventaris].sort((a,b) => parseReportDate(a.tgl) - parseReportDate(b.tgl));
+    doc.autoTable({
+        startY: 25,
+        head: [['Tanggal','No. Transaksi','Peralatan','Qty','Harga Satuan','Total','Keterangan']],
+        body: inventarisPDF.map(x => [
+            formatIndo(x.tgl), x.noTransaksi || "-", x.nama || "-",
+            x.qty ?? 0, `Rp ${(parseFloat(x.harga)||0).toLocaleString()}`,
+            `Rp ${(parseFloat(x.total)||0).toLocaleString()}`, x.ket || "-"
+        ]),
+        headStyles: { fillColor: [25, 118, 210] },
+        styles: { fontSize: 7, overflow: 'linebreak' },
+        columnStyles: { 2:{cellWidth:32}, 6:{cellWidth:32} }
+    });
+    const invTotalPDF = inventarisPDF.reduce((a,x)=>a+(parseFloat(x.total)||0),0);
+    doc.setFontSize(10);
+    doc.setFont(undefined, 'bold');
+    doc.text(`Total Pembelian Inventaris: Rp ${invTotalPDF.toLocaleString()}`, 14, doc.lastAutoTable.finalY + 10);
+
+    // --- 6. LAPORAN ARUS KAS ---
     doc.addPage();
     doc.text("5. Laporan Arus Kas", 14, 20);
 
@@ -2971,7 +3846,7 @@ async function exportPDF() {
     };
 
     let arusKasPDF = [
-        ...(d.jual || []).map((x, idx) => ({
+        ...reportJual.map((x, idx) => ({
             tgl:x.tgl,
             jenis:"Penjualan",
             ket:x.g || "-",
@@ -2980,7 +3855,7 @@ async function exportPDF() {
             keluar:0,
             _urutan:idx
         })),
-        ...(d.biaya || []).map((x, idx) => ({
+        ...reportBiaya.map((x, idx) => ({
             tgl:x.tgl,
             jenis:"Biaya - " + (x.k || "-"),
             ket:x.ket || "-",
@@ -2989,22 +3864,44 @@ async function exportPDF() {
             keluar:parseFloat(x.total)||0,
             _urutan:idx
         })),
-        ...(d.dana || []).map((x, idx) => ({
+        ...reportDana.map((x, idx) => ({
             tgl:x.tgl,
             jenis:x.jenis || "Pendanaan",
             ket:x.ket || "-",
-            no:"-",
+            no:x.noTransaksi || "-",
             masuk:x.arah === "in" ? (parseFloat(x.nominal)||0) : 0,
             keluar:x.arah === "out" ? (parseFloat(x.nominal)||0) : 0,
+            _urutan:idx
+        })),
+        ...reportInventaris.map((x, idx) => ({
+            tgl:x.tgl,
+            jenis:"Inventaris - " + (x.nama || "-"),
+            ket:x.ket || "-",
+            no:x.noTransaksi || "-",
+            masuk:0,
+            keluar:parseFloat(x.total)||0,
             _urutan:idx
         }))
     ];
 
     // LAPORAN ARUS KAS: tanggal TERLAMA -> TERBARU.
-    // Jika tanggal sama, pertahankan urutan data yang ada.
+    // Jika tanggal sama, nomor transaksi dari kecil -> besar.
+    // Transaksi tanpa nomor ditempatkan setelah transaksi bernomor.
+    const nomorTransaksiPDF = (value) => {
+        const s = String(value ?? "").trim();
+        const n = parseInt(s.replace(/[^0-9]/g, ""), 10);
+        return Number.isFinite(n) ? n : Number.MAX_SAFE_INTEGER;
+    };
+
     arusKasPDF.sort((a, b) => {
-        const selisih = parseArusKasDate(a.tgl) - parseArusKasDate(b.tgl);
-        return selisih || (a._urutan - b._urutan);
+        const selisihTanggal = parseArusKasDate(a.tgl) - parseArusKasDate(b.tgl);
+        if (selisihTanggal !== 0) return selisihTanggal;
+
+        const noA = nomorTransaksiPDF(a.no);
+        const noB = nomorTransaksiPDF(b.no);
+        if (noA !== noB) return noA - noB;
+
+        return a._urutan - b._urutan;
     });
 
     let saldoKasBerjalan = saldoAwalKasPDF;
@@ -3046,7 +3943,9 @@ async function exportPDF() {
     doc.setFont(undefined, 'bold');
     doc.text(`Saldo Kas Akhir: Rp ${saldoKasBerjalan.toLocaleString()}`, 14, kasY + 18);
 
-    doc.save(`LAPORAN_MELONA_${currentGH}_${new Date().toISOString().split('T')[0]}.pdf`);
+    const safePeriodName = String(periodData ? (d.v || "Periode") : new Date().toISOString().split('T')[0])
+        .replace(/[^a-zA-Z0-9_-]+/g, '_');
+    doc.save(`LAPORAN_MELONA_${currentGH}_${safePeriodName}${periodData ? '_RIWAYAT' : ''}.pdf`);
 }
 
 function updateStorageInfo() {
@@ -3059,7 +3958,7 @@ function updateStorageInfo() {
     const limit = 50 * 1024 * 1024; // indikator lokal saja; penyimpanan utama ada di Supabase
     let percent = Math.min(100, (total / limit) * 100);
     const text = document.getElementById('storage-text');
-    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Supabase aktif` : `Cache perangkat: ${usedMB} MB`;
+    if (text) text.innerText = supabaseReady ? `Cache perangkat: ${usedMB} MB | ☁️ Cloud aktif` : `Cache perangkat: ${usedMB} MB`;
     const bar = document.getElementById('storage-bar');
     if (bar) bar.style.width = percent + '%';
 }
@@ -3318,6 +4217,9 @@ function saveWorkerEdit() {
     // OTOMATIS SINKRON KE AKTIVITAS LAMA
     syncAllOldData(namaLama, namaBaru);
 
+    // Pastikan perubahan Master Pekerja juga tersimpan ke snapshot Supabase.
+    scheduleCloudSave();
+
     alert("Data Berhasil Diperbarui & Disinkronkan!");
     closeEditModal();
     renderMasterPekerja(); // Refresh tabel master
@@ -3497,7 +4399,22 @@ window.onload = () => {
     console.log("🚀 Aplikasi siap & Data telah disinkronkan.");
 };
 
-  // 1. Konfigurasi Supabase
+  // 1. Konfigurasi Firebase
+
+const _k = "AIzaSyC3m3twzsoh";
+const _v = "DczU5OmNKtkzQK0nqbkjMdc";
+
+const firebaseConfig = {
+    apiKey: _k + _v, // Gabungkan secara dinamis
+    authDomain: "melona-monitoring-system.firebaseapp.com",
+    projectId: "melona-monitoring-system",
+    storageBucket: "melona-monitoring-system.firebasestorage.app",
+    messagingSenderId: "1068089319994",
+    appId: "1:1068089319994:web:786a8f7f708a6a1a974b03"
+};
+
+// Inisialisasi Firebase
+firebase.initializeApp(firebaseConfig);
 
 const SUPABASE_URL = "https://guldxfudpculqkvgdcov.supabase.co/";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_lyp9oQrzzy2MGQulM9OfCg_XEGeUjLH";
@@ -3517,6 +4434,7 @@ const supabaseClient = window.supabase.createClient(
 
 let supabaseReady = false;
 let cloudSyncBusy = false;
+let cloudSyncPending = false;
 let cloudSyncTimer = null;
 let loadingCloudData = false;
 let cloudLastSync = null;
@@ -3639,55 +4557,19 @@ async function deleteSemprotPhoto(photoValue) {
     if (error) console.warn("Foto Storage gagal dihapus:", error);
 }
 
-async function compressImageToTarget(file, targetBytes = 200 * 1024) {
-    const image = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = () => reject(new Error("Foto tidak dapat diproses."));
-            img.src = reader.result;
-        };
-        reader.onerror = () => reject(new Error("Gagal membaca foto."));
-        reader.readAsDataURL(file);
-    });
-
-    // Crop tengah menjadi persegi (1:1), sesuai tampilan laporan sebelumnya.
-    const sourceSize = Math.min(image.width, image.height);
-    const sourceX = (image.width - sourceSize) / 2;
-    const sourceY = (image.height - sourceSize) / 2;
-    let size = 600;
-
-    // Turunkan kualitas lalu resolusi secara bertahap sampai mencapai target.
-    for (let attempt = 0; attempt < 14; attempt++) {
-        const canvas = document.createElement("canvas");
-        canvas.width = size;
-        canvas.height = size;
-        const ctx = canvas.getContext("2d");
-        if (!ctx) throw new Error("Browser tidak mendukung pemrosesan foto.");
-
-        ctx.fillStyle = "#ffffff";
-        ctx.fillRect(0, 0, size, size);
-        ctx.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, size, size);
-
-        for (const quality of [0.86, 0.78, 0.70, 0.62, 0.54, 0.46, 0.38, 0.30, 0.24]) {
-            const blob = await new Promise(resolve => canvas.toBlob(resolve, "image/jpeg", quality));
-            if (blob && blob.size <= targetBytes) return blob;
-        }
-        size = Math.max(160, Math.round(size * 0.82));
-        if (size === 160 && attempt >= 12) break;
-    }
-
-    throw new Error("Foto tidak berhasil dikompres hingga maksimal 200 KB. Silakan coba foto lain.");
-}
-
 async function blobFromDataUrl(dataUrl) {
     const response = await fetch(dataUrl);
     return await response.blob();
 }
 
 async function saveCloudDataNow() {
-    if (!supabaseReady || loadingCloudData || cloudSyncBusy) return false;
+    if (!supabaseReady || loadingCloudData) return false;
+
+    // Jangan membuang perubahan jika save sebelumnya masih berjalan.
+    if (cloudSyncBusy) {
+        cloudSyncPending = true;
+        return false;
+    }
 
     const user = await getCurrentSupabaseUser();
     if (!user) {
@@ -3697,6 +4579,7 @@ async function saveCloudDataNow() {
     }
 
     cloudSyncBusy = true;
+    cloudSyncPending = false;
 
     try {
         const payload = collectLocalStorageData();
@@ -3731,11 +4614,23 @@ async function saveCloudDataNow() {
 
     } finally {
         cloudSyncBusy = false;
+
+        // Jika ada perubahan saat write berlangsung, kirim snapshot terbaru.
+        if (cloudSyncPending && supabaseReady && !loadingCloudData) {
+            clearTimeout(cloudSyncTimer);
+            cloudSyncTimer = setTimeout(() => {
+                saveCloudDataNow();
+            }, 100);
+        }
     }
 }
 
 function scheduleCloudSave() {
     if (!supabaseReady || loadingCloudData) return;
+
+    // Selalu tandai bahwa ada perubahan terbaru.
+    cloudSyncPending = true;
+
     clearTimeout(cloudSyncTimer);
     cloudSyncTimer = setTimeout(() => {
         saveCloudDataNow();
@@ -3859,7 +4754,7 @@ function updateCloudStatus(text) {
         if (container) {
             el = document.createElement('span');
             el.id = 'cloud-sync-status';
-            el.style.cssText = 'position:absolute;right:10px;top:8px;font-size:10px;background:rgba(255,255,255,.15);padding:4px 7px;border-radius:12px;';
+            el.style.cssText = 'position:absolute;right:0px;top:2px;font-size:10px;background:rgba(255,255,255,.15);padding:4px 7px;border-radius:12px;';
             container.style.position = 'relative';
             container.appendChild(el);
         }
@@ -3881,31 +4776,6 @@ function setDisplay(login, app, loading = 'none') {
 
     if (lock) lock.style.display = login;
     if (main) main.style.display = app;
-
-    // Pada sebagian perangkat Android, viewport dapat terbaca terlalu lebar
-    // saat halaman kembali dari proses login OAuth. Terapkan ulang viewport
-    // dan minta komponen responsif (termasuk grafik) menghitung ulang ukurannya.
-    if (app !== "none" && main) {
-        const normalizeAppViewport = () => {
-            const viewport = document.querySelector('meta[name="viewport"]');
-            if (viewport) {
-                viewport.setAttribute(
-                    "content",
-                    "width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
-                );
-            }
-            document.documentElement.style.width = "100%";
-            document.body.style.width = "100%";
-            window.dispatchEvent(new Event("resize"));
-        };
-
-        requestAnimationFrame(() => {
-            normalizeAppViewport();
-            requestAnimationFrame(normalizeAppViewport);
-        });
-        // Reflow kedua untuk perangkat yang baru menyelesaikan animasi login.
-        setTimeout(normalizeAppViewport, 350);
-    }
 
     // Loader hanya tampil selama sesi awal belum diketahui.
     // Begitu status login diputuskan, loader wajib ditutup.
@@ -4071,7 +4941,7 @@ async function handleSupabaseLogin(user) {
 }
 
 // Cek status pembayaran berdasarkan email akun Supabase.
-// Login aplikasi sepenuhnya menggunakan Supabase Auth.
+// Tidak bergantung pada Firebase Auth.currentUser karena login aplikasi
 // sekarang dilakukan oleh Supabase Auth.
 async function cekStatusSupabaseUser(user) {
     try {
@@ -4080,9 +4950,9 @@ async function cekStatusSupabaseUser(user) {
             return false;
         }
 
-        // Status pembayaran sekarang dibaca dari Supabase.
+        // Status pembayaran sekarang dibaca dari Supabase, bukan Firestore.
         // Login aplikasi juga menggunakan Supabase Auth, sehingga tidak ada
-        // Tidak ada ketergantungan pada layanan autentikasi lain.
+        // ketergantungan pada Firebase Auth untuk membaca status pembayaran.
         // Cari data pembayaran milik user yang sedang login.
         const { data, error } = await supabaseClient
             .from("melona_payments")
@@ -4213,8 +5083,41 @@ setTimeout(() => {
     }
 }, 10000);
 
-// 5. STATUS PEMBAYARAN MENGGUNAKAN SUPABASE
-// Status pembayaran sepenuhnya dibaca dari tabel melona_payments.
+// 5. CEK STATUS PEMBAYARAN DI FIREBASE
+
+async function cekStatus(user) {
+    try {
+        // Menggunakan doc(user.email) sesuai kode asli Anda
+        const userRef = db.collection('users').doc(user.email);
+        const doc = await userRef.get();
+
+        if (doc.exists && doc.data().isPaid === true) {
+            // JIKA SUDAH BAYAR: Sembunyikan login, tampilkan app
+            setDisplay('none', 'block');
+            document.getElementById('user-name').innerText = user.displayName;
+        } else {
+            // JIKA BELUM BAYAR: Tampilkan area pembayaran di dalam lock-screen
+            setDisplay('flex', 'none');
+            document.getElementById('btn-login-google').style.display = 'none';
+            document.getElementById('payment-area').style.display = 'block';
+            document.getElementById('lock-status').innerText = "Halo " + user.displayName + ", akun Anda belum aktif.";
+            
+            if (!doc.exists) {
+                await userRef.set({
+                    nama: user.displayName,
+                    email: user.email,
+                    isPaid: false,
+                    registeredAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+            }
+        }
+    } catch (error) {
+        console.error("Database Error:", error);
+        // Jika error (misal koneksi), tetap sembunyikan app demi keamanan
+        setDisplay('flex', 'none');
+        alert("Terjadi kesalahan sinkronisasi database.");
+    }
+}
 
 // 5. FUNGSI LOGOUT
 window.logout = async function () {
@@ -4243,7 +5146,7 @@ window.logout = async function () {
 
 // 6. WHATSAPP ADMIN
 window.prosesBayar = async function() {
-    // Login aplikasi menggunakan Supabase Auth.
+    // Login aplikasi menggunakan Supabase Auth, bukan Firebase Auth.
     // Buka tab WhatsApp segera dari aksi klik agar tidak diblokir browser,
     // lalu isi URL setelah user Supabase berhasil diperoleh.
     const waWindow = window.open('about:blank', '_blank');
@@ -4310,6 +5213,77 @@ if (btnInstall) btnInstall.addEventListener('click', async () => {
 });
 
 // ===== EXTENSI KEUANGAN: MODAL, HUTANG, SALDO KAS =====
+function getNextNoInventaris(){
+  const key=currentGH + '_no_inventaris_counter';
+  const next=parseInt(localStorage.getItem(key)||'1',10)||1;
+  return 'INV-' + String(next).padStart(3,'0');
+}
+function incrementNoInventaris(){
+  const key=currentGH + '_no_inventaris_counter';
+  const current=parseInt(localStorage.getItem(key)||'1',10)||1;
+  localStorage.setItem(key,String(current+1));
+  (function initTanggalMulaiPeriode(){
+    const el=document.getElementById('tgl-mulai-periode');
+    if(el && !el.value){
+        const now=new Date();
+        const mm=String(now.getMonth()+1).padStart(2,'0');
+        const dd=String(now.getDate()).padStart(2,'0');
+        el.value=now.getFullYear()+'-'+mm+'-'+dd;
+    }
+})();
+refreshNoInventaris();
+}
+function refreshNoInventaris(){
+  const el=document.getElementById('inv-no-transaksi');
+  if(el) el.value=getNextNoInventaris();
+}
+function simpanInventaris(){
+  const d=getActiveData();
+  const tgl=document.getElementById('inv-tgl').value || new Date().toISOString().slice(0,10);
+  const nama=document.getElementById('inv-nama').value.trim();
+  const qty=parseFloat(document.getElementById('inv-qty').value)||0;
+  const harga=parseFloat(document.getElementById('inv-harga').value)||0;
+  const ket=document.getElementById('inv-ket').value.trim();
+  if(!nama) return alert('Isi nama peralatan terlebih dahulu.');
+  if(qty<=0) return alert('Qty harus lebih dari 0.');
+  if(harga<=0) return alert('Harga satuan harus lebih dari 0.');
+  const total=qty*harga;
+  const noTransaksi=getNextNoInventaris();
+  d.inventaris=d.inventaris||[];
+  if(editInventarisIdx!==null && d.inventaris[editInventarisIdx]){
+    const oldNo=d.inventaris[editInventarisIdx].noTransaksi||noTransaksi;
+    d.inventaris[editInventarisIdx]={...d.inventaris[editInventarisIdx],tgl,nama,qty,harga,total,ket:ket||'-',noTransaksi:oldNo}; editInventarisIdx=null;
+  }else{ d.inventaris.unshift({tgl,nama,qty,harga,total,ket:ket||'-',noTransaksi}); incrementNoInventaris(); }
+  saveActiveData(d);
+  document.getElementById('inv-nama').value='';
+  document.getElementById('inv-qty').value='';
+  document.getElementById('inv-harga').value='';
+  document.getElementById('inv-ket').value='';
+  const invBtn=document.querySelector('button[onclick="simpanInventaris()"]'); if(invBtn){invBtn.innerText='SIMPAN INVENTARIS';invBtn.style.background='#1976d2';}
+  renderFinance();
+  alert('Pembelian inventaris berhasil dicatat.');
+}
+function editInventaris(i){
+  const d=getActiveData(), item=(d.inventaris||[])[i]; if(!item)return;
+  editInventarisIdx=i;
+  document.getElementById('inv-tgl').value=convertToInputDate(item.tgl)||item.tgl||'';
+  document.getElementById('inv-nama').value=item.nama||'';
+  document.getElementById('inv-qty').value=item.qty||'';
+  document.getElementById('inv-harga').value=item.harga||'';
+  document.getElementById('inv-ket').value=item.ket||'';
+  const b=document.querySelector('button[onclick="simpanInventaris()"]'); if(b){b.innerText='UPDATE INVENTARIS';b.style.background='#f39c12';}
+  document.getElementById('inv-nama').scrollIntoView({behavior:'smooth',block:'center'});
+}
+function hapusInventaris(i){
+  if(!confirm('Hapus transaksi inventaris ini?')) return;
+  const d=getActiveData();
+  (d.inventaris||[]).splice(i,1);
+  saveActiveData(d);
+  renderFinance();
+}
+let editDanaIdx = null;
+let editInventarisIdx = null;
+let editKasbonIdx = null;
 window.simpanDana = function(){
   const d=getActiveData();
   const jenis=document.getElementById('dana-jenis').value;
@@ -4318,11 +5292,24 @@ window.simpanDana = function(){
   const ket=document.getElementById('dana-ket').value.trim();
   if(!nominal || nominal<=0) return alert('Isi nominal dana terlebih dahulu.');
   const arah=(jenis==='Tambahan Modal / Investasi'||jenis==='Hutang / Pinjaman')?'in':'out';
+  const noTransaksiDana = getNoTransaksiDana();
   d.dana=d.dana||[];
-  d.dana.unshift({tgl,jenis,nominal,ket:ket||'-',arah});
+  if(editDanaIdx!==null && d.dana[editDanaIdx]){ const oldNo=d.dana[editDanaIdx].noTransaksi||noTransaksiDana; d.dana[editDanaIdx]={...d.dana[editDanaIdx],tgl,jenis,nominal,ket:ket||'-',arah,noTransaksi:oldNo}; editDanaIdx=null; }
+  else { d.dana.unshift({tgl,jenis,nominal,ket:ket||'-',arah,noTransaksi:noTransaksiDana}); incrementNoTransaksiByType('dana'); }
   saveActiveData(d);
   document.getElementById('dana-nominal').value=''; document.getElementById('dana-ket').value='';
+  const danaBtn=document.querySelector('button[onclick="simpanDana()"]'); if(danaBtn){danaBtn.innerText='SIMPAN TRANSAKSI DANA';danaBtn.style.background='#1565c0';}
   renderFinance(); alert('Transaksi dana berhasil disimpan.');
+};
+window.editDana=function(i){
+  const d=getActiveData(), item=(d.dana||[])[i]; if(!item)return;
+  editDanaIdx=i;
+  document.getElementById('dana-tgl').value=convertToInputDate(item.tgl)||item.tgl||'';
+  document.getElementById('dana-jenis').value=item.jenis||'Tambahan Modal / Investasi';
+  document.getElementById('dana-ket').value=item.ket||'';
+  document.getElementById('dana-nominal').value=item.nominal||'';
+  const b=document.querySelector('button[onclick="simpanDana()"]'); if(b){b.innerText='UPDATE TRANSAKSI DANA';b.style.background='#f39c12';}
+  document.getElementById('dana-tgl').scrollIntoView({behavior:'smooth',block:'center'});
 };
 window.hapusDana=function(i){
   if(!confirm('Hapus transaksi dana ini?')) return;
@@ -4332,9 +5319,96 @@ window.hapusDana=function(i){
 const _oldGetActiveData = typeof getActiveData==='function' ? getActiveData : null;
 if(_oldGetActiveData){
   window.getActiveData=function(){
-    const d=_oldGetActiveData(); d.dana=d.dana||[]; d.saldoAwal=parseFloat(d.saldoAwal)||0; return d;
+    const d=_oldGetActiveData();
+    d.dana=d.dana||[];
+    d.inventaris=d.inventaris||[];
+    d.saldoAwal=parseFloat(d.saldoAwal)||0;
+    d.tglMulaiPeriode=d.tglMulaiPeriode || localStorage.getItem(currentGH + '_tgl_mulai_periode') || null;
+    return d;
   };
 }
+refreshNoInventaris();
+
+
+// ===== FITUR KALENDER TANAM =====
+// Kalender ini berdiri sendiri dan tidak menggunakan data aplikasi,
+// localStorage, Supabase, atau data GH.
+let ktCurrentDate = new Date();
+
+function toggleKalenderTanam() {
+    const content = document.getElementById('kalender-tanam-content');
+    const arrow = document.getElementById('arrow-kalender-tanam');
+    if (!content) return;
+    if (content.style.display === 'none' || content.style.display === '') {
+        content.style.display = 'block';
+        if (arrow) arrow.style.transform = 'rotate(180deg)';
+        renderKalenderTanam();
+    } else {
+        content.style.display = 'none';
+        if (arrow) arrow.style.transform = 'rotate(0deg)';
+    }
+}
+
+function getKategoriTanamanKT(hari, pasaran) {
+    const data = {
+        "Ahad": {"Pon":"Uwoh","Wage":"Oyot","Kliwon":"Oyot","Legi":"Uwit","Pahing":"Uwit"},
+        "Senin": {"Pon":"Godong","Wage":"Uwoh","Kliwon":"Uwoh","Legi":"Oyot","Pahing":"Oyot"},
+        "Selasa": {"Pon":"Uwit","Wage":"Godong","Kliwon":"Godong","Legi":"Uwoh","Pahing":"Uwoh"},
+        "Rabu": {"Pon":"Uwit","Wage":"Godong","Kliwon":"Godong","Legi":"Uwoh","Pahing":"Uwoh"},
+        "Kamis": {"Pon":"Godong","Wage":"Uwoh","Kliwon":"Uwoh","Legi":"Oyot","Pahing":"Oyot"},
+        "Jum'at": {"Pon":"Oyot","Wage":"Uwit","Kliwon":"Uwit","Legi":"Godong","Pahing":"Godong"},
+        "Sabtu": {"Pon":"Uwoh","Wage":"Oyot","Kliwon":"Oyot","Legi":"Uwit","Pahing":"Uwit"}
+    };
+    return data[hari] ? data[hari][pasaran] : '-';
+}
+
+function getWetonKT(date) {
+    const hariList = ["Minggu","Senin","Selasa","Rabu","Kamis","Jum'at","Sabtu"];
+    const pasaranList = ["Pon","Wage","Kliwon","Legi","Pahing"];
+    const refDate = new Date(2026, 0, 1);
+    const diffDays = Math.floor((date - refDate) / (1000 * 60 * 60 * 24));
+    const hIdx = (4 + diffDays % 7 + 7) % 7;
+    const hNama = (hIdx === 0) ? "Ahad" : hariList[hIdx];
+    const pIdx = ((0 + diffDays) % 5 + 5) % 5;
+    return { h: hNama, p: pasaranList[pIdx] };
+}
+
+function renderKalenderTanam() {
+    const title = document.getElementById('kt-month-year');
+    const grid = document.getElementById('kt-calendar-grid');
+    if (!title || !grid) return;
+
+    const year = ktCurrentDate.getFullYear();
+    const month = ktCurrentDate.getMonth();
+    title.innerText = new Date(year, month).toLocaleDateString('id-ID', {month:'long', year:'numeric'});
+    grid.innerHTML = '';
+
+    ['Min','Sen','Sel','Rab','Kam','Jum','Sab'].forEach(d => {
+        grid.innerHTML += `<div class="kt-day-name">${d}</div>`;
+    });
+
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    for (let i = 0; i < firstDay; i++) grid.innerHTML += '<div></div>';
+
+    const today = new Date();
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month, day);
+        const {h, p} = getWetonKT(date);
+        const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear() ? 'kt-today' : '';
+
+        const cell = document.createElement('div');
+        cell.className = `kt-cell ${isToday}`;
+        cell.innerHTML = `<span class="kt-date">${day}</span><span class="kt-pasaran">${p}</span><span class="kt-kategori">${getKategoriTanamanKT(h,p)}</span>`;
+        grid.appendChild(cell);
+    }
+}
+
+function changeKalenderMonth(step) {
+    ktCurrentDate.setMonth(ktCurrentDate.getMonth() + step);
+    renderKalenderTanam();
+}
+
 </script>
 </div>
 </body>
