@@ -1315,7 +1315,8 @@ function renderRekapNutrisi() {
     let html = `
     <div style="margin-top:20px;">
         <h4 style="font-size:14px; color:#2e7d32;">Riwayat Input Terakhir</h4>
-        <table style="width:100%; border-collapse:collapse; font-size:12px; background:white; border-radius:8px; overflow:hidden;">
+        <div style="display:block; width:100%; max-width:100%; min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch;">
+        <table style="width:100%; min-width:760px; table-layout:fixed; border-collapse:collapse; font-size:12px; background:white; border-radius:8px; overflow:hidden;">
             <tr style="background:#f4f4f4;">
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Tgl (HST)</th>
                 <th style="padding:8px; border-bottom:1px solid #ddd;">Liter</th>
@@ -1336,14 +1337,16 @@ function renderRekapNutrisi() {
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.ph}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiTambahan || '-'}</td>
         <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiDosis || '-'}</td>
-        <td style="padding:8px; border-bottom:1px solid #eee; display: flex; gap: 5px; justify-content: center;">
-            <button style="background:none; border:none; color:#f39c12; cursor:pointer;" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
-            <button style="background:none; border:none; color:red; cursor:pointer;" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
+        <td style="padding:8px; border-bottom:1px solid #eee;">
+            <div style="display:flex; gap:10px; justify-content:center; align-items:center;">
+                <button style="background:none; border:none; color:#f39c12; cursor:pointer;" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
+                <button style="background:none; border:none; color:red; cursor:pointer;" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
+            </div>
         </td>
     </tr>`;
 });
 
-    html += `</table></div>`;
+    html += `</table></div></div>`;
     container.innerHTML = html;
 }
 
