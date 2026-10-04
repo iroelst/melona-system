@@ -249,28 +249,6 @@
 .kt-kategori { font-size:10px; font-weight:700; color:#2e7d32; display:block; line-height:1.2; }
 .kt-today { background:#c8e6c9 !important; border:2px solid #2e7d32 !important; }
 
-
-/* Riwayat nutrisi responsif: tabel di layar lebar, kartu di HP tanpa scroll */
-.nutrisi-history-table-wrap { width:100%; max-width:100%; overflow:hidden; }
-.nutrisi-history-table { width:100%; table-layout:fixed; border-collapse:collapse; font-size:12px; background:#fff; }
-.nutrisi-history-table th, .nutrisi-history-table td { overflow-wrap:anywhere; }
-.nutrisi-history-mobile { display:none; }
-.nutrisi-history-actions { display:flex; gap:8px; justify-content:center; align-items:center; }
-.nutrisi-history-actions button { min-width:34px; min-height:34px; border-radius:8px; font-size:17px; }
-@media (max-width:600px) {
-  .nutrisi-history-table-wrap { display:none; }
-  .nutrisi-history-mobile { display:flex; flex-direction:column; gap:9px; width:100%; }
-  .nutrisi-history-card { display:grid; grid-template-columns:minmax(0, 1fr) auto; gap:10px; align-items:stretch; padding:10px; background:#fff; border:1px solid #e5e9e5; border-radius:12px; box-shadow:0 1px 4px rgba(0,0,0,.06); box-sizing:border-box; }
-  .nutrisi-history-date { display:flex; align-items:center; justify-content:center; text-align:center; min-width:76px; padding:8px; border-radius:9px; background:#eef8ef; color:#1b5e20; font-weight:700; font-size:13px; line-height:1.45; overflow-wrap:anywhere; }
-  .nutrisi-history-details { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px 6px; min-width:0; align-content:center; }
-  .nutrisi-history-field { min-width:0; font-size:12px; color:#263238; overflow-wrap:anywhere; }
-  .nutrisi-history-field small { display:block; color:#66736a; font-size:10px; margin-bottom:2px; }
-  .nutrisi-history-field strong { font-size:12px; font-weight:600; }
-  .nutrisi-history-field.wide { grid-column:span 2; }
-  .nutrisi-history-actions { flex-direction:column; justify-content:center; gap:6px; }
-  .nutrisi-history-actions button { min-width:34px; min-height:34px; padding:3px; }
-}
-
 </style>
 </head>
 <body>
@@ -1333,68 +1311,43 @@ function renderRekapNutrisi() {
 
     const dailyLogs = filterReportByActivePeriod(JSON.parse(localStorage.getItem(currentGH + '_daily_records') || "[]"), "tgl");
     const sortedLogs = [...dailyLogs].sort((a, b) => b.hst - a.hst);
-
-    let tableRows = '';
-    let mobileCards = '';
-    sortedLogs.slice(0, 5).forEach((log) => {
-        const originalIndex = dailyLogs.indexOf(log);
-        const tanggalHst = `${log.tgl} (${log.hst})`;
-        const nutrisi = log.nutrisiTambahan || '-';
-        const dosis = log.nutrisiDosis || '-';
-        tableRows += `
-        <tr>
-            <td style="padding:8px; border-bottom:1px solid #eee;">${tanggalHst}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">${log.liter}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">${log.ppm}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">${log.ph}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">${nutrisi}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">${dosis}</td>
-            <td style="padding:8px; border-bottom:1px solid #eee;">
-                <div class="nutrisi-history-actions">
-                    <button style="background:#fff3cd; border:0; color:#f39c12; cursor:pointer;" aria-label="Edit" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
-                    <button style="background:#ffebee; border:0; color:#c62828; cursor:pointer;" aria-label="Hapus" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
-                </div>
-            </td>
-        </tr>`;
-        mobileCards += `
-        <div class="nutrisi-history-card">
-            <div class="nutrisi-history-date">${tanggalHst}</div>
-            <div class="nutrisi-history-details">
-                <div class="nutrisi-history-field"><small>Liter</small><strong>${log.liter}</strong></div>
-                <div class="nutrisi-history-field"><small>PPM</small><strong>${log.ppm}</strong></div>
-                <div class="nutrisi-history-field"><small>pH</small><strong>${log.ph}</strong></div>
-                <div class="nutrisi-history-field wide"><small>Nutrisi Tambahan</small><strong>${nutrisi}</strong></div>
-                <div class="nutrisi-history-field"><small>Dosis</small><strong>${dosis}</strong></div>
-            </div>
-            <div class="nutrisi-history-actions">
-                <button style="background:#fff3cd; border:0; color:#f39c12; cursor:pointer;" aria-label="Edit" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
-                <button style="background:#ffebee; border:0; color:#c62828; cursor:pointer;" aria-label="Hapus" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
-            </div>
-        </div>`;
-    });
-
-    container.innerHTML = `
+    
+    let html = `
     <div style="margin-top:20px;">
         <h4 style="font-size:14px; color:#2e7d32;">Riwayat Input Terakhir</h4>
-        <div class="nutrisi-history-table-wrap">
-            <table class="nutrisi-history-table">
-                <colgroup>
-                    <col style="width:19%"><col style="width:11%"><col style="width:11%"><col style="width:9%"><col style="width:20%"><col style="width:12%"><col style="width:18%">
-                </colgroup>
-                <tr style="background:#f4f4f4;">
-                    <th style="padding:8px; border-bottom:1px solid #ddd;">Tgl (HST)</th>
-                    <th style="padding:8px; border-bottom:1px solid #ddd;">Liter</th>
-                    <th style="padding:8px; border-bottom:1px solid #ddd;">PPM</th>
-                    <th style="padding:8px; border-bottom:1px solid #ddd;">pH</th>
-                    <th style="padding:8px; border-bottom:1px solid #ddd;">Nutrisi Tambahan</th>
-                    <th style="padding:8px; border-bottom:1px solid #ddd;">Dosis</th>
-                    <th style="padding:8px; border-bottom:1px solid #ddd;">Aksi</th>
-                </tr>
-                ${tableRows}
-            </table>
-        </div>
-        <div class="nutrisi-history-mobile">${mobileCards}</div>
-    </div>`;
+        <div style="display:block; width:100%; max-width:100%; min-width:0; overflow-x:auto; -webkit-overflow-scrolling:touch;">
+        <table style="width:100%; min-width:760px; table-layout:fixed; border-collapse:collapse; font-size:12px; background:white; border-radius:8px; overflow:hidden;">
+            <tr style="background:#f4f4f4;">
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Tgl (HST)</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Liter</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">PPM</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">pH</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Nutrisi Tambahan</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Dosis</th>
+                <th style="padding:8px; border-bottom:1px solid #ddd;">Aksi</th>
+            </tr>`;
+
+    sortedLogs.slice(0, 5).forEach((log) => {
+    const originalIndex = dailyLogs.findIndex(l => l.hst === log.hst);
+    html += `
+    <tr>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.tgl} (${log.hst})</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.liter}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.ppm}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.ph}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiTambahan || '-'}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">${log.nutrisiDosis || '-'}</td>
+        <td style="padding:8px; border-bottom:1px solid #eee;">
+            <div style="display:flex; gap:10px; justify-content:center; align-items:center;">
+                <button style="background:none; border:none; color:#f39c12; cursor:pointer;" onclick="prepareEditNutrisi(${originalIndex})">✏️</button>
+                <button style="background:none; border:none; color:red; cursor:pointer;" onclick="hapusNutrisi(${originalIndex})">🗑️</button>
+            </div>
+        </td>
+    </tr>`;
+});
+
+    html += `</table></div></div>`;
+    container.innerHTML = html;
 }
 
 // Fungsi Edit Nutrisi
