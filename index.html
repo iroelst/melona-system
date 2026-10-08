@@ -496,8 +496,9 @@
     <label>Keterangan</label>
     <textarea id="semprot-ket" rows="2" placeholder="Keterangan"></textarea>
     
-<label>Foto Dokumentasi (Maks 2MB)</label>
+<label>Foto Dokumentasi (Otomatis dikompres &lt; 200KB)</label>
 <input type="file" id="semprot-img" accept="image/*">
+<div id="photo-compress-status" style="font-size:10px; color:#666; margin-top:5px;"></div>
 <div id="preview-semprot-edit"></div>
     
     <button id="btn-simpan-semprot" class="btn" onclick="simpanLog('semprot')">SIMPAN DATA SEMPROT</button>
@@ -1701,70 +1702,29 @@ async function simpanLog(tipe) {
         const file = imgInput.files[0];
 
         if (file) {
-            if (file.size > 2 * 1024 * 1024) {
-                return alert("File terlalu besar! Maksimal 2MB");
-            }
-
             try {
-                // Crop 1:1 dan kompresi seperti sebelumnya, tetapi hasilnya
-                // sekarang diupload ke Supabase Storage, bukan disimpan Base64.
-                const compressedBase64 = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
+                // Tidak lagi memeriksa ukuran file asli.
+                // Foto 2MB, 5MB, 10MB, dst tetap diproses.
+                // Foto dipotong 1:1, diubah menjadi JPEG, lalu kualitas/
+                // dimensinya dicari otomatis sampai hasil < 200KB.
+                const statusEl = document.getElementById('photo-compress-status');
+                if (statusEl) {
+                    statusEl.textContent =
+                        `Mengompres foto ${formatPhotoSize(file.size)} → maksimal 200KB...`;
+                    statusEl.style.color = '#666';
+                }
 
-                    reader.onload = function(event) {
-                        const img = new Image();
+                const compressedBlob = await compressPhotoUnder200KB(file);
 
-                        img.onload = function() {
-                            const canvas = document.createElement('canvas');
-                            const SIZE = 600;
-                            canvas.width = SIZE;
-                            canvas.height = SIZE;
+                if (!compressedBlob || compressedBlob.size >= 200 * 1024) {
+                    throw new Error("Foto tidak berhasil dikompres di bawah 200KB.");
+                }
 
-                            const ctx = canvas.getContext('2d');
-
-                            let sourceX, sourceY, sourceSize;
-
-                            if (img.width > img.height) {
-                                sourceSize = img.height;
-                                sourceX = (img.width - img.height) / 2;
-                                sourceY = 0;
-                            } else {
-                                sourceSize = img.width;
-                                sourceX = 0;
-                                sourceY = (img.height - img.width) / 2;
-                            }
-
-                            ctx.drawImage(
-                                img,
-                                sourceX,
-                                sourceY,
-                                sourceSize,
-                                sourceSize,
-                                0,
-                                0,
-                                SIZE,
-                                SIZE
-                            );
-
-                            resolve(canvas.toDataURL('image/jpeg', 0.7));
-                        };
-
-                        img.onerror = () => reject(
-                            new Error("Foto tidak dapat diproses.")
-                        );
-
-                        img.src = event.target.result;
-                    };
-
-                    reader.onerror = () => reject(
-                        new Error("Gagal membaca foto.")
-                    );
-
-                    reader.readAsDataURL(file);
-                });
-
-                const compressedBlob =
-                    await blobFromDataUrl(compressedBase64);
+                if (statusEl) {
+                    statusEl.textContent =
+                        `✓ Foto berhasil dikompres: ${formatPhotoSize(file.size)} → ${formatPhotoSize(compressedBlob.size)}`;
+                    statusEl.style.color = '#2e7d32';
+                }
 
                 const photoPath =
                     await uploadSemprotPhoto(compressedBlob);
@@ -1778,8 +1738,13 @@ async function simpanLog(tipe) {
             } catch (err) {
                 console.error("Upload foto gagal:", err);
 
+                const statusEl = document.getElementById('photo-compress-status');
+                if (statusEl) {
+                    statusEl.textContent = "";
+                }
+
                 alert(
-                    "Foto gagal diupload ke Supabase Storage.\n\n" +
+                    "Foto gagal diproses/upload ke Supabase Storage.\n\n" +
                     err.message
                 );
             }
@@ -4554,6 +4519,132 @@ async function blobFromDataUrl(dataUrl) {
     const response = await fetch(dataUrl);
     return await response.blob();
 }
+
+// ============================================================
+// KOMPRES FOTO OTOMATIS < 200KB
+// Tidak melihat ukuran file asli.
+// File besar akan tetap diterima, lalu diproses di perangkat.
+// Hasil akhir selalu JPEG dan ditargetkan di bawah 200KB.
+// ============================================================
+
+function formatPhotoSize(bytes) {
+    if (!Number.isFinite(bytes)) return "0 KB";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+}
+
+function canvasToJpegBlob(canvas, quality) {
+    return new Promise((resolve, reject) => {
+        canvas.toBlob(
+            blob => blob ? resolve(blob) : reject(new Error("Browser gagal membuat JPEG.")),
+            "image/jpeg",
+            quality
+        );
+    });
+}
+
+async function compressPhotoUnder200KB(file) {
+    const TARGET_BYTES = 200 * 1024;
+    const SAFE_TARGET_BYTES = 190 * 1024; // beri margin agar benar-benar < 200KB
+
+    const objectUrl = URL.createObjectURL(file);
+
+    try {
+        const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error("Foto tidak dapat dibaca oleh browser."));
+            image.src = objectUrl;
+        });
+
+        // Pertahankan crop 1:1 seperti sistem sebelumnya.
+        let sourceX = 0;
+        let sourceY = 0;
+        let sourceSize = Math.min(img.naturalWidth || img.width, img.naturalHeight || img.height);
+
+        if (img.width > img.height) {
+            sourceX = (img.width - img.height) / 2;
+        } else if (img.height > img.width) {
+            sourceY = (img.height - img.width) / 2;
+        }
+
+        // Coba dari resolusi besar ke kecil.
+        // Kualitas dicari dengan binary search supaya hasil tidak asal rendah.
+        const sizes = [600, 560, 520, 480, 440, 400, 360, 320, 280, 240, 200, 180, 160];
+
+        for (const size of sizes) {
+            const actualSourceSize = sourceSize;
+
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+
+            const ctx = canvas.getContext('2d', { alpha: false });
+            if (!ctx) throw new Error("Browser tidak mendukung pemrosesan foto.");
+
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+
+            ctx.drawImage(
+                img,
+                sourceX,
+                sourceY,
+                actualSourceSize,
+                actualSourceSize,
+                0,
+                0,
+                size,
+                size
+            );
+
+            // Cari kualitas terbaik yang masih masuk batas ukuran.
+            let low = 0.10;
+            let high = 0.95;
+            let bestBlob = null;
+
+            // Jika kualitas 0.95 sudah kecil, langsung gunakan.
+            const highBlob = await canvasToJpegBlob(canvas, high);
+
+            if (highBlob.size < TARGET_BYTES) {
+                return highBlob;
+            }
+
+            // Binary search kualitas sekitar 7-8 kali.
+            for (let i = 0; i < 8; i++) {
+                const quality = (low + high) / 2;
+                const blob = await canvasToJpegBlob(canvas, quality);
+
+                if (blob.size < TARGET_BYTES) {
+                    bestBlob = blob;
+                    low = quality;
+                } else {
+                    high = quality;
+                }
+            }
+
+            // Pastikan hasil benar-benar di bawah target aman.
+            if (bestBlob && bestBlob.size < SAFE_TARGET_BYTES) {
+                return bestBlob;
+            }
+
+            // Jika sudah di bawah 200KB tetapi belum di bawah 190KB,
+            // coba lagi dengan kualitas lebih rendah pada ukuran yang sama.
+            for (const quality of [0.35, 0.30, 0.25, 0.20, 0.15, 0.10]) {
+                const blob = await canvasToJpegBlob(canvas, quality);
+                if (blob.size < SAFE_TARGET_BYTES) {
+                    return blob;
+                }
+            }
+        }
+
+        throw new Error("Foto sangat kompleks sehingga tidak dapat mencapai ukuran di bawah 200KB.");
+    } finally {
+        URL.revokeObjectURL(objectUrl);
+    }
+}
+
 
 async function saveCloudDataNow() {
     if (!supabaseReady || loadingCloudData) return false;
