@@ -2874,6 +2874,9 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             KEY = BASE_KEY,
             db = {};
         let firebaseReady = false;
+        // Sesi lokal hanya untuk membuka data perangkat ketika Firebase Auth tidak tersedia.
+        // Tidak boleh melakukan penulisan cloud sampai Firebase mengonfirmasi user asli.
+        let offlineLocalSession = false;
         let firebaseAdminApp = null;
         let firebaseAdminAuth = null;
 
@@ -3041,6 +3044,7 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             }
         }
         async function finishFirebaseLogin(user) {
+            offlineLocalSession = false;
             currentUser = user;
             currentUserName = user.displayName || (user.email ? user.email.split('@')[0] : '') || 'User';
             KEY = BASE_KEY + '_' + user.uid;
@@ -3327,7 +3331,8 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             }
         }
         async function syncFirebase(force = false) {
-            if (!currentUser || !firebaseReady) return;
+            // Jangan mengirim data memakai identitas sesi lokal yang belum diverifikasi Firebase.
+            if (offlineLocalSession || !currentUser || !firebaseReady || !fbAuth?.currentUser || fbAuth.currentUser.uid !== currentUser.uid) return;
             if (!navigator.onLine) {
                 setCloudStatus('Offline — menunggu sinkronisasi');
                 return;
@@ -3383,7 +3388,20 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             setCloudStatus('Offline — data tersimpan di perangkat');
         });
         window.addEventListener('online', async () => {
-            if (!currentUser || !firebaseReady) return;
+            if (!firebaseReady) return;
+            // Jika sedang dalam sesi lokal, lanjutkan sinkronisasi hanya setelah Firebase
+            // memulihkan user asli; jika belum ada, jangan kirim data dengan sesi palsu.
+            if (offlineLocalSession) {
+                const authenticatedUser = fbAuth?.currentUser;
+                if (authenticatedUser) {
+                    await finishFirebaseLogin(authenticatedUser);
+                } else {
+                    setCloudStatus('Internet kembali — login diperlukan untuk sinkronisasi');
+                    showAuthMessage('Data lokal tetap aman. Login kembali saat internet aktif untuk menyinkronkan data.');
+                    return;
+                }
+            }
+            if (!currentUser) return;
             setCloudStatus('Internet kembali — menyinkronkan...');
             await syncFirebase(true);
             if (localStorage.getItem('ekasir_pending_sync_' + currentUser.uid) !== '1') {
@@ -3401,7 +3419,11 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             const label = role === 'admin' ? 'Admin' : (role === 'kasir' ? 'Kasir' : 'User');
             el.innerHTML = currentUser ? '<div class="user-avatar">👤</div><div class="user-role-label">' + label + '</div>' : '';
         }
+        function showToastOfflineNotice() {
+            try { toast('Mode offline: data tersimpan di HP. Login online diperlukan untuk sinkronisasi.'); } catch (_) {}
+        }
         async function logout() {
+            offlineLocalSession = false;
             try {
                 if (window.fbAuth) await fbAuth.signOut()
             } catch (e) {}
@@ -3430,9 +3452,49 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             fbAuth.onAuthStateChanged(async user => {
                 if (registrationInProgress) return;
                 if (!user) {
+                    // Pulihkan mode lokal hanya jika perangkat sebelumnya berhasil login,
+                    // internet sedang tidak tersedia, dan profil cache cocok dengan UID.
+                    // Ini tidak membuat sesi Firebase baru dan tidak mengizinkan sinkronisasi cloud.
+                    if (!navigator.onLine) {
+                        try {
+                            const savedSession = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
+                            const cachedProfile = savedSession?.uid
+                                ? JSON.parse(localStorage.getItem('ekasir_profile_cache_' + savedSession.uid) || 'null')
+                                : null;
+                            const cachedDb = savedSession?.uid
+                                ? localStorage.getItem(BASE_KEY + '_' + savedSession.uid)
+                                : null;
+                            if (savedSession?.uid && cachedProfile?.uid === savedSession.uid && cachedProfile.shopId && cachedProfile.role && cachedDb) {
+                                offlineLocalSession = true;
+                                currentUser = { uid: savedSession.uid, email: savedSession.email || '', displayName: cachedProfile.name || '' };
+                                currentRole = String(cachedProfile.role).toLowerCase();
+                                currentUserName = cachedProfile.name || currentUser.email.split('@')[0] || 'User';
+                                SHOP_ID = String(cachedProfile.shopId);
+                                KEY = BASE_KEY + '_' + savedSession.uid;
+                                db = JSON.parse(cachedDb) || blankDb();
+                                normalizeDb();
+                                document.getElementById('platformOwnerScreen').style.display = 'none';
+                                document.querySelector('.app').style.display = '';
+                                document.getElementById('authScreen').style.display = 'none';
+                                renderUserChip();
+                                applyRoleAccess();
+                                ensureAdminUserManagement();
+                                renderAll();
+                                setCloudStatus('Offline — data lokal');
+                                showToastOfflineNotice();
+                            } else {
+                                document.getElementById('authScreen').style.display = 'grid';
+                                showAuthMessage('Login pertama kali perlu internet. Setelah login online, aplikasi dapat dibuka offline pada perangkat ini.');
+                            }
+                        } catch (offlineError) {
+                            console.warn('Tidak dapat memulihkan sesi lokal:', offlineError);
+                            document.getElementById('authScreen').style.display = 'grid';
+                        }
+                    } else {
+                        document.getElementById('authScreen').style.display = 'grid';
+                    }
                     document.body.classList.remove('auth-checking');
-                    document.getElementById('authScreen').style.display = 'grid';
-                    return
+                    return;
                 }
                 try {
                     await finishFirebaseLogin(user)
