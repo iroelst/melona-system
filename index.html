@@ -2506,4 +2506,3051 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
                 <div class="grid2">
                     <div class="card">
                         <div class="section-title">
-             
+                            <h2>Transaksi Terbaru</h2><button class="btn" onclick="go('laporan')">Lihat semua</button>
+                        </div>
+                        <div id="recent"></div>
+                    </div>
+                    <div class="card">
+                        <div class="section-title">
+                            <h2>Stok Menipis</h2><button class="btn" onclick="go('stok')">Kelola</button>
+                        </div>
+                        <div id="lowStock"></div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="kasir" class="page">
+                <div class="pos">
+                    <div class="card">
+                        <div class="categories" id="cats"></div>
+                        <input class="search" id="posSearch" placeholder="Cari menu..." oninput="renderProducts()">
+                        <div class="product-grid" id="products" style="margin-top:14px"></div>
+                    </div>
+                    <div class="card cart">
+                        <div class="section-title">
+                            <h2>Pesanan</h2><button class="btn" onclick="clearCart()">Kosongkan</button>
+                        </div>
+                        <div class="field" style="margin-bottom:14px">
+                            <label for="posTransactionDate">TANGGAL TRANSAKSI</label>
+                            <input id="posTransactionDate" type="date" aria-label="Tanggal transaksi">
+                        </div>
+                        <div id="cart"></div>
+                        <div class="summary">
+                            <div><span>Subtotal</span><b id="subtotal">Rp0</b></div>
+                            <div><span>Diskon</span><b id="discount">Rp0</b></div>
+                            <div class="total"><span>Total</span><span id="total">Rp0</span></div>
+                        </div>
+                        <button class="btn primary" style="width:100%;margin-top:12px" onclick="checkout()">Simpan Transaksi</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="menu" class="page">
+                <div class="card">
+                    <div class="section-title">
+                        <h2>Daftar Menu</h2><button class="btn primary" onclick="openMenuModal()">+ Tambah Menu</button>
+                    </div>
+                    <div class="toolbar"><input class="search" id="menuSearch" placeholder="Cari menu..." oninput="renderMenuTable()"></div>
+                    <div style="overflow:auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Menu</th>
+                                    <th>Kategori</th>
+                                    <th>Harga Jual</th>
+                                    <th>HPP</th>
+                                    <th>Laba</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="menuTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="pembelian" class="page">
+                <div class="card" style="margin-top:18px">
+                    <div class="section-title">
+                        <div>
+                            <h2>Riwayat Pembelian</h2><small style="color:var(--muted)">Kelola dan lihat seluruh pembelian bahan pada periode yang dipilih.</small>
+                        </div><button class="btn primary" onclick="openPurchaseModal()">🛒 Pembelian Bahan</button>
+                    </div>
+                    <div style="overflow:auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Bahan</th>
+                                    <th>Jumlah Kemasan</th>
+                                    <th>Isi Masuk</th>
+                                    <th>Harga Kemasan</th>
+                                    <th>Total</th>
+                                    <th>Keterangan</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="purchaseTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="stok" class="page">
+                <div class="card">
+                    <div class="section-title">
+                        <div>
+                            <h2>Stok Bahan</h2><small style="color:var(--muted)">Kelola stok awal, stok akhir, pemakaian produksi, dan kondisi stok bahan.</small>
+                        </div>
+                        <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn primary" onclick="openOpeningModal()">📦 Stok Awal</button></div>
+                    </div>
+                    <div class="form-grid" style="margin-bottom:15px">
+                        <div class="field"><label>DARI TANGGAL</label><input id="stockFrom" type="date" onchange="changeStockRange()"></div>
+                        <div class="field"><label>SAMPAI TANGGAL</label><input id="stockTo" type="date" onchange="changeStockRange()"></div>
+                        <div class="field full">
+                            <div id="stockPeriodStatus" style="padding:11px 12px;background:#f8fafc;border-radius:10px;font-weight:700">Periode aktif</div>
+                        </div>
+                    </div>
+                    <div class="cards" style="margin-bottom:15px">
+                        <div class="card metric">
+                            <div><small>Total Stok Awal</small><strong id="stockOpeningTotal">Rp0</strong></div>
+                            <div class="icon">📦</div>
+                        </div>
+                        <div class="card metric">
+                            <div><small>Total Pembelian</small><strong id="stockPurchaseTotal">Rp0</strong></div>
+                            <div class="icon">🛒</div>
+                        </div>
+                        <div class="card metric">
+                            <div><small>Pemakaian Produksi</small><strong id="stockUsageTotal">Rp0</strong></div>
+                            <div class="icon">☕</div>
+                        </div>
+                        <div class="card metric">
+                            <div><small>Total Stok Akhir</small><strong id="stockEndingTotal">Rp0</strong></div>
+                            <div class="icon">📊</div>
+                        </div>
+                    </div>
+                    <div class="section-title">
+                        <div>
+                            <h3 style="margin:0">Tampil Stok</h3><small style="color:var(--muted)">Stok akhir = stok awal + pembelian − pemakaian produksi.</small>
+                        </div><button class="btn" onclick="openBahanModal()">+ Tambah Bahan</button>
+                    </div>
+                    <div style="overflow:auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Bahan</th>
+                                    <th>Isi Kemasan</th>
+                                    <th>Harga Kemasan</th>
+                                    <th>Stok Awal</th>
+                                    <th>Pembelian</th>
+                                    <th>Terpakai</th>
+                                    <th>Stok Akhir</th>
+                                    <th>Nilai Stok Akhir</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="bahanTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="pengeluaran" class="page">
+                <div class="card">
+                    <div class="section-title">
+                        <h2>Pengeluaran</h2><button class="btn primary" onclick="openExpenseModal()">+ Catat Pengeluaran</button>
+                    </div>
+                    <div style="overflow:auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Kategori</th>
+                                    <th>Keterangan</th>
+                                    <th>Jumlah</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="expenseTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="keuangan" class="page">
+                <div class="cards cash-finance-cards">
+                    <div class="card metric"><div><small>Saldo Kas Tunai</small><strong id="cashBalance">Rp0</strong><div class="trend">Saldo uang tunai di laci kasir</div></div><div class="icon">💵</div></div>
+                    <div class="card metric"><div><small>Total Uang Masuk</small><strong id="cashTotalIn">Rp0</strong><div class="trend" id="cashTotalInDetails">Tambahan modal · Penjualan tunai · Penjualan non-tunai</div></div><div class="icon">📥</div></div>
+                    <div class="card metric"><div><small>Total Uang Keluar</small><strong id="cashTotalOut">Rp0</strong><div class="trend" id="cashTotalOutDetails">Pembelian bahan · Pengeluaran operasional</div></div><div class="icon">📤</div></div>
+                </div>
+                <div class="card no-print" id="cashOpeningCard" style="margin-top:18px">
+                    <div class="section-title"><div><h2 id="cashOpeningTitle">Pengaturan Saldo Awal</h2><small id="cashOpeningHelp" style="color:var(--muted)">Masukkan saldo tunai awal untuk laci kasir.</small></div></div>
+                    <div class="form-grid">
+                        <div class="field"><label>TANGGAL SALDO AWAL</label><input id="cashOpeningDate" type="date"></div>
+                        <div class="field"><label>SALDO AWAL TUNAI (RP)</label><input id="cashOpeningAmount" type="number" min="0" step="1" placeholder="Contoh: 500000"></div>
+                    </div>
+                    <button class="btn primary" style="margin-top:12px" onclick="saveCashOpening()">Simpan Saldo Awal</button>
+                </div>
+                <div class="card no-print" id="cashEntryCard" style="margin-top:18px">
+                    <div class="section-title"><div><h2 id="cashEntryTitle">Tambah Modal / Setor Kas</h2><small id="cashEntryHelp" style="color:var(--muted)">Catat modal baru atau uang yang disetor keluar dari laci kasir.</small></div></div>
+                    <div class="form-grid">
+                        <div class="field"><label>JENIS TRANSAKSI</label><select id="cashEntryType"><option value="modal">Tambah Modal (uang baru dari pemilik)</option><option value="setor">Setor Kas (keluar dari laci)</option></select></div>
+                        <div class="field"><label>TANGGAL</label><input id="cashEntryDate" type="date"></div>
+                        <div class="field"><label>NOMINAL (RP)</label><input id="cashEntryAmount" type="number" min="1" step="1" placeholder="Masukkan nominal"></div>
+                        <div class="field"><label>KETERANGAN</label><input id="cashEntryNote" placeholder="Contoh: modal tambahan / setor ke brankas"></div>
+                    </div>
+                    <button class="btn primary" style="margin-top:12px" onclick="saveCashEntry()">Simpan Transaksi Kas</button>
+                </div>
+                <div class="card" style="margin-top:18px">
+                    <div class="section-title"><div><h2>Laporan Arus Kas</h2><small style="color:var(--muted)">Penjualan diakumulasi per hari. Pembelian dan pengeluaran diambil otomatis dari menu masing-masing.</small></div><button class="btn primary no-print" onclick="printCashFlow()">🖨️ Cetak Arus Kas / PDF</button></div>
+                    <div class="report-toolbar no-print">
+                        <div class="field"><label>DARI TANGGAL</label><input id="cashReportFrom" type="date" onchange="renderCashFinance()"></div>
+                        <div class="field"><label>SAMPAI TANGGAL</label><input id="cashReportTo" type="date" onchange="renderCashFinance()"></div>
+                    </div>
+                    <div id="cashFlowSummary" class="cards" style="margin-bottom:14px"></div>
+                    <div style="overflow:auto"><table class="table"><thead><tr><th>Tanggal</th><th>Nama Kasir</th><th>Jenis</th><th>Keterangan</th><th>Uang Masuk</th><th>Uang Keluar</th></tr></thead><tbody id="cashFlowTable"></tbody></table></div>
+                    <div class="cash-flow-note" style="margin-top:12px;color:var(--muted);font-size:12px">Catatan: saldo kas tunai dihitung berdasarkan data yang terlihat untuk akun yang sedang login. Pembelian dan pengeluaran dianggap tunai dan mengurangi saldo kas.</div>
+                </div>
+            </section>
+
+            <section id="laporan" class="page">
+                <div class="card no-print">
+                    <div class="section-title">
+                        <div>
+                            <h2>Laporan Berdasarkan Rentang Tanggal</h2><small style="color:var(--muted)">Pilih periode lalu cetak atau simpan sebagai PDF.</small>
+                        </div>
+                    </div>
+                    <div class="report-toolbar">
+                        <div class="field"><label>DARI TANGGAL</label><input id="reportFrom" type="date" onchange="changeReportRange()"></div>
+                        <div class="field"><label>SAMPAI TANGGAL</label><input id="reportTo" type="date" onchange="changeReportRange()"></div>
+                        <div class="report-actions">
+                            <button class="btn primary" onclick="printProfitLoss()">📄 Laba Rugi / PDF</button>
+                            <button class="btn" onclick="printPurchases()">🛒 Pembelian / PDF</button>
+                            <button class="btn" onclick="printStock()">📦 Stok / PDF</button>
+                            <button class="btn" onclick="exportCSV()">📊 Export CSV</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="cards">
+                    <div class="card metric">
+                        <div><small>Omzet</small><strong id="rOmzet">Rp0</strong></div>
+                        <div class="icon">💰</div>
+                    </div>
+                    <div class="card metric">
+                        <div><small>Total HPP</small><strong id="rHpp">Rp0</strong></div>
+                        <div class="icon">🧮</div>
+                    </div>
+                    <div class="card metric">
+                        <div><small>Laba Kotor</small><strong id="rLaba">Rp0</strong></div>
+                        <div class="icon">📈</div>
+                    </div>
+                    <div class="card metric">
+                        <div><small>Laba Bersih</small><strong id="rNet">Rp0</strong></div>
+                        <div class="icon">✨</div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:18px">
+                    <div class="section-title">
+                        <h2>Riwayat Transaksi</h2><small id="reportPeriodLabel" style="color:var(--muted)"></small>
+                    </div>
+                    <div style="overflow:auto">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>Tanggal</th>
+                                    <th>Nama Kasir</th>
+                                    <th>Item</th>
+                                    <th>Pembayaran</th>
+                                    <th>Status</th>
+                                    <th>Sisa</th>
+                                    <th>Omzet</th>
+                                    <th>HPP</th>
+                                    <th>Laba</th>
+                                    <th class="no-print">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="reportTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <section id="pengaturan" class="page">
+                <div class="card">
+                    <div class="section-title">
+                        <h2>Pengaturan Profil</h2>
+                    </div>
+                    <div class="form-grid">
+                        <div class="field"><label>NAMA USAHA</label><input id="shopName" value="Cafe XXX"></div>
+                        <div class="field"><label>TELEPON</label><input id="shopPhone" placeholder="08xxxxxxxxxx"></div>
+                        <div class="field full"><label>ALAMAT USAHA</label><input id="shopAddress" placeholder="Alamat Usaha"></div>
+                        <div class="field full">
+                            <label>LOGO USAHA</label>
+                            <div class="settings-logo">
+                                <div id="logoPreview" class="logo-preview">☕</div>
+                                <div>
+                                    <input id="shopLogo" type="file" accept="image/png,image/jpeg,image/webp" onchange="previewLogo(this)">
+                                    <small style="display:block;color:var(--muted);margin-top:6px">Logo digunakan pada nota thermal dan laporan cetak/PDF.</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="btn primary" style="margin-top:15px" onclick="saveSettings()">Simpan Pengaturan</button>
+                </div>
+
+                <div class="card settings-auth" id="userManagementCard">
+                    <div class="section-title">
+                        <h2>Manajemen User</h2>
+                    </div>
+                    <div class="hint">Kelola nama pengguna yang tercetak pada nota. Nama Admin dan Kasir dapat diedit dari sini.</div>
+
+                    <div style="margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--soft)">
+                        <div class="section-title" style="margin-bottom:10px">
+                            <h3 style="margin:0">👤 Admin</h3>
+                        </div>
+                        <div class="form-grid">
+                            <div class="field full">
+                                <label>NAMA ADMIN</label>
+                                <input id="adminNameSetting" type="text" placeholder="Nama Admin">
+                            </div>
+                            <div class="field full">
+                                <label>EMAIL ADMIN</label>
+                                <input id="adminEmailSetting" type="email" readonly>
+                            </div>
+                        </div>
+                        <button class="btn primary" style="margin-top:12px" onclick="saveAdminName()">Simpan Nama Admin</button>
+                    </div>
+
+                    <div style="margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--soft)">
+                        <div class="section-title" style="margin-bottom:10px">
+                            <h3 style="margin:0">👥 Kasir</h3>
+                            <button class="btn primary" onclick="openAddKasirModal()">+ Tambah Kasir</button>
+                        </div>
+                        <div id="kasirUserList"></div>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:18px">
+                    <div class="section-title">
+                        <h2>Data</h2>
+                    </div>
+                    <p style="color:var(--muted);font-size:13px">Data aplikasi dipisahkan berdasarkan username pada perangkat. Login menggunakan akun cloud; sinkronisasi database cloud akan menjadi tahap berikutnya.</p><button class="btn" onclick="backup()">💾 Backup JSON</button> <label class="btn">📥 Restore JSON<input type="file" accept=".json" hidden onchange="restore(this.files[0])"></label>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div class="modal" id="modal">
+        <div class="modal-box">
+            <div class="modal-head">
+                <h2 id="modalTitle"></h2><button class="close" onclick="closeModal()">✕</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js"></script>
+        <script>
+        const FIREBASE_CONFIG = {
+            apiKey: "AIzaSyAcJd2J-UKJ1dXqMI1HTf4BxmEftsuT2YU",
+            authDomain: "e-kasir-5a8f8.firebaseapp.com",
+            projectId: "e-kasir-5a8f8",
+            storageBucket: "e-kasir-5a8f8.firebasestorage.app",
+            messagingSenderId: "603460538194",
+            appId: "1:603460538194:web:b589708325a77deb7a748b",
+        };
+        const PLATFORM_OWNER_UID = 'Cmd0W9M8rofGbAcFkRLcfgmT2Lb2';
+        const LEGACY_TEST_UID = 'XgaiCBqUcYg9Zp5DLMTtjeRkC8B2';
+        let SHOP_ID = 'utama';
+        const BASE_KEY = 'ekasir_firebase_v1';
+        const AUTH_KEY = 'ekasir_firebase_session';
+        let currentUser = null,
+            currentRole = '',
+            currentUserName = '',
+            KEY = BASE_KEY,
+            db = {};
+        let firebaseReady = false;
+        // Sesi lokal hanya untuk membuka data perangkat ketika Firebase Auth tidak tersedia.
+        // Tidak boleh melakukan penulisan cloud sampai Firebase mengonfirmasi user asli.
+        let offlineLocalSession = false;
+        let firebaseAdminApp = null;
+        let firebaseAdminAuth = null;
+
+        function blankDb() {
+            return {
+                settings: {
+                    name: 'KopiKasir Coffee',
+                    phone: '',
+                    address: '',
+                    logo: ''
+                },
+                menus: [],
+                bahan: [],
+                recipes: [],
+                transactions: [],
+                expenses: [],
+                stockMoves: [],
+                purchases: [],
+                stockPeriods: {},
+                nextId: 1
+            }
+        }
+
+        function normalizeDb() {
+            if (!db || typeof db !== 'object') db = blankDb();
+            db.menus = Array.isArray(db.menus) ? db.menus : [];
+            db.bahan = Array.isArray(db.bahan) ? db.bahan : [];
+            db.recipes = Array.isArray(db.recipes) ? db.recipes : [];
+            db.transactions = Array.isArray(db.transactions) ? db.transactions : [];
+            db.expenses = Array.isArray(db.expenses) ? db.expenses : [];
+            db.stockMoves = Array.isArray(db.stockMoves) ? db.stockMoves : [];
+            db.purchases = Array.isArray(db.purchases) ? db.purchases : db.stockMoves.filter(m => m && m.type === 'purchase').map(m => ({
+                ...m
+            }));
+            db.stockPeriods = db.stockPeriods && typeof db.stockPeriods === 'object' ? db.stockPeriods : {};
+            db.nextId = Number.isFinite(+db.nextId) ? +db.nextId : 1;
+            // Migrasi data lama: setiap pengeluaran harus memiliki ID agar bisa diedit/hapus dengan aman.
+            let maxEntityId = Math.max(0, ...[].concat(db.menus, db.bahan, db.transactions, db.purchases, db.expenses, db.stockMoves).map(x => +x?.id || 0));
+            db.expenses.forEach(e => {
+                if (!Number.isFinite(+e.id) || +e.id <= 0) e.id = ++maxEntityId;
+            });
+            db.nextId = Math.max(db.nextId, maxEntityId + 1);
+            if (!db.settings || typeof db.settings !== 'object') db.settings = {
+                name: 'KopiKasir Coffee',
+                phone: '',
+                address: '',
+                logo: ''
+            };
+            if (!('logo' in db.settings)) db.settings.logo = '';
+            db.bahan.forEach(b => {
+                if (!b.unit) b.unit = 'gram';
+                if (!Number.isFinite(+b.content) || +b.content <= 0) b.content = 1;
+                if (!Number.isFinite(+b.cost)) b.cost = 0;
+                if (!Number.isFinite(+b.min)) b.min = 0
+            });
+        }
+
+        function setCloudStatus(t, ok = false) {
+            const e = document.getElementById('cloudStatus');
+            if (e) {
+                const isFail = /gagal|tidak|belum/i.test(String(t));
+                const isOk = ok || /tersinkron/i.test(String(t));
+                e.innerHTML = '<span class="sync-indicator ' + (isOk ? 'online' : (isFail ? 'offline' : 'checking')) + '" title="' +
+                    (isOk ? 'Tersinkron' : (isFail ? 'Tidak tersinkron' : 'Menghubungkan...')) + '"></span>';
+                e.className = 'cloud-dot sync-status ' + (isOk ? 'online' : (isFail ? 'offline' : 'checking'));
+            }
+        }
+
+        function firebaseInit() {
+            try {
+                if (!FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey.startsWith('ISI_')) return false;
+                if (!firebase.apps.length) firebase.initializeApp(FIREBASE_CONFIG);
+                window.fbAuth = firebase.auth();
+                window.fbFs = firebase.firestore();
+                firebaseReady = true;
+                return true
+            } catch (e) {
+                console.error(e);
+                return false
+            }
+        }
+
+        function validEmail(v) {
+            return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim())
+        }
+
+        function showAuthMessage(msg, type = 'err') {
+            const e = document.getElementById('authMsg');
+            if (e) {
+                e.textContent = msg;
+                e.className = 'auth-msg show ' + type
+            }
+        }
+        let authMode = 'login';
+        let registrationInProgress = false;
+
+        function switchAuth(mode) {
+            authMode = mode;
+            const registering = mode === 'register';
+            document.getElementById('tabLogin').classList.toggle('active', !registering);
+            document.getElementById('tabRegister').classList.toggle('active', registering);
+            document.getElementById('authTitle').textContent = registering ? 'Buat Akun' : 'Masuk';
+            document.getElementById('authSubtitle').textContent = registering ? 'Daftarkan akun Admin/Pemilik Warung untuk menggunakan e-Kasir.' : 'Masuk menggunakan email dan password Anda.';
+            document.getElementById('authSubmit').textContent = registering ? 'Daftar' : 'Masuk';
+            document.getElementById('authConfirmWrap').style.display = registering ? 'grid' : 'none';
+            document.getElementById('registerFields').style.display = registering ? 'block' : 'none';
+            ['registerAdminName','registerShopName'].forEach(id => { const el=document.getElementById(id); if(el) el.required=registering; });
+            document.getElementById('authPassword').autocomplete = registering ? 'new-password' : 'current-password';
+            document.getElementById('authMsg').className = 'auth-msg';
+        }
+
+        function togglePasswordVisibility(inputId, button) {
+            const input = document.getElementById(inputId);
+            if (!input) return;
+            const visible = input.type === 'password';
+            input.type = visible ? 'text' : 'password';
+            button.setAttribute('aria-label', visible ? 'Sembunyikan password' : 'Tampilkan password');
+            button.setAttribute('title', visible ? 'Sembunyikan password' : 'Tampilkan password');
+            button.innerHTML = visible
+                ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.9 5.2A10.7 10.7 0 0112 5c6.4 0 10 7 10 7a17 17 0 01-3.1 3.9M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7a10.6 10.6 0 005.1-1.3"/></svg>'
+                : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>';
+        }
+        async function submitAuth(ev) {
+            ev.preventDefault();
+            if (!firebaseInit()) return showAuthMessage('Firebase belum dikonfigurasi di HTML. Isi FIREBASE_CONFIG terlebih dahulu.');
+            const email = document.getElementById('authUsername').value.trim().toLowerCase(),
+                p = document.getElementById('authPassword').value;
+            if (!validEmail(email)) return showAuthMessage('Format email tidak valid.');
+            if (p.length < 6) return showAuthMessage('Password minimal 6 karakter.');
+            const registerAdminName = document.getElementById('registerAdminName')?.value.trim() || '';
+            if (authMode === 'register' && !registerAdminName) return showAuthMessage('Nama pemilik/admin wajib diisi.');
+            if (authMode === 'register' && p !== document.getElementById('authPassword2').value) return showAuthMessage('Konfirmasi password tidak sama.');
+            const btn = document.getElementById('authSubmit');
+            btn.disabled = true;
+            btn.textContent = 'Memproses...';
+            try {
+                let cred;
+                if (authMode === 'register') {
+                    registrationInProgress = true;
+                    cred = await fbAuth.createUserWithEmailAndPassword(email, p);
+                    const uid = cred.user.uid;
+                    const shopId = 'shop_' + uid;
+                    await fbFs.doc('users/' + uid).set({
+                        uid, name: registerAdminName, email, role: 'admin', shopId,
+                        approved: false, disabled: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    try { await fbAuth.signOut(); } catch (_) {}
+                    registrationInProgress = false;
+                    currentUser = null; currentRole = '';
+                    localStorage.removeItem(AUTH_KEY);
+                    document.getElementById('authScreen').style.display = 'grid';
+                    showAuthMessage('Pendaftaran berhasil. Akun Anda menunggu persetujuan Super Admin. Silakan login setelah akun disetujui.', 'ok');
+                } else {
+                    cred = await fbAuth.signInWithEmailAndPassword(email, p);
+                    await finishFirebaseLogin(cred.user);
+                }
+            } catch (e) {
+                let m = e.code === 'auth/email-already-in-use' ? 'Email sudah terdaftar.' : e.code === 'auth/invalid-credential' ? 'Email atau password salah.' : e.code === 'auth/wrong-password' ? 'Email atau password salah.' : e.code === 'auth/too-many-requests' ? 'Terlalu banyak percobaan. Coba lagi nanti.' : (e.message || 'Login gagal');
+                showAuthMessage(m)
+            } finally {
+                registrationInProgress = false;
+                btn.disabled = false;
+                btn.textContent = authMode === 'login' ? 'Masuk' : 'Daftar'
+            }
+        }
+        async function finishFirebaseLogin(user) {
+            offlineLocalSession = false;
+            currentUser = user;
+            currentUserName = user.displayName || (user.email ? user.email.split('@')[0] : '') || 'User';
+            KEY = BASE_KEY + '_' + user.uid;
+            try {
+                const isPlatformOwner = user.uid === PLATFORM_OWNER_UID;
+                const isLegacyTest = user.uid === LEGACY_TEST_UID;
+                let profile = {};
+                let profileLoadedFromCloud = false;
+                try {
+                    const p = await fbFs.doc('users/' + user.uid).get();
+                    profile = p.exists ? (p.data() || {}) : {};
+                    profileLoadedFromCloud = true;
+                } catch (profileError) {
+                    // Saat offline, gunakan profil terakhir yang berhasil diverifikasi saat online.
+                    const cachedProfile = JSON.parse(localStorage.getItem('ekasir_profile_cache_' + user.uid) || 'null');
+                    const networkUnavailable = !navigator.onLine || ['unavailable', 'deadline-exceeded'].includes(profileError?.code);
+                    if (networkUnavailable && cachedProfile && cachedProfile.uid === user.uid) {
+                        profile = cachedProfile;
+                        console.warn('Mode offline: memakai profil akun tersimpan di perangkat.');
+                    } else {
+                        throw profileError;
+                    }
+                }
+
+                // Pemilik platform dan akun uji lama dipertahankan.
+                // Persetujuan Super Admin hanya diwajibkan untuk Admin Warung,
+                // bukan kasir yang dibuat oleh Admin Warung.
+                if (!isPlatformOwner && !isLegacyTest && profileLoadedFromCloud && !Object.keys(profile).length) {
+                    throw new Error('Profil akun belum tersedia. Hubungi Admin.');
+                }
+                if (isLegacyTest && !profileLoadedFromCloud && !Object.keys(profile).length) profile = { role: 'admin', shopId: 'utama', name: currentUserName };
+                if (isPlatformOwner && !profileLoadedFromCloud && !Object.keys(profile).length) profile = { role: 'admin', shopId: 'utama', name: currentUserName, approved: true };
+
+                currentRole = (isPlatformOwner || isLegacyTest) ? 'admin' : String(profile.role || '').toLowerCase();
+                if (!['admin', 'kasir'].includes(currentRole)) throw new Error('Role akun belum diatur. Hubungi Admin.');
+                if (!isPlatformOwner && profile.disabled === true) {
+                    throw new Error('Akun Anda sedang dinonaktifkan. Hubungi Admin.');
+                }
+                if (!isPlatformOwner && !isLegacyTest && currentRole === 'admin' && profile.approved !== true) {
+                    throw new Error('Akun Anda masih menunggu persetujuan Admin.');
+                }
+                SHOP_ID = (isPlatformOwner || isLegacyTest) ? 'utama' : String(profile.shopId || '');
+                if (!SHOP_ID) throw new Error('ID warung belum diatur pada profil akun. Hubungi Admin.');
+                currentUserName = String(profile.name || profile.displayName || currentUserName || 'User').trim() || 'User';
+                if (profileLoadedFromCloud) {
+                    try {
+                        localStorage.setItem('ekasir_profile_cache_' + user.uid, JSON.stringify({
+                            uid: user.uid, role: currentRole, shopId: SHOP_ID,
+                            name: currentUserName, approved: profile.approved === true,
+                            disabled: profile.disabled === true, cachedAt: Date.now()
+                        }));
+                    } catch (_) {}
+                }
+            } catch (e) {
+                console.error('load user profile:', e);
+                currentUser = null;
+                currentRole = '';
+                localStorage.removeItem(AUTH_KEY);
+                try { await fbAuth.signOut(); } catch (_) {}
+                document.getElementById('authScreen').style.display = 'grid';
+                showAuthMessage(e.message || 'Akun tidak dapat masuk. Periksa status persetujuan dan profil akun.');
+                return;
+            }
+            localStorage.setItem(AUTH_KEY, JSON.stringify({ uid: user.uid, email: user.email }));
+            if (user.uid === PLATFORM_OWNER_UID) {
+                document.getElementById('authScreen').style.display = 'none';
+                document.querySelector('.app').style.display = 'none';
+                document.getElementById('platformOwnerScreen').style.display = 'block';
+                await loadPlatformUsers();
+                return;
+            }
+            document.getElementById('platformOwnerScreen').style.display = 'none';
+            document.querySelector('.app').style.display = '';
+            const local = JSON.parse(localStorage.getItem(KEY) || 'null');
+            db = local || blankDb();
+            normalizeDb();
+            document.getElementById('authScreen').style.display = 'none';
+            renderUserChip();
+            applyRoleAccess();
+            ensureAdminUserManagement();
+            renderAll();
+            if (!navigator.onLine) setCloudStatus('Offline — data lokal');
+            if (navigator.onLine && localStorage.getItem('ekasir_pending_sync_' + currentUser.uid) === '1') {
+                await syncFirebase(true); // Kirim antrean lokal lebih dulu agar tidak tertimpa data cloud.
+            }
+            // Jika sinkronisasi masih gagal, pertahankan salinan lokal dan antreannya.
+            if (localStorage.getItem('ekasir_pending_sync_' + currentUser.uid) !== '1') {
+                await loadFirebaseData();
+            } else {
+                setCloudStatus(navigator.onLine ? 'Menunggu sinkronisasi' : 'Offline — data lokal');
+            }
+            applyRoleAccess();
+            ensureAdminUserManagement();
+            renderAll();
+        }
+
+        function isAdminClient() {
+            return currentRole === 'admin' || currentUser?.uid === PLATFORM_OWNER_UID || currentUser?.uid === LEGACY_TEST_UID
+        }
+
+        function isKasirClient() {
+            return currentRole === 'kasir'
+        }
+
+        // Hak akses menu berdasarkan role. Kasir dapat membuka Dashboard, Kasir, Pembelian, dan Laporan terbatas.
+        function applyRoleAccess() {
+            const kasir = isKasirClient();
+            const allowedKasirPages = ['dashboard', 'kasir', 'pembelian', 'pengeluaran', 'laporan', 'keuangan'];
+            const openingTitle = document.getElementById('cashOpeningTitle');
+            const openingHelp = document.getElementById('cashOpeningHelp');
+            const entryTitle = document.getElementById('cashEntryTitle');
+            const entryHelp = document.getElementById('cashEntryHelp');
+            if (openingTitle) openingTitle.textContent = kasir ? 'Saldo Awal Kas Saya' : 'Pengaturan Saldo Awal';
+            if (openingHelp) openingHelp.textContent = kasir ? 'Masukkan saldo tunai awal untuk laci akun kasir yang sedang login.' : 'Masukkan saldo tunai awal kas usaha.';
+            if (entryTitle) entryTitle.textContent = kasir ? 'Setoran Modal Kasir' : 'Tambah Modal / Setor Kas';
+            if (entryHelp) entryHelp.textContent = kasir ? 'Catat modal tambahan untuk laci kasir atau setoran uang keluar dari laci Anda.' : 'Catat modal baru dari pemilik atau uang yang disetor keluar dari laci.';
+            const entryType = document.getElementById('cashEntryType');
+            if (entryType) entryType.options[0].textContent = kasir ? 'Tambah Modal untuk Kasir' : 'Tambah Modal (uang baru dari pemilik)';
+            document.body.classList.toggle('role-kasir', kasir);
+
+            document.querySelectorAll('.nav button').forEach(btn => {
+                const page = btn.dataset.page;
+                btn.style.display = (!kasir || allowedKasirPages.includes(page)) ? '' : 'none';
+            });
+
+            // Sembunyikan fungsi administrasi/backup untuk Kasir.
+            const backupBtn = Array.from(document.querySelectorAll('.topbar .actions button')).find(btn => btn.getAttribute('onclick') === 'backup()');
+            if (backupBtn) backupBtn.style.display = kasir ? 'none' : '';
+
+            // Kasir hanya melihat omzet dan riwayat transaksi pada halaman Laporan.
+            const reportTitle = document.querySelector('#laporan .section-title h2');
+            if (reportTitle) reportTitle.textContent = kasir ? 'Riwayat Transaksi & Omzet' : 'Laporan Berdasarkan Rentang Tanggal';
+            const reportSubtitle = document.querySelector('#laporan .section-title small');
+            if (reportSubtitle) reportSubtitle.textContent = kasir ? 'Pilih periode untuk melihat riwayat transaksi dan omzet.' : 'Pilih periode lalu cetak atau simpan sebagai PDF.';
+        }
+
+        function canAccessPage(page) {
+            if (isAdminClient()) return true;
+            if (isKasirClient()) return ['dashboard', 'kasir', 'pembelian', 'pengeluaran', 'laporan', 'keuangan'].includes(page);
+            return false;
+        }
+
+        const COLLECTIONS = {
+            menus: 'menus',
+            bahan: 'bahan',
+            recipes: 'recipes',
+            transactions: 'transactions',
+            purchases: 'purchases',
+            expenses: 'expenses',
+            stockMoves: 'stock',
+            stockPeriods: 'stockPeriods'
+        };
+
+        function colRef(name) {
+            return fbFs.collection('toko').doc(SHOP_ID).collection(name)
+        }
+        async function readCollection(name) {
+            const snap = await colRef(name).get();
+            return snap.docs.map(d => ({
+                __docId: d.id,
+                ...d.data()
+            }))
+        }
+        async function readOwnedCollection(name, ownerField) {
+            if (isAdminClient()) return readCollection(name);
+            if (!isKasirClient() || !currentUser?.uid) return [];
+            const snap = await colRef(name).where(ownerField, '==', currentUser.uid).get();
+            return snap.docs.map(d => ({ __docId: d.id, ...d.data() }));
+        }
+        async function loadFirebaseData() {
+            if (!currentUser || !firebaseReady) return;
+            if (!navigator.onLine) {
+                setCloudStatus('Offline — data lokal');
+                return; // Jangan timpa data lokal dengan hasil baca yang gagal saat offline.
+            }
+            setCloudStatus('Menghubungkan...');
+            try {
+                const [menus, bahan, recipes, transactions, purchases, expenses, stockMoves, stockPeriods, settings] = await Promise.all([readCollection('menus'), readCollection('bahan'), readCollection('recipes'), readOwnedCollection('transactions', 'cashierUid'), readOwnedCollection('purchases', 'createdByUid'), readOwnedCollection('expenses', 'createdByUid'), isAdminClient() ? readCollection('stock') : Promise.resolve([]), isAdminClient() ? readCollection('stockPeriods') : Promise.resolve([]), isAdminClient() ? fbFs.doc('toko/' + SHOP_ID + '/settings/profile').get() : Promise.resolve({ exists: false })]);
+                db.menus = menus.map(x => {
+                    delete x.__docId;
+                    return x
+                });
+                db.bahan = bahan.map(x => {
+                    delete x.__docId;
+                    return x
+                });
+                db.recipes = recipes.map(x => {
+                    delete x.__docId;
+                    return x
+                });
+                db.transactions = transactions.map(x => {
+                    delete x.__docId;
+                    return x
+                });
+                db.purchases = purchases.map(x => {
+                    delete x.__docId;
+                    return x
+                });
+                db.expenses = expenses.map(x => {
+                    delete x.__docId;
+                    return x
+                });
+                db.stockMoves = stockMoves.map(x => {
+                    delete x.__docId;
+                    return x
+                });
+                db.stockPeriods = {};
+                stockPeriods.forEach(x => {
+                    const id = x.__docId;
+                    delete x.__docId;
+                    db.stockPeriods[id] = x
+                });
+                if (settings.exists) db.settings = {
+                    ...db.settings,
+                    ...settings.data()
+                };
+                db.nextId = Math.max(1, ...[].concat(db.menus, db.bahan, db.transactions, db.purchases, db.expenses, db.stockMoves).map(x => +x.id || 0)) + 1;
+                normalizeDb();
+                localStorage.setItem(KEY, JSON.stringify(db));
+                await migrateUndefinedRecipes();
+                setCloudStatus('Tersinkron', true)
+            } catch (e) {
+                console.error(e);
+                setCloudStatus('Sinkron gagal');
+            }
+        }
+        async function migrateUndefinedRecipes() {
+            if (!isAdminClient() || !firebaseReady || !currentUser) return;
+            try {
+                const ref = colRef('recipes');
+                const bad = await ref.doc('undefined').get();
+                if (!bad.exists) return;
+                const data = bad.data() || {};
+                const menuId = data.menuId ?? data.menuID ?? data.menu_id;
+                if (menuId === undefined || menuId === null || String(menuId).trim() === '' || String(menuId) === 'undefined') {
+                    console.warn('recipes/undefined ditemukan tetapi menuId tidak tersedia:', data);
+                    return;
+                }
+                const targetId = String(menuId);
+                const target = ref.doc(targetId);
+                const existing = await target.get();
+                const payload = { ...data, menuId: menuId };
+                delete payload.__docId;
+                if (existing.exists) {
+                    const oldItems = Array.isArray(existing.data()?.items) ? existing.data().items : [];
+                    const newItems = Array.isArray(data.items) ? data.items : [];
+                    if (newItems.length && (!oldItems.length || JSON.stringify(oldItems) !== JSON.stringify(newItems))) {
+                        payload.items = newItems;
+                    }
+                }
+                await target.set(payload, { merge: true });
+                await ref.doc('undefined').delete();
+                console.info('Migrasi resep berhasil: recipes/undefined -> recipes/' + targetId);
+            } catch (e) {
+                console.error('migrateUndefinedRecipes:', e);
+            }
+        }
+
+        async function writeArray(name, arr, allowDelete = false) {
+            const ref = colRef(name);
+            // Kasir hanya perlu menulis dokumen miliknya; jangan membaca seluruh koleksi.
+            // Pembacaan koleksi dapat ditolak oleh Firestore Rules untuk akun kasir.
+            const existing = allowDelete ? await ref.get() : null;
+            const wanted = new Set();
+            for (const item of arr) {
+                // Resep tidak mempunyai field id tersendiri. Gunakan menuId
+                // sebagai ID dokumen agar 1 menu selalu mempunyai 1 dokumen resep.
+                const rawId = name === 'recipes'
+                    ? (item.menuId ?? item.menuID ?? item.id)
+                    : item.id;
+                if (rawId === undefined || rawId === null || String(rawId).trim() === '' || String(rawId) === 'undefined') {
+                    console.warn('Dokumen ' + name + ' dilewati karena ID tidak valid:', item);
+                    continue;
+                }
+                const id = String(rawId);
+                wanted.add(id);
+                await ref.doc(id).set(item, {
+                    merge: true
+                })
+            }
+            if (allowDelete && existing) {
+                for (const d of existing.docs)
+                    if (!wanted.has(d.id)) await d.ref.delete()
+            }
+        }
+        async function syncFirebase(force = false) {
+            // Jangan mengirim data memakai identitas sesi lokal yang belum diverifikasi Firebase.
+            if (offlineLocalSession || !currentUser || !firebaseReady || !fbAuth?.currentUser || fbAuth.currentUser.uid !== currentUser.uid) return;
+            if (!navigator.onLine) {
+                setCloudStatus('Offline — menunggu sinkronisasi');
+                return;
+            }
+            if (force) setCloudStatus('Menyinkronkan...');
+            try {
+                if (isAdminClient()) {
+                    // Sinkronisasi rutin bersifat merge-only; tidak menghapus dokumen cloud
+                    // berdasarkan salinan lokal yang mungkin belum lengkap.
+                    await Promise.all([writeArray('menus', db.menus, false), writeArray('bahan', db.bahan, false), writeArray('recipes', db.recipes, false), writeArray('transactions', db.transactions, false), writeArray('purchases', db.purchases, false), writeArray('expenses', db.expenses, false), writeArray('stock', db.stockMoves, false), writeArray('stockPeriods', Object.entries(db.stockPeriods).map(([id, v]) => ({
+                        id,
+                        ...v
+                    })), false)]);
+                    await fbFs.doc('toko/' + SHOP_ID + '/settings/profile').set(db.settings, {
+                        merge: true
+                    })
+                } else if (isKasirClient()) {
+                    await Promise.all([writeArray('transactions', db.transactions, false), writeArray('purchases', db.purchases, false), writeArray('expenses', db.expenses, false)])
+                }
+                localStorage.setItem(KEY, JSON.stringify(db));
+                try { localStorage.removeItem('ekasir_pending_sync_' + currentUser.uid); } catch (_) {}
+                setCloudStatus('Tersinkron', true)
+            } catch (e) {
+                console.error(e);
+                setCloudStatus(navigator.onLine ? 'Sinkron gagal' : 'Offline — menunggu sinkronisasi');
+                if (navigator.onLine) toast('Sinkronisasi Firebase gagal: ' + (e.message || ''));
+            }
+        }
+        let syncTimer = null;
+
+        function queueCloudSync() {
+            if (!currentUser) return;
+            if (!navigator.onLine) {
+                setCloudStatus('Offline — menunggu sinkronisasi');
+                return;
+            }
+            clearTimeout(syncTimer);
+            syncTimer = setTimeout(() => syncFirebase(false), 500)
+        }
+
+        function save() {
+            normalizeDb();
+            localStorage.setItem(KEY, JSON.stringify(db));
+            if (currentUser?.uid) {
+                try { localStorage.setItem('ekasir_pending_sync_' + currentUser.uid, '1'); } catch (_) {}
+            }
+            queueCloudSync()
+        }
+
+        // Saat offline, transaksi tetap tersimpan di localStorage. Ketika internet
+        // kembali, kirim data lokal terlebih dahulu baru muat ulang data cloud.
+        window.addEventListener('offline', () => {
+            setCloudStatus('Offline — data tersimpan di perangkat');
+        });
+        window.addEventListener('online', async () => {
+            if (!firebaseReady) return;
+            // Jika sedang dalam sesi lokal, lanjutkan sinkronisasi hanya setelah Firebase
+            // memulihkan user asli; jika belum ada, jangan kirim data dengan sesi palsu.
+            if (offlineLocalSession) {
+                const authenticatedUser = fbAuth?.currentUser;
+                if (authenticatedUser) {
+                    await finishFirebaseLogin(authenticatedUser);
+                } else {
+                    setCloudStatus('Internet kembali — login diperlukan untuk sinkronisasi');
+                    showAuthMessage('Data lokal tetap aman. Login kembali saat internet aktif untuk menyinkronkan data.');
+                    return;
+                }
+            }
+            if (!currentUser) return;
+            setCloudStatus('Internet kembali — menyinkronkan...');
+            await syncFirebase(true);
+            if (localStorage.getItem('ekasir_pending_sync_' + currentUser.uid) !== '1') {
+                await loadFirebaseData();
+            } else {
+                setCloudStatus('Sinkronisasi tertunda — data lokal aman');
+            }
+            renderAll();
+        });
+
+        function renderUserChip() {
+            const el = document.getElementById('userChip');
+            if (!el) return;
+            const role = String(currentRole || '').toLowerCase();
+            const label = role === 'admin' ? 'Admin' : (role === 'kasir' ? 'Kasir' : 'User');
+            el.innerHTML = currentUser ? '<div class="user-avatar">👤</div><div class="user-role-label">' + label + '</div>' : '';
+        }
+        function showToastOfflineNotice() {
+            try { toast('Mode offline: data tersimpan di HP. Login online diperlukan untuk sinkronisasi.'); } catch (_) {}
+        }
+        async function logout() {
+            offlineLocalSession = false;
+            try {
+                if (window.fbAuth) await fbAuth.signOut()
+            } catch (e) {}
+            localStorage.removeItem(AUTH_KEY);
+            currentUser = null;
+            currentRole = '';
+            currentUserName = '';
+            KEY = BASE_KEY;
+            db = blankDb();
+            document.getElementById('platformOwnerScreen').style.display = 'none';
+            document.querySelector('.app').style.display = '';
+            document.getElementById('authScreen').style.display = 'grid';
+            document.getElementById('authUsername').value = '';
+            document.getElementById('authPassword').value = '';
+            switchAuth('login');
+            renderUserChip()
+        }
+        async function restoreSession() {
+            firebaseInit();
+            if (!firebaseReady) {
+                document.body.classList.remove('auth-checking');
+                document.getElementById('authScreen').style.display = 'grid';
+                showAuthMessage('Firebase belum dikonfigurasi. Isi FIREBASE_CONFIG di bagian atas kode.');
+                return
+            }
+            fbAuth.onAuthStateChanged(async user => {
+                if (registrationInProgress) return;
+                if (!user) {
+                    // Pulihkan mode lokal hanya jika perangkat sebelumnya berhasil login,
+                    // internet sedang tidak tersedia, dan profil cache cocok dengan UID.
+                    // Ini tidak membuat sesi Firebase baru dan tidak mengizinkan sinkronisasi cloud.
+                    if (!navigator.onLine) {
+                        try {
+                            const savedSession = JSON.parse(localStorage.getItem(AUTH_KEY) || 'null');
+                            const cachedProfile = savedSession?.uid
+                                ? JSON.parse(localStorage.getItem('ekasir_profile_cache_' + savedSession.uid) || 'null')
+                                : null;
+                            const cachedDb = savedSession?.uid
+                                ? localStorage.getItem(BASE_KEY + '_' + savedSession.uid)
+                                : null;
+                            if (savedSession?.uid && cachedProfile?.uid === savedSession.uid && cachedProfile.shopId && cachedProfile.role && cachedDb) {
+                                offlineLocalSession = true;
+                                currentUser = { uid: savedSession.uid, email: savedSession.email || '', displayName: cachedProfile.name || '' };
+                                currentRole = String(cachedProfile.role).toLowerCase();
+                                currentUserName = cachedProfile.name || currentUser.email.split('@')[0] || 'User';
+                                SHOP_ID = String(cachedProfile.shopId);
+                                KEY = BASE_KEY + '_' + savedSession.uid;
+                                db = JSON.parse(cachedDb) || blankDb();
+                                normalizeDb();
+                                document.getElementById('platformOwnerScreen').style.display = 'none';
+                                document.querySelector('.app').style.display = '';
+                                document.getElementById('authScreen').style.display = 'none';
+                                renderUserChip();
+                                applyRoleAccess();
+                                ensureAdminUserManagement();
+                                renderAll();
+                                setCloudStatus('Offline — data lokal');
+                                showToastOfflineNotice();
+                            } else {
+                                document.getElementById('authScreen').style.display = 'grid';
+                                showAuthMessage('Login pertama kali perlu internet. Setelah login online, aplikasi dapat dibuka offline pada perangkat ini.');
+                            }
+                        } catch (offlineError) {
+                            console.warn('Tidak dapat memulihkan sesi lokal:', offlineError);
+                            document.getElementById('authScreen').style.display = 'grid';
+                        }
+                    } else {
+                        document.getElementById('authScreen').style.display = 'grid';
+                    }
+                    document.body.classList.remove('auth-checking');
+                    return;
+                }
+                try {
+                    await finishFirebaseLogin(user)
+                } catch (e) {
+                    console.error(e);
+                    document.getElementById('authScreen').style.display = 'grid';
+                    showAuthMessage(e.message || 'Gagal memuat akun')
+                } finally {
+                    document.body.classList.remove('auth-checking');
+                }
+            })
+        }
+
+        function defaultRange() {
+            const d = new Date();
+            const y = d.getFullYear(),
+                m = String(d.getMonth() + 1).padStart(2, '0');
+            const last = new Date(y, d.getMonth() + 1, 0).getDate();
+            return {
+                from: `${y}-${m}-01`,
+                to: `${y}-${m}-${String(last).padStart(2,'0')}`
+            };
+        }
+
+        function rangeKey(from, to) {
+            return (from || '') + '__' + (to || '')
+        }
+
+        function getRange() {
+            const a = document.getElementById('stockFrom')?.value,
+                b = document.getElementById('stockTo')?.value;
+            if (a && b && a <= b) return {
+                from: a,
+                to: b
+            };
+            const d = defaultRange();
+            return d;
+        }
+
+        function ensurePeriod(key, from, to) {
+            if (db.stockPeriods[key]) return db.stockPeriods[key];
+            let opening = {};
+            const candidates = Object.values(db.stockPeriods).filter(x => x && x.to && x.to < from).sort((a, b) => String(b.to).localeCompare(String(a.to)));
+            if (candidates.length) opening = JSON.parse(JSON.stringify(candidates[0].ending || {}));
+            db.stockPeriods[key] = {
+                from,
+                to,
+                opening,
+                openingDate: null,
+                ending: {}
+            };
+            return db.stockPeriods[key];
+        }
+
+        function inRange(date, from, to) {
+            return String(date || '') >= from && String(date || '') <= to
+        }
+
+        function recordBelongsToCurrentUser(record, kind = '') {
+            if (isAdminClient()) return true;
+            if (!isKasirClient() || !currentUser?.uid || !record) return false;
+            const uid = kind === 'transaction'
+                ? (record.cashierUid || record.createdByUid || '')
+                : (record.createdByUid || record.cashierUid || '');
+            return String(uid) === String(currentUser.uid);
+        }
+
+        function rangeTransactions(from, to) {
+            return db.transactions.filter(t => inRange(t.date, from, to) && recordBelongsToCurrentUser(t, 'transaction'))
+        }
+
+        function rangePurchases(from, to) {
+            return db.purchases.filter(m => m.type === 'purchase' && inRange(m.date, from, to) && recordBelongsToCurrentUser(m, 'purchase'))
+        }
+
+        // Stok bahan adalah stok bersama: semua kasir memakai penjualan dan pembelian
+        // yang sama, tanpa mengubah pembatasan akses pada laporan/kelola transaksi.
+        function stockTransactions(from, to) {
+            return (db.transactions || []).filter(t => inRange(t.date, from, to));
+        }
+
+        function stockPurchases(from, to) {
+            return (db.purchases || []).filter(m => m.type === 'purchase' && inRange(m.date, from, to));
+        }
+
+        function canManagePurchaseRecord(record) {
+            if (isAdminClient()) return true;
+            if (!isKasirClient() || !currentUser?.uid || !record) return false;
+            const uid = record.createdByUid || record.cashierUid || '';
+            return String(uid) === String(currentUser.uid);
+        }
+
+        function recipeItemParts(item) {
+            if (Array.isArray(item)) return {
+                name: item[0],
+                qty: +item[1] || 0
+            };
+            const b = db.bahan.find(x => x.id === item?.bahanId);
+            return {
+                name: b?.name || item?.name || '',
+                qty: +item?.qty || 0
+            }
+        }
+
+        function usageForRange(b, from, to) {
+            let used = 0;
+            stockTransactions(from, to).forEach(t => (t.items || []).forEach(it => {
+                let r = db.recipes.find(x => x.menuId === it.id);
+                if (r) r.items.forEach(item => {
+                    const z = recipeItemParts(item);
+                    if (z.name === b.name) used += z.qty * (+it.qty || 0)
+                })
+            }));
+            return used
+        }
+
+        function stockSummary(b, from, to) {
+            const key = rangeKey(from, to),
+                p = ensurePeriod(key, from, to),
+                opening = +(p.opening[b.id] ?? 0),
+                purchases = stockPurchases(from, to).filter(x => x.bahanId === b.id).reduce((a, x) => a + (+x.qty || 0), 0),
+                used = usageForRange(b, from, to),
+                ending = opening + purchases - used;
+            p.ending[b.id] = ending;
+            return {
+                opening,
+                purchases,
+                used,
+                ending
+            }
+        }
+        // ===== MODAL + RESEP HELPERS =====
+        let menuRecipeDraft = [];
+let returnToPurchase = false;
+let pendingPurchaseBahanId = null;
+
+        function openModal(title, html) {
+            const modal = document.getElementById('modal');
+            const modalTitle = document.getElementById('modalTitle');
+            const modalBody = document.getElementById('modalBody');
+            if (!modal || !modalTitle || !modalBody) return;
+            modalTitle.textContent = title || '';
+            modalBody.innerHTML = html || '';
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('modal');
+            if (!modal) return;
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        function recipeCost(items) {
+            return (items || []).reduce((sum, item) => {
+                const bahan = db.bahan.find(b => b.id === +item.bahanId);
+                if (!bahan) return sum;
+                return sum + unitCost(bahan) * (+item.qty || 0);
+            }, 0);
+        }
+
+        function renderRecipeRows() {
+            const box = document.getElementById('recipeRows');
+            if (!box) return;
+            if (!db.bahan.length) {
+                box.innerHTML = '<div class=\"empty\">Belum ada bahan. Tambahkan bahan terlebih dahulu melalui menu Stok.</div>';
+                const hppEl = document.getElementById('fHpp');
+                const fcEl = document.getElementById('foodCostPreview');
+                if (hppEl) hppEl.value = '0';
+                if (fcEl) fcEl.value = '-';
+                return;
+            }
+
+            if (!Array.isArray(menuRecipeDraft)) menuRecipeDraft = [];
+            const options = db.bahan.map(b =>
+                `<option value=\"${b.id}\">${b.name}</option>`
+            ).join('');
+
+            box.innerHTML = menuRecipeDraft.length ? menuRecipeDraft.map((row, i) => {
+                const qty = +row.qty || 0;
+                const bahan = db.bahan.find(b => b.id === +row.bahanId);
+                const subtotal = bahan ? unitCost(bahan) * qty : 0;
+                return `<div class=\"form-grid\" style=\"margin-bottom:10px;align-items:end\">
+                    <div class=\"field\">
+                        <label>BAHAN ${i + 1}</label>
+                        <select id=\"riB_${i}\" onchange=\"updateRecipeDraft(${i})\">
+                            <option value=\"0\">Pilih bahan</option>${options}
+                        </select>
+                    </div>
+                    <div class=\"field\">
+                        <label>PEMAKAIAN (${bahan?.unit || 'satuan'})</label>
+                        <div style=\"display:flex;gap:8px\">
+                            <input id=\"riQ_${i}\" type=\"number\" min=\"0\" step=\"${bahan?.unit === 'pcs' ? '1' : '0.01'}\" value=\"${qty}\" oninput=\"updateRecipeDraft(${i})\">
+                            <button type=\"button\" class=\"btn\" onclick=\"removeRecipeRow(${i})\">Hapus</button>
+                        </div>
+                        <small style=\"color:var(--muted)\">${bahan ? rupiah(subtotal) : 'Pilih bahan'}</small>
+                    </div>
+                </div>`;
+            }).join('') : '<div class=\"empty\">Belum ada bahan dalam resep. Klik “+ Tambah Bahan”.</div>';
+
+            menuRecipeDraft.forEach((row, i) => {
+                const select = document.getElementById('riB_' + i);
+                if (select) select.value = String(row.bahanId || 0);
+            });
+
+            const hpp = recipeCost(menuRecipeDraft);
+            const price = +(document.getElementById('fPrice')?.value || 0);
+            const hppEl = document.getElementById('fHpp');
+            const fcEl = document.getElementById('foodCostPreview');
+            if (hppEl) hppEl.value = Math.round(hpp);
+            if (fcEl) fcEl.value = price > 0 ? ((hpp / price) * 100).toFixed(1) + '%' : '-';
+        }
+
+        let cart = [],
+            pay = 'Tunai',
+            activeCat = 'Semua',
+            pendingCheckout = null;
+        const rupiah = n => new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 0
+        }).format(n || 0);
+        const formatQty = n => Number.isInteger(+n) ? String(+n) : String(Number(+n).toFixed(2)).replace(/\.?0+$/, '');
+
+        // Gunakan tanggal lokal perangkat agar sesuai hari di Indonesia (WIB), bukan tanggal UTC.
+        const today = () => {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+        // Tanggal transaksi otomatis terisi hari ini saat aplikasi dibuka.
+        const posDateInput = document.getElementById('posTransactionDate');
+        if (posDateInput && !posDateInput.value) posDateInput.value = today();
+
+        function toast(s) {
+            let e = document.getElementById('toast');
+            e.textContent = s;
+            e.classList.add('show');
+            setTimeout(() => e.classList.remove('show'), 1800)
+        }
+
+        function go(page) {
+            // Blokir akses halaman yang tidak diizinkan berdasarkan role.
+            if (!canAccessPage(page)) {
+                toast('Menu ini hanya dapat diakses oleh Admin.');
+                return;
+            }
+            document.querySelectorAll('.page').forEach(x => x.classList.remove('active'));
+            document.getElementById(page).classList.add('active');
+            document.querySelectorAll('.nav button').forEach(x => x.classList.toggle('active', x.dataset.page === page));
+            const titles = {
+                dashboard: 'Dashboard',
+                kasir: 'Kasir',
+                menu: 'Menu & Resep',
+                pembelian: 'Pembelian',
+                stok: 'Stok',
+                pengeluaran: 'Pengeluaran',
+                keuangan: 'Keuangan',
+                laporan: 'Laporan',
+                pengaturan: 'Pengaturan'
+            };
+            document.getElementById('pageTitle').textContent = titles[page];
+            renderAll();
+        }
+        document.querySelectorAll('.nav button').forEach(b => b.onclick = () => go(b.dataset.page));
+        document.getElementById('dateText').textContent = new Intl.DateTimeFormat('id-ID', {
+            dateStyle: 'full'
+        }).format(new Date());
+
+        function todayTx() {
+            return db.transactions.filter(t => t.date === today())
+        }
+
+        function metrics() {
+            let tx = todayTx(),
+                om = tx.reduce((a, b) => a + b.total, 0),
+                hp = tx.reduce((a, b) => a + b.hpp, 0),
+                ex = db.expenses.filter(x => x.date === today()).reduce((a, b) => a + b.amount, 0),
+                purchaseToday = (db.purchases || []).filter(x => x.date === today()).reduce((a, b) => a + (+b.total || 0), 0);
+            mOmzet.textContent = rupiah(om);
+            mHpp.textContent = rupiah(hp);
+            mLaba.textContent = rupiah(om - hp);
+            // Untuk Kasir, kartu berlabel Pembelian menampilkan total pembelian hari ini.
+            // Untuk Admin, pertahankan nilai Pengeluaran seperti sebelumnya.
+            mKeluar.textContent = rupiah(isKasirClient() ? purchaseToday : ex);
+            const purchaseTrend = document.querySelector('#dashboard .card.metric:has(#mKeluar) .trend');
+            if (purchaseTrend) purchaseTrend.textContent = isKasirClient() ? 'Total pembelian hari ini' : 'Hari ini';
+
+            const unpaid = db.transactions.filter(t => (t.status || 'lunas') !== 'lunas');
+            const unpaidTotal = unpaid.reduce((a, t) => a + Math.max(0, (+t.total || 0) - (+t.paidAmount || 0)), 0);
+            const piutangEl = document.getElementById('mPiutang');
+            const piutangCountEl = document.getElementById('mPiutangCount');
+            if (piutangEl) piutangEl.textContent = rupiah(unpaidTotal);
+            if (piutangCountEl) piutangCountEl.textContent = `${unpaid.length} transaksi belum lunas`;
+            const rr = getReportRange(),
+                rtx = rangeTransactions(rr.from, rr.to),
+                rex = db.expenses.filter(x => inRange(x.date, rr.from, rr.to));
+            const totalO = rtx.reduce((a, b) => a + b.total, 0),
+                totalH = rtx.reduce((a, b) => a + b.hpp, 0),
+                totalE = rex.reduce((a, b) => a + b.amount, 0);
+            rOmzet.textContent = rupiah(totalO);
+            rHpp.textContent = rupiah(totalH);
+            rLaba.textContent = rupiah(totalO - totalH);
+            rNet.textContent = rupiah(totalO - totalH - totalE);
+        }
+
+        function renderRecent() {
+            let x = todayTx().slice(-6).reverse();
+            recent.innerHTML = x.length ? x.map(t => {
+                const status = t.status || 'lunas';
+                const cls = status === 'lunas' ? 'status-paid' : status === 'sebagian' ? 'status-partial' : 'status-unpaid';
+                const label = status === 'lunas' ? 'Lunas' : status === 'sebagian' ? 'Belum Lunas' : 'Belum Bayar';
+                return `<div class="cart-item"><div><b>${t.items.map(i=>i.name+' ×'+i.qty).join(', ')}</b><small style="display:block;color:var(--muted)">${t.time} · ${t.pay} · <span class="badge ${cls}">${label}</span></small></div><div style="display:flex;align-items:center;gap:8px"><b>${rupiah(t.total)}</b><button class="btn no-print" onclick="printThermal(${t.id},80)">🧾</button></div></div>`;
+            }).join('') : '<div class="empty">Belum ada transaksi hari ini.</div>'
+        }
+
+        function renderLow() {
+            const r = defaultRange();
+            let x = db.bahan.map(b => ({
+                b,
+                s: stockSummary(b, r.from, r.to)
+            })).filter(x => x.s.ending <= (+x.b.min || 0));
+            lowStock.innerHTML = x.length ? x.map(({
+                b,
+                s
+            }) => `<div class="cart-item"><div><b>${b.name}</b><small style="display:block;color:var(--muted)">${formatQty(Math.max(0,s.ending))} ${b.unit} tersisa</small></div><span class="badge warn">Menipis</span></div>`).join('') : '<div class="empty">Semua stok aman ✓</div>'
+        }
+
+        function renderCats() {
+            let cats = ['Semua', ...new Set(db.menus.map(m => m.cat))];
+            catsEl = document.getElementById('cats');
+            catsEl.innerHTML = cats.map(c => `<button class="cat ${c===activeCat?'active':''}" onclick="activeCat='${c}';renderProducts();renderCats()">${c}</button>`).join('')
+        }
+
+        function renderProducts() {
+            let q = (document.getElementById('posSearch')?.value || '').toLowerCase();
+            let a = db.menus.filter(m => m.active !== false && (activeCat === 'Semua' || m.cat === activeCat) && m.name.toLowerCase().includes(q));
+            products.innerHTML = a.map(m => `<div class="product"><div class="emoji">${m.emoji||'☕'}</div><h3>${m.name}</h3><p>${m.cat}</p><div class="product-price">${rupiah(m.price)}</div><button class="mini" onclick="addCart(${m.id})">＋ TAMBAH</button></div>`).join('') || '<div class="empty" style="grid-column:1/-1">Menu tidak ditemukan.</div>'
+        }
+
+        function addCart(id) {
+            let m = db.menus.find(x => x.id === id),
+                i = cart.find(x => x.id === id);
+            if (i) i.qty++;
+            else cart.push({
+                id,
+                qty: 1,
+                name: m.name,
+                price: m.price,
+                hpp: m.hpp
+            });
+            renderCart()
+        }
+
+        function renderCart() {
+            let el = document.getElementById('cart');
+            el.innerHTML = cart.length ? cart.map(i => `<div class="cart-item"><div><b>${i.name}</b><small style="display:block;color:var(--muted)">${rupiah(i.price)} × ${i.qty}</small></div><div class="qty"><button onclick="changeQty(${i.id},-1)">−</button><b>${i.qty}</b><button onclick="changeQty(${i.id},1)">+</button></div></div>`).join('') : '<div class="empty">Keranjang masih kosong.<br>Pilih menu untuk mulai.</div>';
+            let sub = cart.reduce((a, i) => a + i.price * i.qty, 0);
+            subtotal.textContent = rupiah(sub);
+            discount.textContent = rupiah(0);
+            total.textContent = rupiah(sub)
+        }
+
+        function changeQty(id, d) {
+            let i = cart.find(x => x.id === id);
+            i.qty += d;
+            if (i.qty <= 0) cart = cart.filter(x => x.id !== id);
+            renderCart()
+        }
+
+        function clearCart() {
+            cart = [];
+            renderCart()
+        }
+        document.querySelectorAll('.pay button').forEach(b => b.onclick = () => {
+            pay = b.dataset.pay;
+            document.querySelectorAll('.pay button').forEach(x => x.classList.toggle('active', x === b))
+        });
+
+        function checkout() {
+            if (!cart.length) return toast('Keranjang masih kosong');
+
+            const dateInput = document.getElementById('posTransactionDate');
+            if (dateInput && !dateInput.value) dateInput.value = today();
+            const transactionDate = dateInput?.value || today();
+            if (transactionDate > today()) return toast('Tanggal transaksi tidak boleh melebihi hari ini');
+
+            // Sinkronkan ulang saldo periode dengan seluruh aktivitas semua kasir.
+            recalculateStockPeriods();
+            const selectedRange = getRange();
+            const defaultStockRange = defaultRange();
+            const rr = transactionDate >= selectedRange.from && transactionDate <= selectedRange.to
+                ? selectedRange
+                : defaultStockRange;
+            const need = {};
+            cart.forEach(it => {
+                const r = db.recipes.find(x => x.menuId === it.id);
+                if (r) r.items.forEach(item => {
+                    const z = recipeItemParts(item);
+                    if (z.name) need[z.name] = (need[z.name] || 0) + z.qty * (+it.qty || 0);
+                });
+            });
+
+            for (const name in need) {
+                const b = db.bahan.find(x => x.name === name);
+                if (!b) continue;
+                const avail = stockSummary(b, rr.from, rr.to).ending;
+                if (avail < need[name] - 1e-9) return toast(`Stok ${name} tidak cukup`);
+            }
+
+            const total = cart.reduce((a, i) => a + i.price * i.qty, 0);
+            const hpp = cart.reduce((a, i) => a + i.hpp * i.qty, 0);
+
+            pendingCheckout = {
+                items: cart.map(i => ({ ...i })),
+                total,
+                hpp,
+                date: transactionDate,
+                pay: pay || 'Tunai'
+            };
+            openPaymentModal();
+        }
+
+        function openPaymentModal(existingId = null) {
+            let source;
+            if (existingId) {
+                const t = db.transactions.find(x => x.id === existingId);
+                if (!t) return toast('Transaksi tidak ditemukan');
+                pendingCheckout = {
+                    existingId: t.id,
+                    items: t.items.map(i => ({...i})),
+                    total: +t.total || 0,
+                    hpp: +t.hpp || 0,
+                    pay: t.pay || 'Tunai',
+                    originalPaid: +t.paidAmount || 0
+                };
+            }
+            source = pendingCheckout;
+            if (!source) return;
+
+            const currentPaid = Math.max(0, +source.originalPaid || 0);
+            const defaultPaid = currentPaid || (source.pay === 'Tunai' ? '' : source.total);
+
+            openModal(existingId ? 'Selesaikan Pembayaran' : 'Pembayaran Transaksi', `
+                <div class="payment-modal">
+                    <div class="payment-total">
+                        <small>TOTAL YANG HARUS DIBAYAR</small>
+                        <strong id="paymentTotal">${rupiah(source.total)}</strong>
+                    </div>
+
+                    <div>
+                        <label style="font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:7px">METODE PEMBAYARAN</label>
+                        <div class="payment-methods">
+                            <button type="button" class="payment-method ${source.pay==='Tunai'?'active':''}" onclick="selectCheckoutPay('Tunai')"><span>💵</span>Tunai<small>Hitung kembalian</small></button>
+                            <button type="button" class="payment-method ${source.pay==='QRIS'?'active':''}" onclick="selectCheckoutPay('QRIS')"><span>▣</span>QRIS<small>Scan / konfirmasi</small></button>
+                            <button type="button" class="payment-method ${source.pay==='Transfer'?'active':''}" onclick="selectCheckoutPay('Transfer')"><span>🏦</span>Transfer<small>Konfirmasi transfer</small></button>
+                        </div>
+                    </div>
+
+                    <div class="payment-field">
+                        <label>NOMINAL DIBAYAR</label>
+                        <input id="paymentAmount" class="payment-input" type="number" inputmode="numeric" min="0" step="1" value="${defaultPaid}" placeholder="Masukkan nominal" oninput="updatePaymentChange()">
+                    </div>
+
+                    <div id="paymentChangeBox" class="payment-change">
+                        <span id="paymentChangeLabel">Kembalian</span>
+                        <strong id="paymentChange">Rp0</strong>
+                    </div>
+
+                    <div id="paymentHint" style="font-size:12px;color:var(--muted);line-height:1.5">
+                        Untuk pembayaran tunai, masukkan nominal uang yang diterima.
+                    </div>
+
+                    <div class="payment-actions">
+                        <button class="btn" type="button" onclick="saveUnpaidCheckout()">⏳ Belum Bayar</button>
+                        <button class="btn primary" type="button" onclick="confirmCheckoutPayment()">✓ Konfirmasi Pembayaran</button>
+                    </div>
+                </div>
+            `);
+            updatePaymentChange();
+        }
+
+        function selectCheckoutPay(method) {
+            if (!pendingCheckout) return;
+            pendingCheckout.pay = method;
+            document.querySelectorAll('.payment-method').forEach(b => {
+                const txt = b.textContent || '';
+                b.classList.toggle('active', txt.includes(method));
+            });
+            const input = document.getElementById('paymentAmount');
+            const hint = document.getElementById('paymentHint');
+            const label = document.getElementById('paymentChangeLabel');
+            if (method !== 'Tunai') {
+                if (input && !+input.value) input.value = pendingCheckout.total;
+                if (hint) hint.textContent = `Jika ${method} belum diterima, pilih “Belum Bayar”.`;
+                if (label) label.textContent = 'Status pembayaran';
+            } else {
+                if (hint) hint.textContent = 'Untuk pembayaran tunai, masukkan nominal uang yang diterima.';
+                if (label) label.textContent = 'Kembalian';
+            }
+            updatePaymentChange();
+        }
+
+        function updatePaymentChange() {
+            if (!pendingCheckout) return;
+            const amount = Math.max(0, +(document.getElementById('paymentAmount')?.value || 0));
+            const total = +pendingCheckout.total || 0;
+            const box = document.getElementById('paymentChangeBox');
+            const value = document.getElementById('paymentChange');
+            const label = document.getElementById('paymentChangeLabel');
+            if (!box || !value) return;
+
+            if (pendingCheckout.pay === 'Tunai') {
+                const change = amount - total;
+                label.textContent = change >= 0 ? 'Kembalian' : 'Kurang Bayar';
+                value.textContent = rupiah(Math.abs(change));
+                box.classList.toggle('negative', change < 0);
+            } else {
+                const remaining = Math.max(0, total - amount);
+                label.textContent = remaining > 0 ? 'Sisa Tagihan' : 'Status pembayaran';
+                value.textContent = remaining > 0 ? rupiah(remaining) : 'Lunas';
+                box.classList.toggle('negative', remaining > 0);
+            }
+        }
+
+        function saveCheckoutRecord(status, paidAmount, change = 0) {
+            const d = new Date();
+            const record = {
+                id: db.nextId++,
+                date: pendingCheckout.date || today(),
+                time: d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }),
+                items: pendingCheckout.items.map(i => ({ ...i })),
+                total: +pendingCheckout.total || 0,
+                hpp: +pendingCheckout.hpp || 0,
+                pay: pendingCheckout.pay || 'Tunai',
+                paidAmount: Math.max(0, +paidAmount || 0),
+                change: Math.max(0, +change || 0),
+                status: status,
+                cashierUid: currentUser?.uid || '',
+                cashierName: currentUserName || currentUser?.displayName || (currentUser?.email ? currentUser.email.split('@')[0] : '') || (isAdminClient() ? 'Admin' : 'Kasir')
+            };
+            db.transactions.push(record);
+            save();
+            return record;
+        }
+
+        function confirmCheckoutPayment() {
+            if (!pendingCheckout) return;
+            const amount = Math.max(0, +(document.getElementById('paymentAmount')?.value || 0));
+            const total = +pendingCheckout.total || 0;
+
+            if (pendingCheckout.pay === 'Tunai' && amount < total) {
+                return toast(`Nominal tunai masih kurang ${rupiah(total - amount)}`);
+            }
+
+            if (pendingCheckout.existingId) {
+                const t = db.transactions.find(x => x.id === pendingCheckout.existingId);
+                if (!t) return toast('Transaksi tidak ditemukan');
+                const previous = +t.paidAmount || 0;
+                const newPaid = previous + amount;
+                t.paidAmount = newPaid;
+                t.status = newPaid >= total ? 'lunas' : newPaid > 0 ? 'sebagian' : 'belum bayar';
+                t.change = t.pay === 'Tunai' ? Math.max(0, newPaid - total) : 0;
+                save();
+                const done = t.status === 'lunas';
+                closeModal();
+                pendingCheckout = null;
+                cart = [];
+                renderAll();
+                if (done) openPaymentSuccess(t);
+                else toast('Pembayaran tersimpan, masih ada sisa tagihan');
+                return;
+            }
+
+            const change = pendingCheckout.pay === 'Tunai' ? Math.max(0, amount - total) : 0;
+            const record = saveCheckoutRecord('lunas', amount, change);
+            closeModal();
+            pendingCheckout = null;
+            cart = [];
+            renderAll();
+            openPaymentSuccess(record);
+        }
+
+        function saveUnpaidCheckout() {
+            if (!pendingCheckout) return;
+            const amount = Math.max(0, +(document.getElementById('paymentAmount')?.value || 0));
+            const total = +pendingCheckout.total || 0;
+
+            if (pendingCheckout.existingId) {
+                const t = db.transactions.find(x => x.id === pendingCheckout.existingId);
+                if (!t) return toast('Transaksi tidak ditemukan');
+                const newPaid = (+t.paidAmount || 0) + amount;
+                t.paidAmount = newPaid;
+                t.status = newPaid >= total ? 'lunas' : newPaid > 0 ? 'sebagian' : 'belum bayar';
+                t.change = 0;
+                save();
+                closeModal();
+                pendingCheckout = null;
+                renderAll();
+                toast(t.status === 'lunas' ? 'Pembayaran lunas' : 'Pembayaran belum lunas');
+                if (t.status === 'lunas') openPaymentSuccess(t);
+                return;
+            }
+
+            const status = amount >= total && total > 0 ? 'lunas' : amount > 0 ? 'sebagian' : 'belum bayar';
+            const record = saveCheckoutRecord(status, amount, 0);
+            closeModal();
+            pendingCheckout = null;
+            cart = [];
+            renderAll();
+
+            if (status === 'lunas') openPaymentSuccess(record);
+            else toast(status === 'sebagian' ? `Tersimpan. Sisa ${rupiah(total - amount)}` : 'Transaksi tersimpan sebagai belum bayar');
+        }
+
+        function openSettlePayment(id) {
+            openPaymentModal(id);
+        }
+
+        function openPaymentSuccess(t) {
+            // Buka pratinjau thermal dengan pilihan ukuran dan tombol cetak.
+            printThermal(t.id, 80);
+        }
+
+
+        function renderMenuTable() {
+            let q = (menuSearch.value || '').toLowerCase();
+            let a = db.menus.filter(m => String(m.name || '').toLowerCase().includes(q));
+            menuTable.innerHTML = a.map(m => `<tr><td><b>${m.emoji||'☕'} ${m.name}</b></td><td>${m.cat}</td><td>${rupiah(m.price)}</td><td>${rupiah(m.hpp)}</td><td><b>${rupiah(m.price-m.hpp)}</b></td><td><span class="badge ${m.active !== false?'ok':''}">${m.active !== false?'Aktif':'Nonaktif'}</span></td><td><div style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn" title="Edit menu" onclick="editMenu(${m.id})">✏️ Edit</button><button class="btn" title="${m.active !== false?'Nonaktifkan':'Aktifkan'} menu" onclick="toggleMenuActive(${m.id})">${m.active !== false?'Nonaktifkan':'Aktifkan'}</button></div></td></tr>`).join('') || '<tr><td colspan="7"><div class="empty">Belum ada menu.</div></td></tr>'
+        }
+
+        function toggleMenuActive(id) {
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat mengubah status menu.');
+            const m = db.menus.find(x => x.id === id);
+            if (!m) return toast('Menu tidak ditemukan.');
+            const willDeactivate = m.active !== false;
+            const message = willDeactivate
+                ? `Nonaktifkan menu "${m.name}"? Menu akan hilang dari pilihan Kasir, tetapi data transaksi lama dan resep tetap aman.`
+                : `Aktifkan kembali menu "${m.name}" agar tampil di Kasir?`;
+            if (!confirm(message)) return;
+            m.active = !willDeactivate;
+            save();
+            renderAll();
+            toast(m.active ? `Menu "${m.name}" diaktifkan.` : `Menu "${m.name}" dinonaktifkan. Data transaksi lama tetap tersimpan.`);
+        }
+
+        function unitCost(b) {
+            return (+b.content > 0) ? ((+b.cost || 0) / (+b.content || 1)) : 0
+        }
+
+        function stockValue(b, qty) {
+            return ((+qty || 0) / (+b.content || 1)) * (+b.cost || 0)
+        }
+
+        function renderBahan() {
+            // Perbarui saldo periode lama agar stok awal periode aktif tidak memakai
+            // hasil hitung lama yang hanya memasukkan aktivitas satu kasir.
+            recalculateStockPeriods();
+            const r = getRange();
+            let openingTotal = 0,
+                purchaseTotal = 0,
+                usageTotal = 0,
+                endingTotal = 0;
+            bahanTable.innerHTML = db.bahan.map(b => {
+                const x = stockSummary(b, r.from, r.to);
+                const pv = stockPurchases(r.from, r.to).filter(m => m.bahanId === b.id).reduce((a, m) => a + (+m.total || 0), 0);
+                const ov = stockValue(b, x.opening),
+                    uv = stockValue(b, x.used),
+                    ev = stockValue(b, Math.max(0, x.ending));
+                openingTotal += ov;
+                purchaseTotal += pv;
+                usageTotal += uv;
+                endingTotal += ev;
+                const safe = x.ending > (+b.min || 0);
+                return `<tr><td><b>${b.name}</b></td><td>${formatQty(b.content)} ${b.unit}</td><td>${rupiah(b.cost)}</td><td>${formatQty(x.opening)} ${b.unit}</td><td>${formatQty(x.purchases)} ${b.unit}</td><td>${formatQty(x.used)} ${b.unit}</td><td><b>${formatQty(Math.max(0,x.ending))} ${b.unit}</b></td><td><b>${rupiah(ev)}</b></td><td><span class="badge ${safe?'ok':'warn'}">${safe?'Aman':'Menipis'}</span></td><td><button class="btn" onclick="editBahan(${b.id})">Edit</button></td></tr>`
+            }).join('') || '<tr><td colspan="10"><div class="empty">Belum ada bahan. Tambahkan bahan terlebih dahulu.</div></td></tr>';
+            stockOpeningTotal.textContent = rupiah(openingTotal);
+            stockPurchaseTotal.textContent = rupiah(purchaseTotal);
+            stockUsageTotal.textContent = rupiah(usageTotal);
+            stockEndingTotal.textContent = rupiah(endingTotal);
+            stockPeriodStatus.textContent = `Periode ${r.from.split('-').reverse().join('/')} – ${r.to.split('-').reverse().join('/')} · Stok akhir dihitung otomatis`;
+            purchaseTable.innerHTML = stockPurchases(r.from, r.to).slice().reverse().map(m => {
+                const controls = canManagePurchaseRecord(m)
+                    ? `<div style="display:flex;gap:6px"><button class="btn" title="Edit pembelian" onclick="openPurchaseModal(${m.id})">✏️ Edit</button><button class="btn" title="Hapus pembelian" onclick="deletePurchase(${m.id})">🗑️ Hapus</button></div>`
+                    : '—';
+                return `<tr><td>${formatDateID(m.date)}</td><td><b>${m.bahanName}</b></td><td>${formatQty(m.packages||0)} kemasan</td><td>${formatQty(m.qty)} ${m.unit}</td><td>${rupiah(m.cost)}</td><td>${rupiah(m.total)}</td><td>${m.note||'-'}</td><td>${controls}</td></tr>`;
+            }).join('') || '<tr><td colspan="8"><div class="empty">Belum ada pembelian pada periode ini.</div></td></tr>';
+            document.getElementById('stockFrom').value = r.from;
+            document.getElementById('stockTo').value = r.to;
+        }
+
+        function changeStockRange() {
+            const r = getRange();
+            if (r.from > r.to) return toast('Tanggal awal tidak boleh melewati tanggal akhir');
+            ensurePeriod(rangeKey(r.from, r.to), r.from, r.to);
+            save();
+            renderAll()
+        }
+
+        function openOpeningModal() {
+            const r = getRange(),
+                key = rangeKey(r.from, r.to),
+                p = ensurePeriod(key, r.from, r.to);
+            const prior = Object.values(db.stockPeriods).filter(x => x && x.to && x.to < r.from).sort((a, b) => String(b.to).localeCompare(String(a.to)))[0];
+            if (prior && prior.ending && Object.keys(prior.ending).length) return toast('Stok awal periode ini otomatis mengikuti stok akhir periode sebelumnya');
+            const fields = db.bahan.map(b => {
+                const v = p.opening[b.id] ?? 0;
+                return `<div class="form-grid" style="margin-bottom:8px"><div class="field"><label>${b.name}</label><small style="color:var(--muted)">Isi kemasan ${formatQty(b.content)} ${b.unit} · ${rupiah(b.cost)}/kemasan</small></div><div class="field"><label>STOK AWAL (${b.unit})</label><input id="open_${b.id}" type="number" step="${b.unit==='pcs'?'1':'0.01'}" min="0" value="${v}" oninput="updateOpeningValue(${b.id})"><small id="openVal_${b.id}" style="color:var(--muted)">${rupiah(stockValue(b,v))}</small></div></div>`
+            }).join('');
+            openModal('Form Stok Awal', `<p style="margin-top:0;color:var(--muted);font-size:13px"><b>Stok Awal</b> adalah stok fisik yang sudah tersedia sebelum aplikasi digunakan. Stok ini <b>bukan pembelian</b>, tidak masuk Riwayat Pembelian, dan setelah disimpan langsung masuk ke Tampil Stok.</p><div class="field"><label>TANGGAL STOK AWAL</label><input id="openingDate" type="date" value="${p.openingDate||r.from}" min="${r.from}" max="${r.to}"></div><div style="margin-top:12px">${fields||'<div class="empty">Belum ada bahan. <button class="btn" onclick="closeModal();openBahanModal()">＋ Tambah Bahan</button></div>'}</div><button class="btn primary" style="margin-top:15px" onclick="saveOpening()">Simpan Stok Awal</button>`);
+        }
+
+        function updateOpeningValue(id) {
+            const b = db.bahan.find(x => x.id === id),
+                e = document.getElementById('open_' + id),
+                v = document.getElementById('openVal_' + id);
+            if (b && e && v) v.textContent = rupiah(stockValue(b, +e.value || 0))
+        }
+
+        function saveOpening() {
+            const r = getRange(),
+                key = rangeKey(r.from, r.to),
+                p = ensurePeriod(key, r.from, r.to),
+                d = document.getElementById('openingDate').value;
+            if (!d || d > r.to) return toast('Tanggal stok awal tidak valid');
+            p.openingDate = d;
+            db.bahan.forEach(b => {
+                const e = document.getElementById('open_' + b.id);
+                if (e) p.opening[b.id] = +e.value || 0
+            });
+            save();
+            closeModal();
+            renderAll();
+            toast('Stok awal tersimpan')
+        }
+
+        function renderExpenses() {
+            const ownExpenses = db.expenses.filter(e => recordBelongsToCurrentUser(e, 'expense'));
+            expenseTable.innerHTML = ownExpenses.slice().reverse().map(e => {
+                const canManage = isAdminClient() || (isKasirClient() && String(e.createdByUid || e.cashierUid || '') === String(currentUser?.uid || ''));
+                return `<tr><td>${formatDateID(e.date)}</td><td>${escapeHtml(e.cat || '')}</td><td>${escapeHtml(e.note || '')}</td><td><b>${rupiah(e.amount)}</b></td><td><div style="display:flex;gap:6px">${canManage ? `<button class="btn" title="Edit pengeluaran" onclick="openExpenseModal(${e.id})">✏️ Edit</button><button class="btn" title="Hapus pengeluaran" onclick="deleteExpense(${e.id})">🗑️ Hapus</button>` : '—'}</div></td></tr>`;
+            }).join('') || '<tr><td colspan="5"><div class="empty">Belum ada pengeluaran.</div></td></tr>';
+        }
+
+        function getReportRange() {
+            const a = document.getElementById('reportFrom')?.value,
+                b = document.getElementById('reportTo')?.value;
+            if (a && b && a <= b) return {
+                from: a,
+                to: b
+            };
+            return defaultRange();
+        }
+
+        function changeReportRange() {
+            const a = document.getElementById('reportFrom')?.value,
+                b = document.getElementById('reportTo')?.value;
+            if (a && b && a > b) return toast('Tanggal awal tidak boleh melewati tanggal akhir');
+            renderAll();
+        }
+
+        function setReportRangeDefaults() {
+            const r = defaultRange(),
+                a = document.getElementById('reportFrom'),
+                b = document.getElementById('reportTo');
+            if (a && !a.value) a.value = r.from;
+            if (b && !b.value) b.value = r.to;
+        }
+
+        function renderReport() {
+            setReportRangeDefaults();
+            const r = getReportRange(),
+                tx = rangeTransactions(r.from, r.to).slice().reverse();
+            const label = document.getElementById('reportPeriodLabel');
+            if (label) label.textContent = `${formatDateID(r.from)} – ${formatDateID(r.to)}`;
+            reportTable.innerHTML = tx.map(t => {
+                const status = t.status || 'lunas';
+                const cls = status === 'lunas' ? 'status-paid' : status === 'sebagian' ? 'status-partial' : 'status-unpaid';
+                const label = status === 'lunas' ? 'Lunas' : status === 'sebagian' ? 'Belum Lunas' : 'Belum Bayar';
+                const remaining = Math.max(0, (+t.total || 0) - (+t.paidAmount || 0));
+                return `<tr><td>${formatDateID(t.date)} ${t.time}</td><td>${t.cashierName || '—'}</td><td>${t.items.map(i=>i.name+' ×'+i.qty).join(', ')}</td><td>${t.pay}</td><td><span class="badge ${cls}">${label}</span></td><td>${remaining ? rupiah(remaining) : '-'}</td><td>${rupiah(t.total)}</td><td>${rupiah(t.hpp)}</td><td><b>${rupiah(t.total-t.hpp)}</b></td><td class="no-print"><button class="btn" onclick="printThermal(${t.id},80)">🧾 Nota</button>${status !== 'lunas' ? `<button class="btn" style="margin-left:5px" onclick="openSettlePayment(${t.id})">💳 Bayar</button>` : ''}</td></tr>`;
+            }).join('') || `<tr><td colspan="${isKasirClient() ? 7 : 9}"><div class="empty">Belum ada transaksi pada periode ini.</div></td></tr>`;
+        }
+
+        function updateRecipeDraft(i) {
+            const b = document.getElementById('riB_' + i),
+                q = document.getElementById('riQ_' + i);
+            if (b) menuRecipeDraft[i].bahanId = +b.value || 0;
+            if (q) menuRecipeDraft[i].qty = +q.value || 0;
+            renderRecipeRows()
+        }
+
+        function addRecipeRow() {
+            menuRecipeDraft.push({
+                bahanId: db.bahan[0]?.id || 0,
+                qty: 0
+            });
+            renderRecipeRows()
+        }
+
+        function removeRecipeRow(i) {
+            menuRecipeDraft.splice(i, 1);
+            renderRecipeRows()
+        }
+
+        function openMenuModal(id = null) {
+            // Menu baru harus selalu dimulai dengan resep kosong.
+            // Pencarian resep hanya dilakukan saat mengedit menu yang sudah ada.
+            const editing = id !== null && id !== undefined && String(id) !== '' && String(id) !== '0';
+            let m = editing ? db.menus.find(x => String(x.id) === String(id)) : {
+                name: '',
+                cat: 'Minuman',
+                price: '',
+                hpp: 0,
+                emoji: '☕',
+                active: true
+            };
+            if (!m) {
+                m = {
+                    name: '',
+                    cat: 'Minuman',
+                    price: '',
+                    hpp: 0,
+                    emoji: '☕',
+                    active: true
+                };
+            }
+
+            let r = null;
+            if (editing) {
+                // Utamakan ID menu agar resep menu lain tidak pernah ikut terbaca.
+                r = db.recipes.find(x =>
+                    String(x.menuId ?? x.menuID ?? x.menu_id ?? '') === String(id)
+                );
+
+                // Kompatibilitas data lama: cocokkan nama hanya jika resep lama
+                // belum memiliki ID menu yang valid.
+                if (!r && String(m.name || '').trim()) {
+                    const menuName = String(m.name).trim().toLowerCase();
+                    r = db.recipes.find(x => {
+                        const recipeId = x.menuId ?? x.menuID ?? x.menu_id;
+                        const hasValidId = recipeId !== undefined && recipeId !== null &&
+                            String(recipeId).trim() !== '' && String(recipeId) !== 'undefined';
+                        const legacyName = String(x.menuName ?? x.menu ?? '').trim().toLowerCase();
+                        return !hasValidId && legacyName === menuName;
+                    });
+                }
+            }
+
+            const findBahanId = (item) => {
+                const rawId = item?.bahanId ?? item?.bahanID ?? item?.ingredientId;
+                if (rawId !== undefined && rawId !== null && rawId !== '') {
+                    const byId = db.bahan.find(b => String(b.id) === String(rawId));
+                    if (byId) return byId.id;
+                }
+                const rawName = Array.isArray(item) ? item[0] :
+                    (item?.name ?? item?.bahan ?? item?.bahanName ?? item?.ingredient ?? '');
+                const name = String(rawName || '').trim().toLowerCase();
+                const byName = db.bahan.find(b => String(b.name || '').trim().toLowerCase() === name);
+                return byName?.id || 0;
+            };
+
+            const getQty = item => Array.isArray(item) ? (+item[1] || 0) :
+                (+((item?.qty ?? item?.jumlah ?? item?.quantity) || 0));
+
+            menuRecipeDraft = editing ? (r?.items || r?.recipe || r?.bahan || []).map(item => ({
+                bahanId: findBahanId(item),
+                qty: getQty(item)
+            })).filter(item => item.bahanId || item.qty) : [];
+            const selectedCat = m.cat || 'Minuman';
+            const selectedEmoji = m.emoji || ({Minuman:'🥤',Makanan:'🍜',Snack:'🍟'}[selectedCat] || '🥤');
+            openModal(editing ? 'Edit Menu' : 'Tambah Menu', `<div class=\"field\"><label>KATEGORI & IKON</label><div id=\"menuIconChoices\" style=\"display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px\"><button type=\"button\" class=\"menu-icon-choice ${selectedCat==='Minuman'?'active':''}\" data-cat=\"Minuman\" data-emoji=\"🥤\" onclick=\"selectMenuCategory('Minuman','🥤')\"><span style=\"font-size:34px;display:block;line-height:1.1\">🥤</span><b>Minuman</b></button><button type=\"button\" class=\"menu-icon-choice ${selectedCat==='Makanan'?'active':''}\" data-cat=\"Makanan\" data-emoji=\"🍜\" onclick=\"selectMenuCategory('Makanan','🍜')\"><span style=\"font-size:34px;display:block;line-height:1.1\">🍜</span><b>Makanan</b></button><button type=\"button\" class=\"menu-icon-choice ${selectedCat==='Snack'?'active':''}\" data-cat=\"Snack\" data-emoji=\"🍟\" onclick=\"selectMenuCategory('Snack','🍟')\"><span style=\"font-size:34px;display:block;line-height:1.1\">🍟</span><b>Snack</b></button></div><select id=\"fCat\" style=\"display:none\"><option ${selectedCat==='Minuman'?'selected':''}>Minuman</option><option ${selectedCat==='Makanan'?'selected':''}>Makanan</option><option ${selectedCat==='Snack'?'selected':''}>Snack</option></select><input type=\"hidden\" id=\"fEmoji\" value=\"${selectedEmoji}\"></div><div class=\"form-grid\" style=\"margin-top:12px\"><div class=\"field\"><label>NAMA MENU</label><input id=\"fName\" value=\"${m.name}\"></div><div class=\"field\"><label>HARGA JUAL</label><input id=\"fPrice\" type=\"number\" value=\"${m.price}\" oninput=\"renderRecipeRows()\"></div><div class=\"field\"><label>HPP / PORSI</label><input id=\"fHpp\" type=\"number\" value=\"${m.hpp||0}\" readonly></div><div class=\"field\"><label>FOOD COST</label><input id=\"foodCostPreview\" value=\"-\" readonly></div></div><div style=\"margin-top:15px\"><div class=\"section-title\"><h3 style=\"margin:0\">Resep</h3><button class=\"btn\" onclick=\"addRecipeRow()\">+ Tambah Bahan</button></div><div id=\"recipeRows\"></div></div><button class=\"btn primary\" style=\"margin-top:15px\" onclick=\"saveMenu(${id||0})\">Simpan</button>`);
+            const iconStyle = document.createElement('style');
+            iconStyle.id = 'menuIconChoiceStyle';
+            iconStyle.textContent = `.menu-icon-choice{border:1px solid var(--border,#dbe3ef);background:#fff;border-radius:12px;padding:12px 8px;cursor:pointer;text-align:center;color:var(--text,#1f2937);transition:.15s;min-height:88px}.menu-icon-choice:hover{border-color:#2563eb;background:#f8fbff}.menu-icon-choice.active{border:2px solid #2563eb;background:#eff6ff;box-shadow:0 0 0 2px rgba(37,99,235,.08)}.menu-icon-choice b{display:block;margin-top:6px}`;
+            document.getElementById('menuIconChoiceStyle')?.remove();
+            document.head.appendChild(iconStyle);
+            renderRecipeRows();
+        }
+
+        function selectMenuCategory(cat, emoji) {
+            const catInput = document.getElementById('fCat');
+            const emojiInput = document.getElementById('fEmoji');
+            if (catInput) catInput.value = cat;
+            if (emojiInput) emojiInput.value = emoji;
+            document.querySelectorAll('#menuIconChoices .menu-icon-choice').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.cat === cat);
+            });
+        }
+
+        function editMenu(id) {
+            openMenuModal(id)
+        }
+
+        async function saveMenu(id) {
+            const valid = menuRecipeDraft.filter(r => r.bahanId && r.qty > 0);
+            const hpp = recipeCost(valid);
+            if (!fName.value.trim()) return toast('Nama menu wajib diisi');
+            if (!+fPrice.value) return toast('Harga jual wajib diisi');
+            if (!valid.length) return toast('Tambahkan minimal satu bahan ke resep');
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat menyimpan menu.');
+            const oldMenu = id ? db.menus.find(m => String(m.id) === String(id)) : null;
+            const menuId = id ? (oldMenu?.id ?? id) : db.nextId++;
+            const x = {
+                id: menuId,
+                name: fName.value.trim(),
+                cat: fCat.value,
+                price: +fPrice.value,
+                hpp,
+                emoji: fEmoji.value || ({Minuman:'🥤',Makanan:'🍜',Snack:'🍟'}[fCat.value] || '🥤'),
+                active: oldMenu ? oldMenu.active !== false : true
+            };
+            if (id) db.menus = db.menus.map(m => String(m.id) === String(id) ? x : m);
+            else db.menus.push(x);
+            const rec = {
+                menuId: menuId,
+                items: valid.map(r => ({ bahanId: +r.bahanId, qty: +r.qty }))
+            };
+            const idx = db.recipes.findIndex(r => String(r.menuId ?? r.menuID ?? r.menu_id ?? '') === String(menuId));
+            if (idx >= 0) db.recipes[idx] = rec;
+            else db.recipes.push(rec);
+
+            // Simpan lokal terlebih dahulu agar perubahan tidak hilang jika jaringan putus.
+            save();
+            closeModal();
+            renderAll();
+
+            // Jangan menyatakan berhasil di cloud sebelum sinkronisasi selesai.
+            if (currentUser?.uid && firebaseReady && navigator.onLine && !offlineLocalSession) {
+                clearTimeout(syncTimer);
+                await syncFirebase(true);
+                const stillPending = localStorage.getItem('ekasir_pending_sync_' + currentUser.uid) === '1';
+                renderAll();
+                if (stillPending) {
+                    toast('Menu tersimpan di perangkat, tetapi sinkronisasi Firebase belum berhasil. Periksa status cloud.');
+                } else {
+                    toast('Menu & resep berhasil tersimpan di Firebase.');
+                }
+            } else {
+                toast('Menu tersimpan di perangkat. Sinkronisasi Firebase menunggu koneksi/login online.');
+            }
+        }
+
+        function openBahanModal(id = null) {
+            let b = id ? db.bahan.find(x => x.id === id) : {
+                name: '',
+                unit: 'gram',
+                content: '',
+                cost: '',
+                min: ''
+            };
+            openModal(id ? 'Edit Bahan' : 'Tambah Bahan', `<div class="form-grid"><div class="field"><label>NAMA BAHAN</label><input id="bName" value="${b.name}"></div><div class="field"><label>SATUAN DASAR</label><select id="bUnit"><option value="gram" ${b.unit==='gram'?'selected':''}>gram</option><option value="ml" ${b.unit==='ml'?'selected':''}>ml</option><option value="pcs" ${b.unit==='pcs'?'selected':''}>pcs</option></select></div><div class="field"><label>ISI 1 KEMASAN</label><input id="bContent" type="number" step="${b.unit==='pcs'?'1':'0.01'}" min="${b.unit==='pcs'?'1':'0.01'}" value="${b.content||''}" placeholder="Contoh: 1000"><small style="color:var(--muted)">Contoh: 1000 gram, 1000 ml, atau 50 pcs</small></div><div class="field"><label>HARGA 1 KEMASAN</label><input id="bCost" type="number" min="0" value="${b.cost}"></div><div class="field"><label>MINIMUM STOK (${b.unit})</label><input id="bMin" type="number" step="0.01" min="0" value="${b.min}"></div></div><div style="margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:10px;color:var(--muted);font-size:13px">Harga dasar otomatis: <b id="baseCostPreview">-</b> / ${b.unit}</div><button class="btn primary" style="margin-top:15px" onclick="saveBahan(${id||0})">Simpan</button>`);
+            const update = () => {
+                const c = +(document.getElementById('bContent')?.value || 0),
+                    p = +(document.getElementById('bCost')?.value || 0),
+                    u = document.getElementById('bUnit')?.value || 'gram';
+                const el = document.getElementById('baseCostPreview');
+                const min = document.querySelector('#bMin')?.previousElementSibling;
+                if (el) el.textContent = c > 0 ? rupiah(p / c) : '-';
+                if (min) min.textContent = 'MINIMUM STOK (' + u + ')'
+            };
+            ['bContent', 'bCost', 'bUnit'].forEach(id => document.getElementById(id)?.addEventListener('input', update));
+            update();
+        }
+
+        function editBahan(id) {
+            openBahanModal(id)
+        }
+
+        function saveBahan(id) {
+            const old = id ? db.bahan.find(b => b.id === id) : null;
+            const nameEl = document.getElementById('bName');
+            const unitEl = document.getElementById('bUnit');
+            const contentEl = document.getElementById('bContent');
+            const costEl = document.getElementById('bCost');
+            const minEl = document.getElementById('bMin');
+            const name = (nameEl?.value || '').trim(),
+                unit = unitEl?.value || 'gram',
+                content = +((contentEl?.value) || 0),
+                cost = +((costEl?.value) || 0),
+                min = +((minEl?.value) || 0);
+            if (!name) return toast('Nama bahan wajib diisi');
+            if (content <= 0) return toast('Isi kemasan harus lebih dari 0');
+            if (cost < 0) return toast('Harga kemasan tidak valid');
+            const x = {
+                id: id || db.nextId++,
+                name,
+                unit,
+                content,
+                cost,
+                min
+            };
+            if (id) db.bahan = db.bahan.map(b => b.id === id ? x : b);
+            else db.bahan.push(x);
+            save();
+            const goBack = returnToPurchase;
+            if (goBack && !id) pendingPurchaseBahanId = x.id;
+            returnToPurchase = false;
+            closeModal();
+            renderAll();
+            if (goBack) {
+                openPurchaseModal();
+                toast('Bahan ditambahkan. Silakan isi pembelian');
+            } else toast('Bahan tersimpan');
+        }
+
+        function openBahanForPurchase() {
+            returnToPurchase = true;
+            closeModal();
+            openBahanModal();
+        }
+
+        function openPurchaseModal(editId = null) {
+            if (editId && !isAdminClient()) return toast('Hanya Admin yang dapat mengedit pembelian.');
+            const r = getRange();
+            const editing = editId ? db.purchases.find(x => x.id === editId) : null;
+            if (editId && !editing) return toast('Data pembelian tidak ditemukan.');
+            if (!db.bahan.length) return openModal('Pembelian Bahan', `<div class="empty">Belum ada bahan yang terdaftar.<div style="margin-top:12px"><button class="btn primary" onclick="openBahanForPurchase()">＋ Tambah Bahan Baru</button></div></div>`);
+            const selectedId = editing ? editing.bahanId : pendingPurchaseBahanId;
+            const opts = db.bahan.map(b => `<option value="${b.id}" ${selectedId===b.id?'selected':''}>${b.name}</option>`).join('');
+            const defaultDate = editing?.date || ((today() >= r.from && today() <= r.to) ? today() : r.from);
+            openModal(editing ? 'Edit Pembelian Bahan' : 'Form Pembelian Bahan', `<p style="margin-top:0;color:var(--muted);font-size:13px">${editing ? 'Perubahan akan memperbarui riwayat pembelian dan perhitungan stok yang berkaitan.' : 'Gunakan form ini setiap kali membeli bahan. Jumlah diisi dalam <b>kemasan</b>; sistem otomatis menghitung isi yang masuk, menambah Tampil Stok, dan mencatat Riwayat Pembelian.'}</p><div class="form-grid"><div class="field full"><label>BAHAN</label><select id="pBahan" onchange="updatePurchasePreview()">${opts}</select><button type="button" class="btn" style="margin-top:8px" onclick="openBahanForPurchase()">＋ Tambah Bahan Baru</button></div><div class="field"><label>TANGGAL PEMBELIAN</label><input id="pDate" type="date" value="${defaultDate}"></div><div class="field"><label>JUMLAH KEMASAN</label><input id="pPackages" type="number" step="1" min="1" value="${editing?.packages ?? 1}" oninput="updatePurchasePreview()"></div><div class="field"><label>HARGA / KEMASAN</label><input id="pCost" type="number" min="0" value="${editing?.cost ?? ''}" oninput="updatePurchasePreview()"></div><div class="field"><label>ISI MASUK</label><input id="pQty" readonly></div><div class="field full"><label>KETERANGAN</label><input id="pNote" value="${editing?.note || ''}" placeholder="Contoh: pembelian stok"></div></div><div id="purchasePreview" style="margin-top:10px;padding:10px 12px;background:#f8fafc;border-radius:10px;color:var(--muted)"></div><button class="btn primary" style="margin-top:15px" onclick="savePurchase(${editId || 0})">${editing ? 'Simpan Perubahan' : 'Simpan Pembelian'}</button>`);
+            const b = db.bahan.find(x => x.id === selectedId) || db.bahan[0];
+            if (pendingPurchaseBahanId !== null) pendingPurchaseBahanId = null;
+            const pCostEl = document.getElementById('pCost');
+            if (pCostEl) pCostEl.value = editing ? editing.cost : b.cost;
+            updatePurchasePreview();
+        }
+
+        function updatePurchasePreview() {
+            const b = db.bahan.find(x => x.id === +(document.getElementById('pBahan')?.value || 0));
+            if (!b) return;
+            const pkg = document.getElementById('pPackages');
+            if (pkg) {
+                pkg.step = b.unit === 'pcs' ? '1' : '0.01';
+                pkg.min = b.unit === 'pcs' ? '1' : '0.01';
+            }
+            const n = +(pkg?.value || 0),
+                price = +(document.getElementById('pCost')?.value || 0),
+                qty = n * b.content;
+            document.getElementById('pQty').value = formatQty(qty) + ' ' + b.unit;
+            document.getElementById('purchasePreview').textContent = `Total pembelian: ${rupiah(n*price)} · Stok bertambah ${formatQty(qty)} ${b.unit}`;
+        }
+
+        function recalculateStockPeriods() {
+            const periods = Object.values(db.stockPeriods || {}).filter(p => p && p.from && p.to).sort((a, b) => String(a.from).localeCompare(String(b.from)) || String(a.to).localeCompare(String(b.to)));
+            let previousEnding = {};
+            periods.forEach(p => {
+                if (!p.openingDate && Object.keys(previousEnding).length) p.opening = JSON.parse(JSON.stringify(previousEnding));
+                p.opening = p.opening && typeof p.opening === 'object' ? p.opening : {};
+                const ending = {};
+                db.bahan.forEach(b => {
+                    const opening = +(p.opening[b.id] ?? 0);
+                    const purchases = stockPurchases(p.from, p.to).filter(x => x.bahanId === b.id).reduce((a, x) => a + (+x.qty || 0), 0);
+                    const used = usageForRange(b, p.from, p.to);
+                    ending[b.id] = opening + purchases - used;
+                });
+                p.ending = ending;
+                previousEnding = ending;
+            });
+        }
+
+        function syncPurchaseToStockMove(purchase) {
+            const idx = db.stockMoves.findIndex(x => x.id === purchase.id && x.type === 'purchase');
+            if (idx >= 0) db.stockMoves[idx] = { ...purchase };
+            else db.stockMoves.push({ ...purchase });
+        }
+
+        function savePurchase(editId = 0) {
+            const b = db.bahan.find(x => x.id === +(document.getElementById('pBahan')?.value || 0));
+            const date = document.getElementById('pDate')?.value || '';
+            const n = +(document.getElementById('pPackages')?.value || 0);
+            const price = +(document.getElementById('pCost')?.value || 0);
+            const note = (document.getElementById('pNote')?.value || '').trim();
+            if (!b) return toast('Pilih bahan');
+            if (!date) return toast('Tanggal pembelian wajib diisi');
+            if (n <= 0) return toast('Jumlah kemasan harus lebih dari 0');
+            if (b.unit === 'pcs' && !Number.isInteger(n)) return toast('Jumlah kemasan untuk bahan pcs harus bilangan bulat');
+            if (price < 0) return toast('Harga kemasan tidak valid');
+            const existing = editId ? db.purchases.find(x => x.id === editId) : null;
+            if (editId && !existing) return toast('Data pembelian tidak ditemukan.');
+            const purchase = { id: editId || db.nextId++, type:'purchase', date, bahanId:b.id, bahanName:b.name, packages:n, qty:n*b.content, unit:b.unit, cost:price, total:n*price, note, createdByUid: existing?.createdByUid || existing?.cashierUid || currentUser?.uid || '', createdByName: existing?.createdByName || existing?.cashierName || currentUserName || 'User' };
+            if (editId) db.purchases = db.purchases.map(x => x.id === editId ? purchase : x);
+            else db.purchases.push(purchase);
+            syncPurchaseToStockMove(purchase);
+            recalculateStockPeriods();
+            save();
+            closeModal();
+            renderAll();
+            toast(editId ? 'Pembelian berhasil diperbarui dan stok disesuaikan.' : `Pembelian tersimpan · stok bertambah ${formatQty(purchase.qty)} ${b.unit}`);
+        }
+
+        function deletePurchase(id) {
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat menghapus pembelian.');
+            const p = db.purchases.find(x => x.id === id);
+            if (!p) return toast('Data pembelian tidak ditemukan.');
+            if (!confirm(`Hapus pembelian ${p.bahanName} tanggal ${formatDateID(p.date)}? Stok masuk dan nilai pembelian terkait akan ikut dibatalkan.`)) return;
+            db.purchases = db.purchases.filter(x => x.id !== id);
+            db.stockMoves = db.stockMoves.filter(x => !(x.id === id && x.type === 'purchase'));
+            recalculateStockPeriods();
+            save();
+            renderAll();
+            toast('Pembelian dihapus dan stok disesuaikan.');
+        }
+
+        function openExpenseModal(editId = null) {
+            if (!isAdminClient() && !isKasirClient()) return toast('Akses menu pengeluaran tidak diizinkan.');
+            const editing = editId ? db.expenses.find(x => x.id === editId) : null;
+            if (editId && !editing) return toast('Data pengeluaran tidak ditemukan.');
+            if (editing && !recordBelongsToCurrentUser(editing, 'expense')) return toast('Anda hanya dapat mengubah pengeluaran milik akun sendiri.');
+            openModal(editing ? 'Edit Pengeluaran' : 'Catat Pengeluaran', `<div class="form-grid"><div class="field"><label>TANGGAL</label><input id="eDate" type="date" value="${editing?.date || today()}"></div><div class="field"><label>KATEGORI</label><input id="eCat" value="${escapeHtml(editing?.cat || 'Operasional')}"></div><div class="field"><label>JUMLAH</label><input id="eAmount" type="number" min="0" value="${editing?.amount ?? ''}"></div><div class="field full"><label>KETERANGAN</label><input id="eNote" value="${escapeHtml(editing?.note || '')}" placeholder="Contoh: beli gas"></div></div><button class="btn primary" style="margin-top:15px" onclick="saveExpense(${editId || 0})">${editing ? 'Simpan Perubahan' : 'Simpan'}</button>`)
+        }
+
+        function saveExpense(editId = 0) {
+            if (!isAdminClient() && !isKasirClient()) return toast('Akses mencatat pengeluaran tidak diizinkan.');
+            const date = document.getElementById('eDate')?.value || today();
+            const cat = (document.getElementById('eCat')?.value || '').trim();
+            const note = (document.getElementById('eNote')?.value || '').trim();
+            const amount = +(document.getElementById('eAmount')?.value || 0);
+            if (!date) return toast('Tanggal wajib diisi');
+            if (!cat) return toast('Kategori wajib diisi');
+            if (amount <= 0) return toast('Masukkan jumlah');
+            const existing = editId ? db.expenses.find(x => x.id === editId) : null;
+            if (editId && !existing) return toast('Data pengeluaran tidak ditemukan.');
+            if (existing && !recordBelongsToCurrentUser(existing, 'expense')) return toast('Anda hanya dapat mengubah pengeluaran milik akun sendiri.');
+            const item = { id: editId || db.nextId++, date, cat, note, amount,
+                createdByUid: existing?.createdByUid || existing?.cashierUid || currentUser?.uid || '',
+                createdByName: existing?.createdByName || existing?.cashierName || currentUserName || currentUser?.displayName || 'User' };
+            if (editId) db.expenses = db.expenses.map(x => x.id === editId ? item : x);
+            else db.expenses.push(item);
+            save();
+            closeModal();
+            renderAll();
+            toast(editId ? 'Pengeluaran berhasil diperbarui.' : 'Pengeluaran tersimpan');
+        }
+
+        function deleteExpense(id) {
+            if (!isAdminClient() && !isKasirClient()) return toast('Akses menghapus pengeluaran tidak diizinkan.');
+            const e = db.expenses.find(x => x.id === id);
+            if (!e) return toast('Data pengeluaran tidak ditemukan.');
+            if (!recordBelongsToCurrentUser(e, 'expense')) return toast('Anda hanya dapat menghapus pengeluaran milik akun sendiri.');
+            if (confirm(`Hapus pengeluaran ${rupiah(e.amount)} — ${e.note || e.cat}? Data ini juga akan hilang dari laporan terkait.`)) {
+                db.expenses = db.expenses.filter(x => x.id !== id);
+                save();
+                renderAll();
+                toast('Pengeluaran dihapus.');
+            }
+        }
+
+        async function compressLogo(file, maxBytes = 200 * 1024) {
+            if (!file) throw new Error('Silakan pilih file logo.');
+            const type = String(file.type || '').toLowerCase();
+            const name = String(file.name || '').toLowerCase();
+            const isImage = type.startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(name);
+            if (!isImage) throw new Error('File logo harus berupa JPG, PNG, atau WebP.');
+
+            // Gunakan Blob URL terlebih dahulu agar tidak gagal membaca file besar.
+            const objectUrl = URL.createObjectURL(file);
+            try {
+                const img = new Image();
+                img.decoding = 'async';
+                await new Promise((resolve, reject) => {
+                    img.onload = resolve;
+                    img.onerror = () => reject(new Error('Browser tidak dapat membaca gambar ini.'));
+                    img.src = objectUrl;
+                });
+
+                const iw = img.naturalWidth || img.width;
+                const ih = img.naturalHeight || img.height;
+                if (!iw || !ih) throw new Error('Ukuran gambar tidak valid.');
+
+                // Maksimum 800 px agar hasil kecil dan ringan untuk Firestore.
+                let maxSide = 800;
+                let scale = Math.min(1, maxSide / Math.max(iw, ih));
+                let width = Math.max(1, Math.round(iw * scale));
+                let height = Math.max(1, Math.round(ih * scale));
+
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                if (!ctx) throw new Error('Browser tidak mendukung pemrosesan gambar.');
+
+                const makeBlob = (quality) => new Promise((resolve, reject) => {
+                    canvas.width = width;
+                    canvas.height = height;
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.imageSmoothingEnabled = true;
+                    ctx.imageSmoothingQuality = 'high';
+                    ctx.drawImage(img, 0, 0, width, height);
+                    canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('Gagal membuat gambar hasil.')), 'image/jpeg', quality);
+                });
+
+                let blob = null;
+                // Turunkan kualitas terlebih dahulu. Jika masih besar, kecilkan dimensi.
+                for (let pass = 0; pass < 4 && !blob; pass++) {
+                    let quality = 0.82;
+                    for (let i = 0; i < 8; i++) {
+                        const candidate = await makeBlob(quality);
+                        if (candidate.size <= maxBytes) { blob = candidate; break; }
+                        quality -= 0.08;
+                    }
+                    if (!blob) {
+                        width = Math.max(240, Math.round(width * 0.75));
+                        height = Math.max(240, Math.round(height * 0.75));
+                    }
+                }
+                if (!blob || blob.size > maxBytes) throw new Error('Logo masih lebih dari 200 KB. Pilih gambar lain.');
+
+                const dataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(String(reader.result || ''));
+                    reader.onerror = () => reject(new Error('Gagal membaca hasil kompresi logo.'));
+                    reader.readAsDataURL(blob);
+                });
+                if (!dataUrl) throw new Error('Gagal membuat logo.');
+                return { dataUrl, blob };
+            } finally {
+                try { URL.revokeObjectURL(objectUrl); } catch (e) {}
+            }
+        }
+
+
+        function previewLogo(input) {
+            const file = input?.files?.[0],
+                box = document.getElementById('logoPreview');
+            if (!file || !box) return;
+            if (!(String(file.type || '').startsWith('image/') || /\.(png|jpe?g|webp)$/i.test(file.name || ''))) {
+                input.value = '';
+                return toast('Pilih file JPG, PNG, atau WebP.');
+            }
+            compressLogo(file, 200 * 1024).then(result => {
+                box.innerHTML = `<img src="${result.dataUrl}" alt="Logo">`;
+                toast('Preview logo siap · maksimal 200 KB');
+            }).catch(err => {
+                input.value = '';
+                toast(err.message || 'Logo tidak dapat diproses');
+            });
+        }
+
+        function renderLogoSetting() {
+            const box = document.getElementById('logoPreview');
+            if (!box) return;
+            box.innerHTML = db.settings?.logo ? `<img src="${db.settings.logo}" alt="Logo">` : '☕';
+        }
+
+        function backup() {
+            let blob = new Blob([JSON.stringify(db, null, 2)], {
+                    type: 'application/json'
+                }),
+                a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'backup-kopikasir-' + today() + '.json';
+            a.click();
+            URL.revokeObjectURL(a.href);
+            toast('Backup dibuat')
+        }
+
+        function restore(file) {
+            if (!file) return;
+            let r = new FileReader();
+            r.onload = () => {
+                try {
+                    let x = JSON.parse(r.result);
+                    if (!x.menus || !x.transactions) throw 0;
+                    db = x;
+                    save();
+                    renderAll();
+                    toast('Data berhasil dipulihkan')
+                } catch (e) {
+                    toast('File backup tidak valid')
+                }
+            };
+            r.readAsText(file)
+        }
+
+        function exportCSV() {
+            const r = getReportRange();
+            const rows = [
+                ['Tanggal', 'Waktu', 'Nama Kasir', 'Item', 'Pembayaran', 'Omzet', 'HPP', 'Laba'],
+                ...rangeTransactions(r.from, r.to).map(t => [
+                    formatDateID(t.date), t.time, t.cashierName || t.createdByName || 'Kasir', t.items.map(i => i.name + ' x' + i.qty).join(' | '), t.pay, t.total, t.hpp, t.total - t.hpp
+                ])
+            ];
+            const csv = rows.map(row => row.map(v => `"${String(v).replaceAll('"','""')}"`).join(',')).join('\\n');
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(new Blob([csv], {
+                type: 'text/csv'
+            }));
+            a.download = `laporan-${r.from}-${r.to}.csv`;
+            a.click();
+        }
+
+        function formatDateID(s) {
+            return String(s || '').split('-').reverse().join('/')
+        }
+
+        function reportHeader(title, from, to) {
+            const logo = db.settings?.logo ? `<div class="print-logo"><img src="${db.settings.logo}" style="max-width:90px;max-height:55px;object-fit:contain"></div>` : '';
+            return `<div style="text-align:center;margin-bottom:16px">${logo}<h1 style="margin:4px 0;font-size:22px">${db.settings?.name||'e-Kasir'}</h1><div>${db.settings?.address||''}</div><div>${db.settings?.phone||''}</div><h2 style="margin:12px 0 4px;font-size:18px">${title}</h2><div>Periode ${formatDateID(from)} – ${formatDateID(to)}</div></div>`;
+        }
+
+        function openPrintWindow(title, body) {
+            const w = window.open('', '_blank', 'width=900,height=700');
+            if (!w) {
+                toast('Popup diblokir browser. Izinkan popup untuk mencetak.');
+                return
+            }
+            w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${title}</title><style>
+ body{font-family:Arial,sans-serif;color:#111;margin:25px;font-size:12px}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border:1px solid #999;padding:6px;text-align:left}th{background:#f2f2f2}.num{text-align:right}.summary-cards th,.summary-cards td{width:33%;vertical-align:top}.summary-cards small{font-size:10px;font-weight:normal}.summary{margin-top:16px;display:flex;justify-content:flex-end}.summary table{width:360px}@media print{@page{size:A4;margin:10mm}body{margin:0}}
+ </style></head><body>${body}
+</body></html>`);
+            w.document.close();
+            w.focus();
+            setTimeout(() => w.print(), 250);
+        }
+
+        function printProfitLoss() {
+            const r = getReportRange(),
+                tx = rangeTransactions(r.from, r.to),
+                ex = db.expenses.filter(x => inRange(x.date, r.from, r.to));
+            const omzet = tx.reduce((a, t) => a + t.total, 0),
+                hpp = tx.reduce((a, t) => a + t.hpp, 0),
+                laba = omzet - hpp,
+                keluar = ex.reduce((a, e) => a + e.amount, 0),
+                net = laba - keluar;
+            const rows = tx.map(t => `<tr><td>${formatDateID(t.date)}</td><td>${t.cashierName || t.createdByName || 'Kasir'}</td><td>${t.items.map(i=>i.name+' ×'+i.qty).join(', ')}</td><td class="num">${rupiah(t.total)}</td><td class="num">${rupiah(t.hpp)}</td><td class="num">${rupiah(t.total-t.hpp)}</td></tr>`).join('');
+            const exRows = ex.filter(e => recordBelongsToCurrentUser(e, 'expense')).map(e => `<tr><td>${formatDateID(e.date)}</td><td>${e.createdByName || e.cashierName || '—'}</td><td>${e.cat}</td><td>${e.note||'-'}</td><td class="num">${rupiah(e.amount)}</td></tr>`).join('');
+            const body = reportHeader('LAPORAN LABA RUGI', r.from, r.to) + `<h3>Pendapatan & HPP</h3><table><thead><tr><th>Tanggal</th><th>Nama Kasir</th><th>Transaksi</th><th>Omzet</th><th>HPP</th><th>Laba Kotor</th></tr></thead><tbody>${rows||'<tr><td colspan="6">Tidak ada transaksi.</td></tr>'}</tbody></table><h3 style="margin-top:18px">Pengeluaran</h3><table><thead><tr><th>Tanggal</th><th>Nama Kasir</th><th>Kategori</th><th>Keterangan</th><th>Jumlah</th></tr></thead><tbody>${exRows||'<tr><td colspan="5">Tidak ada pengeluaran.</td></tr>'}</tbody></table><div class="summary"><table><tr><th>Omzet</th><td class="num">${rupiah(omzet)}</td></tr><tr><th>HPP</th><td class="num">${rupiah(hpp)}</td></tr><tr><th>Laba Kotor</th><td class="num">${rupiah(laba)}</td></tr><tr><th>Pengeluaran</th><td class="num">${rupiah(keluar)}</td></tr><tr><th>Laba Bersih</th><td class="num"><b>${rupiah(net)}</b></td></tr></table></div>`;
+            openPrintWindow('Laporan Laba Rugi', body);
+        }
+
+        function printPurchases() {
+            const r = getReportRange(),
+                rows = rangePurchases(r.from, r.to).slice().sort((a, b) => String(a.date).localeCompare(String(b.date))),
+                total = rows.reduce((a, x) => a + (+x.total || 0), 0);
+            const tr = rows.map(x => `<tr><td>${formatDateID(x.date)}</td><td>${x.createdByName || x.cashierName || '—'}</td><td>${x.bahanName}</td><td class="num">${formatQty(x.packages||0)}</td><td class="num">${formatQty(x.qty)} ${x.unit}</td><td class="num">${rupiah(x.cost)}</td><td class="num">${rupiah(x.total)}</td><td>${x.note||'-'}</td></tr>`).join('');
+            const body = reportHeader('LAPORAN PEMBELIAN BAHAN', r.from, r.to) + `<table><thead><tr><th>Tanggal</th><th>Nama Kasir</th><th>Bahan</th><th>Kemasan</th><th>Isi Masuk</th><th>Harga/Kemasan</th><th>Total</th><th>Keterangan</th></tr></thead><tbody>${tr||'<tr><td colspan="8">Tidak ada pembelian.</td></tr>'}</tbody></table><div class="summary"><table><tr><th>Total Pembelian</th><td class="num"><b>${rupiah(total)}</b></td></tr></table></div>`;
+            openPrintWindow('Laporan Pembelian', body);
+        }
+
+        function printStock() {
+            const r = getReportRange(),
+                rows = db.bahan.map(b => ({
+                    b,
+                    s: stockSummary(b, r.from, r.to)
+                })),
+                total = rows.reduce((a, x) => a + stockValue(x.b, Math.max(0, x.s.ending)), 0);
+            const tr = rows.map(x => `<tr><td>${x.b.name}</td><td>${formatQty(x.s.opening)} ${x.b.unit}</td><td>${formatQty(x.s.purchases)} ${x.b.unit}</td><td>${formatQty(x.s.used)} ${x.b.unit}</td><td><b>${formatQty(Math.max(0,x.s.ending))} ${x.b.unit}</b></td><td class="num">${rupiah(stockValue(x.b,Math.max(0,x.s.ending)))}</td></tr>`).join('');
+            const body = reportHeader('LAPORAN STOK BAHAN', r.from, r.to) + `<p><b>Rumus:</b> Stok Awal + Pembelian − Pemakaian Produksi = Stok Akhir</p><table><thead><tr><th>Bahan</th><th>Stok Awal</th><th>Pembelian</th><th>Terpakai</th><th>Stok Akhir</th><th>Nilai Stok Akhir</th></tr></thead><tbody>${tr||'<tr><td colspan="6">Belum ada bahan.</td></tr>'}</tbody></table><div class="summary"><table><tr><th>Total Nilai Stok Akhir</th><td class="num"><b>${rupiah(total)}</b></td></tr></table></div>`;
+            openPrintWindow('Laporan Stok', body);
+        }
+
+        function openThermalOptions(id) {
+            const t = db.transactions.find(x => x.id === id);
+            if (!t) return toast('Transaksi tidak ditemukan');
+            openModal('Cetak Nota Thermal', `
+                <p style="margin-top:0;color:var(--muted)">Nota hanya dicetak menggunakan printer thermal.</p>
+                <div class="pay">
+                    <button type="button" onclick="printThermal(${Number(id)},57)">Thermal 57 mm</button>
+                    <button type="button" class="active" onclick="printThermal(${Number(id)},80)">Thermal 80 mm</button>
+                </div>
+                <button type="button" class="btn" style="width:100%;margin-top:10px" onclick="closeModal()">Batal</button>
+            `);
+        }
+
+        function printThermal(id, width) {
+            const t = db.transactions.find(x => String(x.id) === String(id));
+            if (!t) return toast('Transaksi tidak ditemukan.');
+
+            // Batasi pilihan pada ukuran printer thermal yang didukung.
+            width = Number(width);
+            if (![57, 80].includes(width)) width = 80;
+
+            // Hindari teks dari data toko/transaksi merusak struktur HTML cetak.
+            const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[ch]));
+            const shopName = esc(db.settings?.name || 'e-Kasir');
+            const address = esc(db.settings?.address || '');
+            const phone = esc(db.settings?.phone || '');
+            const cashier = esc(t.cashierName || 'Kasir');
+            const pay = esc(t.pay || '-');
+            const dateTime = esc(`${formatDateID(t.date)} ${t.time || ''}`);
+            const items = (Array.isArray(t.items) ? t.items : []).map(i => `
+                <div class="item">
+                    <div class="item-name">${esc(i.name || 'Item')}</div>
+                    <div class="row">
+                        <span>${esc(i.qty)} x ${esc(rupiah(i.price))}</span>
+                        <span class="amount">${esc(rupiah((Number(i.qty) || 0) * (Number(i.price) || 0)))}</span>
+                    </div>
+                </div>
+            `).join('');
+            const logo = db.settings?.logo
+                ? `<div class="logo"><img src="${esc(db.settings.logo)}" alt="Logo toko"></div>`
+                : '';
+
+            const receipt = `
+                <main class="receipt">
+                    ${logo}
+                    <h1>${shopName}</h1>
+                    ${address ? `<div class="center">${address}</div>` : ''}
+                    ${phone ? `<div class="center">${phone}</div>` : ''}
+                    <div class="line"></div>
+                    <div>No. ${esc(t.id)}</div>
+                    <div>${dateTime}</div>
+                    <div>Kasir: ${cashier}</div>
+                    <div class="line"></div>
+                    ${items || '<div>Item tidak tersedia</div>'}
+                    <div class="line"></div>
+                    <div class="row total"><strong>TOTAL</strong><strong>${esc(rupiah(t.total))}</strong></div>
+                    <div class="row"><span>Pembayaran</span><span>${pay}</span></div>
+                    ${t.pay === 'Tunai' && t.change != null ? `<div class="row"><span>Kembalian</span><span>${esc(rupiah(t.change))}</span></div>` : ''}
+                    <div class="line"></div>
+                    <div class="center thanks">Terima kasih</div>
+                </main>`;
+
+            const w = window.open('', '_blank', 'width=520,height=800');
+            if (!w) {
+                toast('Popup diblokir browser. Izinkan popup untuk mencetak nota thermal.');
+                return;
+            }
+
+            w.document.open();
+            w.document.write(`<!doctype html>
+<html lang="id"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nota Thermal ${esc(t.id)}</title>
+<style>
+    @page { size: auto; margin: 2mm; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: #fff; color: #000; }
+    body { font-family: Arial, sans-serif; font-size: 12px; line-height: 1.35; }
+    .toolbar { position: sticky; top: 0; background: #eef2f7; padding: 12px; display:flex; gap:10px; align-items:center; justify-content:center; border-bottom:1px solid #cbd5e1; }
+    .toolbar select,.toolbar button { font: inherit; padding:8px 12px; border:1px solid #64748b; border-radius:6px; background:#fff; color:#111; }
+    .toolbar button { background:#1d4ed8; color:white; font-weight:bold; cursor:pointer; }
+    .receipt { width: ${width - 6}mm; max-width: 100%; margin: 12px auto; overflow-wrap: anywhere; font-size:${width === 57 ? '10px' : '12px'}; }
+    h1 { margin: 0 0 3px; text-align: center; font-size: ${width === 57 ? '14px' : '17px'}; line-height: 1.2; }
+    .center { text-align: center; }
+    .logo { text-align: center; margin: 0 0 4px; }
+    .logo img { display: inline-block; max-width: ${width === 57 ? '28mm' : '38mm'}; max-height: 16mm; object-fit: contain; }
+    .line { border-top: 1px dashed #000; margin: 5px 0; }
+    .row { display: flex; justify-content: space-between; align-items: flex-start; gap: 5px; }
+    .row > :last-child { text-align: right; }
+    .amount { white-space: nowrap; }
+    .item { margin: 4px 0; }
+    .item-name { font-weight: 700; margin-bottom: 1px; }
+    .total { font-size: ${width === 57 ? '12px' : '14px'}; }
+    .thanks { margin: 5px 0 0; }
+    @media print { .no-print { display:none !important; } html, body { margin: 0; padding: 0; background:#fff; } .receipt { margin: 0; width: ${width - 6}mm; } }
+</style></head><body><div class="toolbar no-print"><label for="paperWidth">Ukuran:</label><select id="paperWidth" onchange="setWidth(this.value)"><option value="57" ${width===57?'selected':''}>Thermal 57 mm</option><option value="80" ${width===80?'selected':''}>Thermal 80 mm</option></select><button onclick="window.print()">Cetak Nota</button></div>${receipt}
+<script>
+    function setWidth(value) {
+        var mm = Number(value) === 57 ? 51 : 74;
+        var receipt = document.querySelector('.receipt');
+        receipt.style.width = mm + 'mm';
+        receipt.style.fontSize = Number(value) === 57 ? '10px' : '12px';
+        document.querySelector('.receipt h1').style.fontSize = Number(value) === 57 ? '14px' : '17px';
+        document.querySelector('.receipt .total').style.fontSize = Number(value) === 57 ? '12px' : '14px';
+    }
+<\/script>
+</body></html>`);
+            w.document.close();
+            closeModal();
+        }
+
+        let platformUsersCache = [];
+
+        async function loadPlatformUsers() {
+            const list = document.getElementById('platformUsersList');
+            const summary = document.getElementById('platformUserSummary');
+            if (!currentUser || currentUser.uid !== PLATFORM_OWNER_UID || !firebaseReady) return;
+            list.innerHTML = '<div class="platform-empty">Memuat daftar admin warung...</div>';
+            try {
+                const snap = await fbFs.collection('users').get();
+                // Super Admin hanya mengelola akun pemilik/admin warung, bukan akun Kasir.
+                // Akun test lama dikecualikan agar tidak tercampur dengan pendaftar.
+                platformUsersCache = snap.docs
+                    .map(d => {
+                        const data = d.data() || {};
+                        // Akun test lama adalah Admin Warung untuk data toko/utama.
+                        // Tampilkan di panel Super Admin tanpa mengubah dokumen Firestore aslinya.
+                        if (d.id === LEGACY_TEST_UID) {
+                            return {
+                                id: d.id,
+                                ...data,
+                                role: data.role || 'admin',
+                                shopId: data.shopId || 'utama',
+                                shopName: data.shopName || 'Warung Test (data lama)',
+                                approved: true,
+                                disabled: data.disabled === true
+                            };
+                        }
+                        return { id: d.id, ...data };
+                    })
+                    .filter(u => u.id !== PLATFORM_OWNER_UID)
+                    .filter(u => ['admin', 'owner', 'admin_warung', 'pemilik_warung'].includes(String(u.role || '').toLowerCase()));
+
+                const pending = platformUsersCache.filter(u => u.approved !== true && u.disabled !== true).length;
+                const active = platformUsersCache.filter(u => u.approved === true && u.disabled !== true).length;
+                document.getElementById('platformTotalCount').textContent = platformUsersCache.length;
+                document.getElementById('platformPendingCount').textContent = pending;
+                document.getElementById('platformActiveCount').textContent = active;
+                summary.textContent = `${platformUsersCache.length} admin warung · ${pending} menunggu persetujuan`;
+                renderPlatformUsersFiltered();
+            } catch (e) {
+                console.error('loadPlatformUsers:', e);
+                summary.textContent = 'Gagal memuat akun.';
+                list.innerHTML = `<div class="platform-empty">Daftar admin warung tidak dapat dimuat: ${escapeHtml(e.message || 'Periksa Firestore Rules.')}</div>`;
+            }
+        }
+
+        function renderPlatformUsersFiltered() {
+            const list = document.getElementById('platformUsersList');
+            if (!list) return;
+            const q = String(document.getElementById('platformUserSearch')?.value || '').trim().toLowerCase();
+            const users = platformUsersCache.filter(u => {
+                const text = [u.name, u.nama, u.email, u.shopName, u.shopId].join(' ').toLowerCase();
+                return !q || text.includes(q);
+            });
+            if (!users.length) {
+                list.innerHTML = `<div class="platform-empty">${platformUsersCache.length ? 'Tidak ada akun yang cocok dengan pencarian.' : 'Belum ada pendaftaran Admin Warung.'}</div>`;
+                return;
+            }
+            list.innerHTML = users.map(u => {
+                const name = escapeHtml(u.name || u.nama || 'Belum mengisi nama');
+                const email = escapeHtml(u.email || 'Email tidak tersedia');
+                const shop = escapeHtml(u.shopName || u.shopId || 'Belum ditentukan');
+                const approved = u.approved === true;
+                const disabled = u.disabled === true;
+                const status = disabled ? 'Nonaktif' : (approved ? 'Disetujui' : 'Menunggu persetujuan');
+                const statusClass = disabled ? 'disabled' : (approved ? 'approved' : 'pending');
+                const action = disabled
+                    ? `<button class="btn" onclick="setPlatformUserState('${u.id}','enable')">Aktifkan</button>`
+                    : (approved
+                        ? `<button class="btn" onclick="setPlatformUserState('${u.id}','disable')">Nonaktifkan</button>`
+                        : `<button class="btn platform-primary" onclick="setPlatformUserState('${u.id}','approve')">✓ Setujui</button><button class="btn" onclick="setPlatformUserState('${u.id}','disable')">Tolak</button>`);
+                return `<article class="platform-user-card">
+                    <div class="platform-user-main">
+                      <div class="platform-user-avatar">${escapeHtml((u.name || u.nama || u.email || 'W').trim().charAt(0).toUpperCase())}</div>
+                      <div style="min-width:0;flex:1">
+                        <div class="platform-user-name">${name}</div>
+                        <div class="platform-user-email">${email}</div>
+                        <div class="platform-user-meta"><span>🏪 ${shop}</span><span>·</span><span class="platform-status ${statusClass}">${status}</span></div>
+                      </div>
+                    </div>
+                    <div class="platform-actions">${action}</div>
+                </article>`;
+            }).join('');
+        }
+
+        async function setPlatformUserState(uid, action) {
+            if (!currentUser || currentUser.uid !== PLATFORM_OWNER_UID) return toast('Akses khusus Super Admin.');
+            // Lindungi akun test lama dan data toko/utama dari perubahan tidak sengaja.
+            if (uid === LEGACY_TEST_UID) return toast('Akun test warung lama dilindungi dan tidak dapat diubah dari panel ini.');
+            if (!['approve','disable','enable'].includes(action)) return;
+            try {
+                const ref = fbFs.doc('users/' + uid);
+                const snap = await ref.get();
+                if (!snap.exists) return toast('Akun tidak ditemukan.');
+                const u = snap.data() || {};
+                // Lindungi dari perubahan akun Kasir atau akun di luar peran pemilik warung.
+                if (!['admin', 'owner', 'admin_warung', 'pemilik_warung'].includes(String(u.role || '').toLowerCase())) {
+                    return toast('Akun ini bukan Admin/Pemilik Warung.');
+                }
+                const update = { updatedAt: firebase.firestore.FieldValue.serverTimestamp() };
+                if (action === 'approve') {
+                    update.approved = true;
+                    update.disabled = false;
+                    if (!u.shopId) update.shopId = 'shop_' + uid;
+                } else if (action === 'disable') {
+                    update.disabled = true;
+                } else {
+                    update.disabled = false;
+                    if (u.approved !== true) update.approved = true;
+                    if (!u.shopId) update.shopId = 'shop_' + uid;
+                }
+                await ref.update(update);
+                toast(action === 'approve' ? 'Admin Warung disetujui.' : action === 'disable' ? 'Akun Admin Warung dinonaktifkan.' : 'Akun Admin Warung diaktifkan.');
+                await loadPlatformUsers();
+            } catch (e) {
+                console.error('setPlatformUserState:', e);
+                toast('Gagal mengubah akun: ' + (e.message || 'Periksa Firestore Rules.'));
+            }
+        }
+
+        function ensureCashFinanceData() {
+            if (!db.settings || typeof db.settings !== 'object') db.settings = {};
+            if (!Array.isArray(db.settings.cashEntries)) db.settings.cashEntries = [];
+            if (!db.settings.cashOpening || typeof db.settings.cashOpening !== 'object') db.settings.cashOpening = { date: today(), amount: 0 };
+            if (!db.settings.cashOpeningByUser || typeof db.settings.cashOpeningByUser !== 'object') db.settings.cashOpeningByUser = {};
+        }
+
+        function getCurrentCashOpening() {
+            ensureCashFinanceData();
+            if (isKasirClient() && currentUser?.uid) {
+                return db.settings.cashOpeningByUser[currentUser.uid] || { date: today(), amount: 0 };
+            }
+            return db.settings.cashOpening || { date: today(), amount: 0 };
+        }
+
+        function saveCashOpening() {
+            if (!isAdminClient() && !isKasirClient()) return toast('Akses pengaturan saldo awal tidak diizinkan.');
+            ensureCashFinanceData();
+            const date = document.getElementById('cashOpeningDate')?.value || today();
+            const amount = Number(document.getElementById('cashOpeningAmount')?.value || 0);
+            if (!date || amount < 0 || !Number.isFinite(amount)) return toast('Tanggal atau saldo awal tidak valid.');
+            const opening = { date, amount, updatedAt: new Date().toISOString() };
+            if (isKasirClient() && currentUser?.uid) {
+                db.settings.cashOpeningByUser[currentUser.uid] = { ...opening, createdByUid: currentUser.uid, createdBy: currentUserName || currentUser.email || 'Kasir' };
+            } else {
+                db.settings.cashOpening = opening;
+            }
+            save(); renderAll(); toast('Saldo awal kas tunai disimpan.');
+        }
+
+        function saveCashEntry() {
+            if (!isAdminClient() && !isKasirClient()) return toast('Akses transaksi kas tidak diizinkan.');
+            ensureCashFinanceData();
+            const type = document.getElementById('cashEntryType')?.value || 'modal';
+            const date = document.getElementById('cashEntryDate')?.value || today();
+            const amount = Number(document.getElementById('cashEntryAmount')?.value || 0);
+            const note = (document.getElementById('cashEntryNote')?.value || '').trim();
+            if (!date || !Number.isFinite(amount) || amount <= 0) return toast('Tanggal dan nominal wajib diisi.');
+            db.settings.cashEntries.push({ id: Date.now(), type, date, amount, note, createdAt: new Date().toISOString(), createdBy: currentUserName || currentUser?.email || (isKasirClient() ? 'Kasir' : 'Admin'), createdByUid: currentUser?.uid || '', cashierUid: isKasirClient() ? currentUser?.uid || '' : '' });
+            save();
+            document.getElementById('cashEntryAmount').value = '';
+            document.getElementById('cashEntryNote').value = '';
+            renderAll(); toast('Transaksi kas berhasil disimpan.');
+        }
+
+        function cashReportRange() {
+            const from = document.getElementById('cashReportFrom')?.value || defaultRange().from;
+            const to = document.getElementById('cashReportTo')?.value || defaultRange().to;
+            return { from: from <= to ? from : to, to: from <= to ? to : from };
+        }
+
+        function renderCashFinance() {
+            if (!document.getElementById('cashFlowTable')) return;
+            ensureCashFinanceData();
+            const opening = getCurrentCashOpening();
+            const openingDate = document.getElementById('cashOpeningDate');
+            const openingAmount = document.getElementById('cashOpeningAmount');
+            const entryDate = document.getElementById('cashEntryDate');
+            const fromEl = document.getElementById('cashReportFrom');
+            const toEl = document.getElementById('cashReportTo');
+            if (openingDate && (!openingDate.value || openingDate.dataset.ownerUid !== (isKasirClient() ? currentUser?.uid || '' : 'admin'))) {
+                openingDate.value = opening.date || today();
+                openingDate.dataset.ownerUid = isKasirClient() ? currentUser?.uid || '' : 'admin';
+            }
+            if (openingAmount && (!openingAmount.dataset.loadedFor || openingAmount.dataset.loadedFor !== (isKasirClient() ? currentUser?.uid || '' : 'admin'))) {
+                openingAmount.value = String(opening.amount || 0);
+                openingAmount.dataset.loadedFor = isKasirClient() ? currentUser?.uid || '' : 'admin';
+            }
+            if (entryDate && !entryDate.value) entryDate.value = today();
+            const dr = defaultRange();
+            if (fromEl && !fromEl.value) fromEl.value = dr.from;
+            if (toEl && !toEl.value) toEl.value = dr.to;
+            const { from, to } = cashReportRange();
+            const cashierView = isKasirClient();
+            const dailySales = new Map();
+            (db.transactions || []).filter(t => recordBelongsToCurrentUser(t, 'transaction')).forEach(t => {
+                if (!t.date || t.date < from || t.date > to) return;
+                const paid = Math.max(0, Number(t.paidAmount ?? (t.status === 'lunas' ? t.total : 0)) || 0);
+                const day = dailySales.get(t.date) || { total: 0, cash: 0, noncash: 0 };
+                day.total += paid;
+                if (String(t.pay || '').toLowerCase().includes('tunai')) day.cash += paid;
+                else day.noncash += paid;
+                dailySales.set(t.date, day);
+            });
+            const rows = [];
+            (db.transactions || []).filter(t => recordBelongsToCurrentUser(t, 'transaction') && t.date >= from && t.date <= to).forEach(t => {
+                const paid = Math.max(0, Number(t.paidAmount ?? (t.status === 'lunas' ? t.total : 0)) || 0);
+                rows.push({ date: t.date, cashierName: t.cashierName || t.createdByName || '—', type: 'Penjualan', note: `${t.pay || 'Pembayaran'} · ${(t.items || []).map(i => `${i.name} ×${i.qty}`).join(', ')}`, masuk: paid, keluar: 0, order: 1 });
+            });
+            (db.purchases || []).filter(x => recordBelongsToCurrentUser(x, 'purchase') && x.date >= from && x.date <= to).forEach(x => rows.push({ date: x.date, cashierName: x.createdByName || x.cashierName || '—', type: 'Pembelian bahan', note: `${x.bahanName || 'Pembelian'}${x.note ? ' — ' + x.note : ''}`, masuk: 0, keluar: Number(x.total) || 0, order: 2 }));
+            (db.expenses || []).filter(x => recordBelongsToCurrentUser(x, 'expense') && x.date >= from && x.date <= to).forEach(x => rows.push({ date: x.date, cashierName: x.createdByName || x.cashierName || '—', type: 'Pengeluaran', note: `${x.cat || 'Operasional'}${x.note ? ' — ' + x.note : ''}`, masuk: 0, keluar: Number(x.amount) || 0, order: 3 }));
+            (db.settings.cashEntries || []).filter(x => recordBelongsToCurrentUser(x, 'cashEntry') && x.date >= from && x.date <= to).forEach(x => {
+                const inCash = x.type === 'modal' || x.type === 'tarik';
+                const labels = { modal: 'Tambah modal', setor: 'Setor kas (keluar laci)', tarik: 'Transaksi kas lama' };
+                rows.push({ date: x.date, cashierName: x.createdBy || currentUserName || '—', type: labels[x.type] || 'Transaksi kas', note: x.note || '-', masuk: inCash ? Number(x.amount) || 0 : 0, keluar: inCash ? 0 : Number(x.amount) || 0, order: 0 });
+            });
+            if (opening.date >= from && opening.date <= to && Number(opening.amount) > 0) rows.push({ date: opening.date, cashierName: cashierView ? (currentUserName || 'Kasir') : 'Admin', type: 'Saldo awal', note: cashierView ? 'Saldo awal kasir' : 'Saldo awal kas tunai', masuk: Number(opening.amount) || 0, keluar: 0, order: -1 });
+            rows.sort((a,b) => a.date.localeCompare(b.date) || a.order-b.order || a.type.localeCompare(b.type));
+            const masuk = rows.reduce((a,x)=>a+x.masuk,0), keluar = rows.reduce((a,x)=>a+x.keluar,0);
+            const cashEntries = (db.settings.cashEntries || []).filter(x => recordBelongsToCurrentUser(x, 'cashEntry') && x.date >= (opening.date || '0000-00-00') && x.date <= today());
+            const capitalTotal = cashEntries.filter(x=>x.type==='modal').reduce((a,x)=>a+(Number(x.amount)||0),0);
+            const transfers = cashEntries.reduce((a,x)=>a+(x.type==='setor'?-(Number(x.amount)||0):0),0);
+            const cashSales = (db.transactions || []).filter(t => recordBelongsToCurrentUser(t, 'transaction') && t.date >= (opening.date || '0000-00-00') && t.date <= today() && String(t.pay || '').toLowerCase().includes('tunai')).reduce((a,t)=>a+Math.max(0, Number(t.paidAmount ?? (t.status === 'lunas' ? t.total : 0)) || 0),0);
+            // Pembelian dan pengeluaran dianggap dibayar tunai, sesuai logika aplikasi saat ini.
+            const cashPurchases = (db.purchases || []).filter(x => recordBelongsToCurrentUser(x, 'purchase') && x.date >= (opening.date || '0000-00-00') && x.date <= today()).reduce((a,x)=>a+(Number(x.total)||0),0);
+            const cashExpenses = (db.expenses || []).filter(x => recordBelongsToCurrentUser(x, 'expense') && x.date >= (opening.date || '0000-00-00') && x.date <= today()).reduce((a,x)=>a+(Number(x.amount)||0),0);
+            const cashBalance = (Number(opening.amount)||0) + cashSales + capitalTotal + transfers - cashPurchases - cashExpenses;
+            const el = id => document.getElementById(id);
+            if (el('cashBalance')) el('cashBalance').textContent = rupiah(cashBalance);
+            const periodCapital = rows.filter(x => x.type === 'Tambah modal').reduce((a,x)=>a+x.masuk,0);
+            const periodCashSales = [...dailySales.values()].reduce((a,x)=>a+x.cash,0);
+            const periodNoncashSales = [...dailySales.values()].reduce((a,x)=>a+x.noncash,0);
+            const periodPurchases = rows.filter(x => x.type === 'Pembelian bahan').reduce((a,x)=>a+x.keluar,0);
+            const periodExpenses = rows.filter(x => x.type === 'Pengeluaran').reduce((a,x)=>a+x.keluar,0);
+            if (el('cashTotalIn')) el('cashTotalIn').textContent = rupiah(periodCapital + periodCashSales + periodNoncashSales + (opening.date >= from && opening.date <= to ? Number(opening.amount)||0 : 0));
+            if (el('cashTotalInDetails')) el('cashTotalInDetails').textContent = `Saldo awal ${rupiah(opening.date >= from && opening.date <= to ? Number(opening.amount)||0 : 0)} · Tambahan modal ${rupiah(periodCapital)} · Penjualan tunai ${rupiah(periodCashSales)} · Non-tunai ${rupiah(periodNoncashSales)}`;
+            if (el('cashTotalOut')) el('cashTotalOut').textContent = rupiah(periodPurchases + periodExpenses + rows.filter(x => x.type === 'Setor kas (keluar laci)').reduce((a,x)=>a+x.keluar,0));
+            if (el('cashTotalOutDetails')) el('cashTotalOutDetails').textContent = `Setor kas ${rupiah(rows.filter(x => x.type === 'Setor kas (keluar laci)').reduce((a,x)=>a+x.keluar,0))} · Pembelian bahan ${rupiah(periodPurchases)} · Pengeluaran operasional ${rupiah(periodExpenses)}`;
+            if (el('cashFlowSummary')) el('cashFlowSummary').innerHTML = '';
+            if (el('cashFlowTable')) el('cashFlowTable').innerHTML = rows.map(x=>`<tr><td>${formatDateID(x.date)}</td><td>${x.cashierName || '—'}</td><td>${x.type}</td><td>${x.note}</td><td>${x.masuk ? rupiah(x.masuk) : '-'}</td><td>${x.keluar ? rupiah(x.keluar) : '-'}</td></tr>`).join('') || '<tr><td colspan="6"><div class="empty">Belum ada arus kas pada periode ini.</div></td></tr>';
+        }
+
+        function printCashFlow() {
+            if (!isAdminClient() && !isKasirClient()) return toast('Akses arus kas tidak diizinkan.');
+            renderCashFinance();
+            const from = document.getElementById('cashReportFrom')?.value || periodKey() + '-01';
+            const to = document.getElementById('cashReportTo')?.value || today();
+            const tbody = document.getElementById('cashFlowTable');
+            const rows = tbody ? tbody.innerHTML : '';
+            const totalIn = document.getElementById('cashTotalIn')?.textContent || rupiah(0);
+            const totalInDetails = document.getElementById('cashTotalInDetails')?.textContent || '';
+            const totalOut = document.getElementById('cashTotalOut')?.textContent || rupiah(0);
+            const totalOutDetails = document.getElementById('cashTotalOutDetails')?.textContent || '';
+            const balance = document.getElementById('cashBalance')?.textContent || '';
+            const body = reportHeader('LAPORAN ARUS KAS', from, to) + `
+                <table class="summary-cards"><thead><tr><th>Saldo Kas Tunai</th><th>Total Uang Masuk</th><th>Total Uang Keluar</th></tr></thead>
+                <tbody><tr><td><b>${balance || '-'}</b></td><td><b>${totalIn}</b><br><small>${totalInDetails}</small></td><td><b>${totalOut}</b><br><small>${totalOutDetails}</small></td></tr></tbody></table>
+                <h3>Rincian Arus Kas</h3><table><thead><tr><th>Tanggal</th><th>Nama Kasir</th><th>Jenis</th><th>Keterangan</th><th>Uang Masuk</th><th>Uang Keluar</th></tr></thead><tbody>${rows || '<tr><td colspan="6">Tidak ada transaksi pada periode ini.</td></tr>'}</tbody></table>
+                <p style="margin-top:18px;font-size:10px">Dicetak pada ${new Date().toLocaleString('id-ID')}</p>`;
+            openPrintWindow('Laporan Arus Kas', body);
+        }
+
+        function renderAll() {
+            metrics();
+            renderRecent();
+            renderLow();
+            renderCats();
+            renderProducts();
+            renderCart();
+            renderMenuTable();
+            if (document.getElementById("stockMonth") && !document.getElementById("stockMonth").value) document.getElementById("stockMonth").value = periodKey();
+            renderBahan();
+            renderExpenses();
+            renderReport();
+            renderCashFinance();
+            shopName.value = db.settings.name || '';
+            shopPhone.value = db.settings.phone || '';
+            shopAddress.value = db.settings.address || '';
+            renderLogoSetting();
+            ensureAdminUserManagement();
+        }
+
+
+
+        async function ensureAdminUserManagement() {
+            const card = document.getElementById('userManagementCard');
+            if (card) card.style.display = isAdminClient() ? '' : 'none';
+            if (!isAdminClient()) return;
+
+            const nameInput = document.getElementById('adminNameSetting');
+            const emailInput = document.getElementById('adminEmailSetting');
+            if (emailInput) emailInput.value = currentUser?.email || '';
+            if (nameInput) nameInput.value = currentUserName || currentUser?.displayName || '';
+            await renderKasirUsers();
+        }
+
+        async function saveAdminName() {
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat mengubah nama Admin.');
+            if (!firebaseReady || !currentUser) return toast('Firebase belum siap. Login kembali.');
+            const input = document.getElementById('adminNameSetting');
+            const name = String(input?.value || '').trim();
+            if (!name) return toast('Nama Admin wajib diisi.');
+            try {
+                await fbFs.doc('users/' + currentUser.uid).set({
+                    uid: currentUser.uid,
+                    name,
+                    email: currentUser.email || '',
+                    role: 'admin',
+                    disabled: false,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                currentUserName = name;
+                renderUserChip();
+                renderAll();
+                toast('Nama Admin berhasil disimpan.');
+            } catch (e) {
+                console.error('saveAdminName:', e);
+                toast(e?.message || 'Gagal menyimpan nama Admin.');
+            }
+        }
+
+        async function getKasirUsers() {
+            if (!firebaseReady || !isAdminClient()) return [];
+            const snap = await fbFs.collection('users').where('role', '==', 'kasir').where('shopId', '==', SHOP_ID).get();
+            return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        }
+
+        async function renderKasirUsers() {
+            const box = document.getElementById('kasirUserList');
+            if (!box || !isAdminClient()) return;
+            box.innerHTML = '<div class="empty" style="padding:16px 5px">Memuat daftar Kasir...</div>';
+            try {
+                const users = await getKasirUsers();
+                if (!users.length) {
+                    box.innerHTML = '<div class="empty" style="padding:16px 5px">Belum ada akun Kasir.</div>';
+                    return;
+                }
+                box.innerHTML = users.map(u => {
+                    const email = String(u.email || '');
+                    const name = String(u.name || u.nama || email || 'Kasir');
+                    const active = u.disabled !== true;
+                    return `<div class="user-row">
+                        <div class="user-info"><strong>${escapeHtml(name)}</strong><small>${escapeHtml(email)} · ${active ? 'Aktif' : 'Dinonaktifkan'}</small></div>
+                        <div class="user-actions">
+                            <button class="btn" onclick="openEditKasirModal('${u.id}')">Edit Nama</button>
+                            <button class="btn" onclick="toggleKasirUser('${u.id}',${active})">${active ? 'Nonaktifkan' : 'Aktifkan'}</button>
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) {
+                console.error('renderKasirUsers:', e);
+                box.innerHTML = '<div class="empty" style="padding:16px 5px">Daftar user tidak dapat dimuat. Periksa Firestore Rules.</div>';
+            }
+        }
+
+        function escapeHtml(v) {
+            return String(v ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
+        }
+
+        function openAddKasirModal() {
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat menambahkan Kasir.');
+            openModal('Tambah User Kasir', `<form id="addKasirForm" onsubmit="return window.createKasirUser(event)">
+                <div class="form-grid">
+                    <div class="field full"><label>NAMA KASIR</label><input id="kasirName" required placeholder="Contoh: Budi"></div>
+                    <div class="field full"><label>EMAIL</label><input id="kasirEmail" type="email" required placeholder="kasir@email.com"></div>
+                    <div class="field"><label>PASSWORD</label><div class="password-toggle-wrap"><input id="kasirPassword" type="password" minlength="6" required placeholder="Minimal 6 karakter"><button class="password-toggle" type="button" onclick="togglePasswordVisibility('kasirPassword', this)" aria-label="Tampilkan password" title="Tampilkan password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+                    <div class="field"><label>KONFIRMASI PASSWORD</label><div class="password-toggle-wrap"><input id="kasirPassword2" type="password" minlength="6" required placeholder="Ulangi password"><button class="password-toggle" type="button" onclick="togglePasswordVisibility('kasirPassword2', this)" aria-label="Tampilkan konfirmasi password" title="Tampilkan password"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button></div></div>
+                </div>
+                <div class="hint" style="margin-top:12px">Role akan otomatis disimpan sebagai <b>Kasir</b>.</div>
+                <button id="saveKasirBtn" class="btn primary" style="width:100%;margin-top:15px" type="submit">Buat Akun Kasir</button>
+            </form>`);
+        }
+
+        async function createKasirUser(ev) {
+            ev.preventDefault();
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat menambahkan Kasir.');
+            if (!firebaseReady || !window.fbFs) {
+                toast('Firebase belum siap. Muat ulang halaman dan login kembali.');
+                return false;
+            }
+            const nameEl = document.getElementById('kasirName');
+            const emailEl = document.getElementById('kasirEmail');
+            const passEl = document.getElementById('kasirPassword');
+            const pass2El = document.getElementById('kasirPassword2');
+            const btn = document.getElementById('saveKasirBtn');
+            if (!nameEl || !emailEl || !passEl || !pass2El || !btn) {
+                toast('Form Kasir tidak lengkap. Tutup lalu buka kembali.');
+                return false;
+            }
+            const name = nameEl.value.trim();
+            const email = emailEl.value.trim().toLowerCase();
+            const password = passEl.value;
+            const password2 = pass2El.value;
+            if (password !== password2) { toast('Konfirmasi password tidak sama.'); return false; }
+            if (password.length < 6) { toast('Password minimal 6 karakter.'); return false; }
+            btn.disabled = true;
+            btn.textContent = 'Membuat akun...';
+            try {
+                // Gunakan Firebase App kedua agar Admin tetap login saat membuat akun baru.
+                if (!firebaseAdminApp) firebaseAdminApp = firebase.initializeApp(FIREBASE_CONFIG, 'kasirCreator');
+                firebaseAdminAuth = firebaseAdminApp.auth();
+                const cred = await firebaseAdminAuth.createUserWithEmailAndPassword(email, password);
+                await fbFs.doc('users/' + cred.user.uid).set({
+                    uid: cred.user.uid,
+                    name,
+                    email,
+                    role: 'kasir',
+                    shopId: SHOP_ID,
+                    shopName: db.settings?.name || 'Warung',
+                    approved: true,
+                    disabled: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    createdBy: currentUser.uid
+                });
+                try { await firebaseAdminAuth.signOut(); } catch (e) {}
+                closeModal();
+                await renderKasirUsers();
+                toast('User Kasir berhasil dibuat.');
+            } catch (e) {
+                console.error('createKasirUser error:', e, e?.code, e?.message);
+                const code = e?.code || 'unknown';
+                let msg = e?.code === 'auth/email-already-in-use'
+                    ? 'Email sudah terdaftar di Firebase Authentication.'
+                    : e?.code === 'auth/operation-not-allowed'
+                      ? 'Metode Email/Password belum diaktifkan di Firebase Authentication.'
+                      : e?.code === 'auth/weak-password'
+                        ? 'Password terlalu lemah. Gunakan minimal 6 karakter.'
+                        : e?.code === 'auth/invalid-email'
+                          ? 'Format email tidak valid.'
+                          : e?.code === 'auth/network-request-failed'
+                            ? 'Jaringan gagal menghubungi Firebase. Periksa internet lalu coba lagi.'
+                            : e?.code === 'auth/unauthorized-domain'
+                              ? 'Domain aplikasi belum diizinkan. Tambahkan domain GitHub Pages di Firebase Authentication → Settings → Authorized domains.'
+                              : e?.code === 'permission-denied'
+                                ? 'Akun Auth mungkin sudah dibuat, tetapi Firestore menolak profil Kasir. Periksa Firestore Rules.'
+                                : (e?.message || 'Gagal membuat akun Kasir.');
+                const modalForm = document.getElementById('addKasirForm');
+                if (modalForm) {
+                    let errorBox = document.getElementById('kasirCreateError');
+                    if (!errorBox) {
+                        errorBox = document.createElement('div');
+                        errorBox.id = 'kasirCreateError';
+                        errorBox.style.cssText = 'margin-top:12px;padding:12px;border:1px solid #dc2626;border-radius:10px;background:#fef2f2;color:#991b1b;white-space:normal;font-size:14px;line-height:1.45;';
+                        modalForm.appendChild(errorBox);
+                    }
+                    errorBox.textContent = 'Gagal (' + code + '): ' + msg;
+                }
+                toast('Gagal membuat Kasir (' + code + '). Lihat pesan merah di formulir.');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Buat Akun Kasir'; }
+            }
+        }
+
+        // Pastikan handler form tetap dapat dipanggil dari HTML modal yang dibuat dinamis.
+        // Ini juga mencegah form melakukan reload halaman tanpa menjalankan proses Firebase.
+        window.createKasirUser = createKasirUser;
+
+        async function openEditKasirModal(uid) {
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat mengubah user.');
+            try {
+                const snap = await fbFs.doc('users/' + uid).get();
+                if (!snap.exists) return toast('User Kasir tidak ditemukan.');
+                const u = snap.data() || {};
+                openModal('Edit Nama Kasir', `<form onsubmit="saveKasirName(event, '${uid}')">
+                    <div class="form-grid">
+                        <div class="field full"><label>NAMA KASIR</label><input id="editKasirName" required value="${escapeHtml(u.name || u.nama || '')}" placeholder="Nama Kasir"></div>
+                        <div class="field full"><label>EMAIL</label><input value="${escapeHtml(u.email || '')}" readonly></div>
+                    </div>
+                    <button id="saveEditKasirBtn" class="btn primary" style="width:100%;margin-top:15px" type="submit">Simpan Nama</button>
+                </form>`);
+            } catch (e) {
+                console.error('openEditKasirModal:', e);
+                toast(e?.message || 'Gagal membuka data Kasir.');
+            }
+        }
+
+        async function saveKasirName(ev, uid) {
+            ev.preventDefault();
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat mengubah user.');
+            const name = String(document.getElementById('editKasirName')?.value || '').trim();
+            if (!name) return toast('Nama Kasir wajib diisi.');
+            const btn = document.getElementById('saveEditKasirBtn');
+            if (btn) { btn.disabled = true; btn.textContent = 'Menyimpan...'; }
+            try {
+                await fbFs.doc('users/' + uid).set({ name, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge: true });
+                closeModal();
+                await renderKasirUsers();
+                toast('Nama Kasir berhasil diperbarui.');
+            } catch (e) {
+                console.error('saveKasirName:', e);
+                toast(e?.message || 'Gagal menyimpan nama Kasir.');
+            } finally {
+                if (btn) { btn.disabled = false; btn.textContent = 'Simpan Nama'; }
+            }
+        }
+
+        async function toggleKasirUser(uid, currentlyActive) {
+            if (!isAdminClient()) return toast('Hanya Admin yang dapat mengubah user.');
+            if (!confirm((currentlyActive ? 'Nonaktifkan' : 'Aktifkan') + ' akun Kasir ini?')) return;
+            try {
+                await fbFs.doc('users/' + uid).set({ disabled: !currentlyActive }, { merge: true });
+                await renderKasirUsers();
+                toast(currentlyActive ? 'Akun Kasir dinonaktifkan.' : 'Akun Kasir diaktifkan.');
+            } catch (e) {
+                console.error('toggleKasirUser:', e);
+                toast(e?.message || 'Gagal mengubah status Kasir.');
+            }
+        }
+
+        async function saveSettings() {
+            const oldLogo = db.settings?.logo || '';
+            const file = document.getElementById('shopLogo')?.files?.[0];
+            try {
+                if (!currentUser || !firebaseReady) throw new Error('Belum terhubung ke Firebase. Login kembali lalu coba lagi.');
+                if (!isAdminClient()) throw new Error('Hanya Admin yang dapat mengubah pengaturan usaha.');
+
+                let logo = oldLogo;
+                if (file) {
+                    toast('Mengompres logo...');
+                    const result = await compressLogo(file, 200 * 1024);
+                    logo = result.dataUrl;
+                }
+
+                db.settings = {
+                    name: (document.getElementById('shopName')?.value || '').trim(),
+                    phone: (document.getElementById('shopPhone')?.value || '').trim(),
+                    address: (document.getElementById('shopAddress')?.value || '').trim(),
+                    logo: logo || ''
+                };
+
+                // Tetap 100% gratis: logo disimpan sebagai Data URL/Base64 di Firestore.
+                await fbFs.doc('toko/' + SHOP_ID + '/settings/profile').set(db.settings, { merge: true });
+                // Sinkronkan identitas warung ke profil admin tanpa menimpa role, shopId, approval, atau status akun.
+                await fbFs.doc('users/' + currentUser.uid).set({
+                    uid: currentUser.uid,
+                    shopName: db.settings.name,
+                    phone: db.settings.phone,
+                    address: db.settings.address,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                localStorage.setItem(KEY, JSON.stringify(db));
+                renderAll();
+                toast('Pengaturan tersimpan');
+            } catch (e) {
+                console.error('saveSettings:', e);
+                toast(e?.message || 'Gagal menyimpan pengaturan');
+            }
+        }
+        restoreSession();
+    </script>
+
+    <script>
+      // Tombol Install menggunakan prompt PWA resmi browser bila tersedia.
+      (function () {
+        let deferredInstallPrompt = null;
+        const installButton = document.getElementById('installAppBtn');
+        window.addEventListener('beforeinstallprompt', function (event) {
+          event.preventDefault();
+          deferredInstallPrompt = event;
+          if (installButton) installButton.classList.add('show');
+        });
+        if (installButton) {
+          installButton.addEventListener('click', async function () {
+            if (!deferredInstallPrompt) {
+              toast('Jika tombol pemasangan belum tersedia, buka menu Chrome ⋮ lalu pilih Tambahkan ke layar utama.');
+              return;
+            }
+            deferredInstallPrompt.prompt();
+            try { await deferredInstallPrompt.userChoice; } catch (_) {}
+            deferredInstallPrompt = null;
+            installButton.classList.remove('show');
+          });
+        }
+        window.addEventListener('appinstalled', function () {
+          deferredInstallPrompt = null;
+          if (installButton) installButton.classList.remove('show');
+          toast('e-Kasir berhasil dipasang.');
+        });
+      })();
+    </script>
+    <script>
+      // Daftarkan service worker PWA pada halaman utama, bukan di template cetak.
+      if ('serviceWorker' in navigator && location.protocol === 'https:') {
+        window.addEventListener('load', function () {
+          navigator.serviceWorker.register('./service-worker.js', { updateViaCache: 'none' })
+            .then(function (registration) { registration.update().catch(function () {}); })
+            .catch(function (error) { console.warn('PWA service worker registration failed:', error); });
+        });
+      }
+    </script>
+
+</body>
+
+</html>
