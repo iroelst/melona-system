@@ -2873,6 +2873,9 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             currentUserName = '',
             KEY = BASE_KEY,
             db = {};
+        // Salinan bersama khusus perhitungan stok; laporan kasir tetap memakai data miliknya.
+        let sharedStockTransactions = [];
+        let sharedStockPurchases = [];
         let firebaseReady = false;
         // Sesi lokal hanya untuk membuka data perangkat ketika Firebase Auth tidak tersedia.
         // Tidak boleh melakukan penulisan cloud sampai Firebase mengonfirmasi user asli.
@@ -3222,7 +3225,11 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
             }
             setCloudStatus('Menghubungkan...');
             try {
-                const [menus, bahan, recipes, transactions, purchases, expenses, stockMoves, stockPeriods, settings] = await Promise.all([readCollection('menus'), readCollection('bahan'), readCollection('recipes'), readOwnedCollection('transactions', 'cashierUid'), readOwnedCollection('purchases', 'createdByUid'), readOwnedCollection('expenses', 'createdByUid'), isAdminClient() ? readCollection('stock') : Promise.resolve([]), isAdminClient() ? readCollection('stockPeriods') : Promise.resolve([]), isAdminClient() ? fbFs.doc('toko/' + SHOP_ID + '/settings/profile').get() : Promise.resolve({ exists: false })]);
+                // Stok adalah milik bersama: baca transaksi/pembelian toko untuk kalkulasi stok,
+                // tetapi simpan data laporan kasir dalam array terpisah yang tetap terfilter.
+                const [menus, bahan, recipes, transactions, purchases, expenses, stockMoves, stockPeriods, settings, allStockTransactions, allStockPurchases] = await Promise.all([readCollection('menus'), readCollection('bahan'), readCollection('recipes'), readOwnedCollection('transactions', 'cashierUid'), readOwnedCollection('purchases', 'createdByUid'), readOwnedCollection('expenses', 'createdByUid'), isAdminClient() ? readCollection('stock') : Promise.resolve([]), readCollection('stockPeriods'), isAdminClient() ? fbFs.doc('toko/' + SHOP_ID + '/settings/profile').get() : Promise.resolve({ exists: false }), readCollection('transactions'), readCollection('purchases')]);
+                sharedStockTransactions = allStockTransactions.map(x => { delete x.__docId; return x; });
+                sharedStockPurchases = allStockPurchases.map(x => { delete x.__docId; return x; });
                 db.menus = menus.map(x => {
                     delete x.__docId;
                     return x
@@ -3573,11 +3580,22 @@ body.role-kasir #laporan .table td:nth-child(8) { display: none !important; }
         // Stok bahan adalah stok bersama: semua kasir memakai penjualan dan pembelian
         // yang sama, tanpa mengubah pembatasan akses pada laporan/kelola transaksi.
         function stockTransactions(from, to) {
-            return (db.transactions || []).filter(t => inRange(t.date, from, to));
+            // Gabungkan data bersama dari cloud dengan transaksi lokal terbaru yang belum tersinkron.
+            const byId = new Map();
+            [...(sharedStockTransactions || []), ...(db.transactions || [])].forEach(t => {
+                const key = String(t.id ?? (t.cashierUid + '_' + t.date + '_' + t.time));
+                byId.set(key, t);
+            });
+            return [...byId.values()].filter(t => inRange(t.date, from, to));
         }
 
         function stockPurchases(from, to) {
-            return (db.purchases || []).filter(m => m.type === 'purchase' && inRange(m.date, from, to));
+            const byId = new Map();
+            [...(sharedStockPurchases || []), ...(db.purchases || [])].forEach(p => {
+                const key = String(p.id ?? (p.createdByUid + '_' + p.date + '_' + p.bahanId));
+                byId.set(key, p);
+            });
+            return [...byId.values()].filter(m => m.type === 'purchase' && inRange(m.date, from, to));
         }
 
         function canManagePurchaseRecord(record) {
@@ -4037,6 +4055,7 @@ let pendingPurchaseBahanId = null;
                 cashierName: currentUserName || currentUser?.displayName || (currentUser?.email ? currentUser.email.split('@')[0] : '') || (isAdminClient() ? 'Admin' : 'Kasir')
             };
             db.transactions.push(record);
+            sharedStockTransactions = [...(sharedStockTransactions || []).filter(x => String(x.id) !== String(record.id)), record];
             save();
             return record;
         }
@@ -4579,6 +4598,7 @@ let pendingPurchaseBahanId = null;
             const purchase = { id: editId || db.nextId++, type:'purchase', date, bahanId:b.id, bahanName:b.name, packages:n, qty:n*b.content, unit:b.unit, cost:price, total:n*price, note, createdByUid: existing?.createdByUid || existing?.cashierUid || currentUser?.uid || '', createdByName: existing?.createdByName || existing?.cashierName || currentUserName || 'User' };
             if (editId) db.purchases = db.purchases.map(x => x.id === editId ? purchase : x);
             else db.purchases.push(purchase);
+            sharedStockPurchases = [...(sharedStockPurchases || []).filter(x => String(x.id) !== String(purchase.id)), purchase];
             syncPurchaseToStockMove(purchase);
             recalculateStockPeriods();
             save();
