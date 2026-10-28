@@ -1,97 +1,153 @@
-/* e-Kasir offline app shell + Firebase SDK cache */
-const CACHE_PREFIX = 'ekasir-pwa-';
-const CACHE_NAME = CACHE_PREFIX + 'v3';
-const BASE = self.registration.scope;
-const APP_SHELL = [
-  new URL('./index.html', BASE).href,
-  new URL('./manifest.json', BASE).href,
-  new URL('./icon-192.png', BASE).href,
-  new URL('./icon-512.png', BASE).href,
-  new URL('./favicon-96.png', BASE).href
-];
-const FIREBASE_SCRIPTS = [
-  'https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js',
-  'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js',
-  'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore-compat.js'
+const CACHE_NAME = "melona-v5";
+
+const FILES_TO_CACHE = [
+  "./",
+  "./index.html",
+  "./manifest.json",
+  "./melona_logo.png"
 ];
 
-self.addEventListener('install', event => {
-  event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    // App shell must be cached. Firebase libraries are best-effort so a CDN issue
-    // does not prevent installation of the offline app shell.
-    await cache.addAll(APP_SHELL);
-    await Promise.allSettled(FIREBASE_SCRIPTS.map(async url => {
-      const response = await fetch(url, { mode: 'cors', cache: 'no-cache' });
-      if (response && response.ok) await cache.put(url, response.clone());
-    }));
-    await self.skipWaiting();
-  })());
+/* =========================
+   INSTALL
+   ========================= */
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches.open(CACHE_NAME)
+      .then((cache) => cache.addAll(FILES_TO_CACHE))
+      .catch((error) => {
+        console.warn("Melona SW: sebagian cache awal gagal:", error);
+      })
+  );
+
+  // Aktifkan versi baru segera.
+  self.skipWaiting();
 });
 
-self.addEventListener('activate', event => {
-  event.waitUntil((async () => {
-    const names = await caches.keys();
-    await Promise.all(names.filter(name => name.startsWith(CACHE_PREFIX) && name !== CACHE_NAME).map(name => caches.delete(name)));
-    await self.clients.claim();
-  })());
+/* =========================
+   ACTIVATE
+   ========================= */
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches.keys()
+      .then((cacheNames) => {
+        return Promise.all(
+          cacheNames
+            .filter((name) => name !== CACHE_NAME)
+            .map((name) => caches.delete(name))
+        );
+      })
+      .then(() => self.clients.claim())
+  );
 });
 
-self.addEventListener('fetch', event => {
+/* =========================
+   FETCH
+   ========================= */
+self.addEventListener("fetch", (event) => {
   const request = event.request;
-  if (request.method !== 'GET') return; // Never cache Firestore writes or other POST requests.
+
+  // Hanya tangani request GET.
+  if (request.method !== "GET") return;
+
+  /*
+   * NAVIGASI:
+   * Network-first.
+   *
+   * Ini penting untuk:
+   * - OAuth Google/Supabase
+   * - mendapatkan index.html terbaru
+   * - mencegah halaman lama dari cache
+   *
+   * Jika internet gagal, gunakan index.html dari cache
+   * sebagai fallback.
+   */
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const copy = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then((cache) => cache.put("./index.html", copy))
+              .catch(() => {});
+          }
+
+          return response;
+        })
+        .catch(() => {
+          return caches.match("./index.html");
+        })
+    );
+
+    return;
+  }
+
+  /*
+   * ASSET LAIN:
+   * Cache-first, lalu network.
+   *
+   * Supabase API/auth/realtime tidak perlu dan tidak boleh
+   * disimpan sebagai cache aplikasi oleh Service Worker.
+   */
   const url = new URL(request.url);
 
-  // Firebase compat SDK scripts: cache-first after the first successful online load.
-  if (url.hostname === 'www.gstatic.com' && url.pathname.includes('/firebasejs/')) {
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(request);
-      if (cached) return cached;
-      try {
-        const response = await fetch(request);
-        if (response && (response.ok || response.type === 'opaque')) cache.put(request, response.clone()).catch(() => {});
-        return response;
-      } catch (error) {
-        return new Response('Firebase SDK belum tersimpan untuk penggunaan offline. Buka e-Kasir sekali saat online terlebih dahulu.', {
-          status: 503, headers: { 'Content-Type': 'text/plain; charset=utf-8' }
-        });
-      }
-    })());
+  // Jangan cache komunikasi Supabase/API.
+  const isSupabase =
+    url.hostname.endsWith(".supabase.co") ||
+    url.hostname.endsWith(".supabase.com");
+
+  if (isSupabase) {
+    event.respondWith(fetch(request));
     return;
   }
 
-  // Navigations: prefer network while online, but fall back to the cached app shell.
-  if (request.mode === 'navigate') {
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      try {
-        const response = await fetch(request);
-        if (response && response.ok) cache.put(new URL('./index.html', BASE).href, response.clone()).catch(() => {});
-        return response;
-      } catch (_) {
-        return (await cache.match(new URL('./index.html', BASE).href)) || Response.error();
-      }
-    })());
-    return;
+  event.respondWith(
+    caches.match(request)
+      .then((cachedResponse) => {
+        if (cachedResponse) {
+          return cachedResponse;
+        }
+
+        return fetch(request)
+          .then((response) => {
+            if (!response || !response.ok) {
+              return response;
+            }
+
+            const copy = response.clone();
+
+            caches.open(CACHE_NAME)
+              .then((cache) => cache.put(request, copy))
+              .catch(() => {});
+
+            return response;
+          });
+      })
+  );
+});
+
+/* =========================
+   MESSAGE
+   ========================= */
+self.addEventListener("message", (event) => {
+  if (!event.data) return;
+
+  // Memungkinkan halaman meminta SW langsung mengambil alih.
+  if (event.data.type === "SKIP_WAITING") {
+    self.skipWaiting();
   }
 
-  // Same-origin app shell and static assets: cache-first with a network refresh fallback.
-  if (url.origin === self.location.origin) {
-    event.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
-      const cached = await cache.match(request);
-      if (cached) {
-        fetch(request).then(response => { if (response && response.ok) cache.put(request, response.clone()); }).catch(() => {});
-        return cached;
-      }
-      try {
-        const response = await fetch(request);
-        if (response && response.ok) cache.put(request, response.clone()).catch(() => {});
-        return response;
-      } catch (_) {
-        return Response.error();
-      }
-    })());
+  // Membersihkan cache lama jika diminta dari aplikasi.
+  if (event.data.type === "CLEAR_MELONA_CACHE") {
+    event.waitUntil(
+      caches.keys().then((names) =>
+        Promise.all(
+          names
+            .filter((name) => name.startsWith("melona-") && name !== CACHE_NAME)
+            .map((name) => caches.delete(name))
+        )
+      )
+    );
   }
 });
